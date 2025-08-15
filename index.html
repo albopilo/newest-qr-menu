@@ -4,7 +4,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>13e Café Mobile POS</title>
   <link rel="stylesheet" href="style.css" />
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="app.js" defer></script>
+  
 </head>
 <body>
   <header>
@@ -13,8 +16,11 @@
     <button id="signInBtn">Sign In</button>
   </header>
   <main>
+<div id="categoryTabs" style="margin-bottom: 1em;"></div>
+<div id="productList"></div>
     <section id="productList"></section>
     <section id="cart"></section>
+    <div id="cart-total"></div>
     <button id="checkoutBtn">Checkout</button>
   </main>
 </body>
