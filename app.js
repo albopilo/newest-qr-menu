@@ -12,6 +12,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+const urlParams = new URLSearchParams(window.location.search);
+const tableNumber = urlParams.get('table') || "unknown"; // fallback if missing
+
 let currentUser = null;
 
 document.getElementById("signInBtn").onclick = () => {
@@ -70,6 +73,12 @@ async function renderProducts(selectedCategory = "") {
 
   window.products = products;
   console.log("Categories found:", Object.keys(grouped));
+
+  const order = {
+  items: cart.map(i => ({ name: i.name, qty: i.qty, price: i.pos_sell_price })),
+  timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+  status: "pending"
+};
 }
 
 
@@ -125,15 +134,27 @@ window.removeFromCart = function(id) {
   renderCart();
 };
 
-document.getElementById("checkoutBtn").onclick = () => {
+document.getElementById("tableInfo").textContent = `Ordering from Table ${tableNumber}`;
+
+document.getElementById("checkoutBtn").onclick = async () => {
   if (cart.length === 0) {
     alert("Your cart is empty!");
     return;
   }
+
+  const order = {
+    table: tableNumber,
+    items: cart.map(i => ({ name: i.name, qty: i.qty, price: i.pos_sell_price })),
+    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+    status: "pending"
+  };
+
+  await db.collection("orders").add(order);
   alert("Order placed!\n" + cart.map(i => `${i.name} x${i.qty}`).join("\n"));
   cart = [];
   renderCart();
 };
+
 
 window.onload = () => {
   renderProducts(); // No category selected initially

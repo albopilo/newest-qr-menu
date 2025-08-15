@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Staff Dashboard</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f9f9f9;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .order {
+      background: white;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .status {
+      font-weight: bold;
+      color: #555;
+    }
+    .btn {
+      margin-top: 8px;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .pending { background: #ffeeba; }
+    .preparing { background: #bee5eb; }
+    .served { background: #c3e6cb; }
+  </style>
+</head>
+<body>
+  <h1>📋 Incoming Orders</h1>
+  <div id="orderFilters">
+  <button onclick="filterOrders('all')">All</button>
+  <button onclick="filterOrders('incoming')">Incoming</button>
+  <button onclick="filterOrders('served')">Served</button>
+  <button onclick="filterOrders('cancelled')">Cancelled</button>
+</div>
+  <div id="orderList"></div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <audio id="newOrderSound" src="C:\Users\ASUS\Desktop\LoyaltyApp\Newest qr menu\assets\sound.mp3" preload="auto"></audio>
+  <script>
+      // 🔘 Track which status is currently selected
+  let selectedStatus = "all";
+
+    // Initialize Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
+      authDomain: "e-loyalty-12563.firebaseapp.com",
+      projectId: "e-loyalty-12563",
+    };
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Render orders
+    function renderOrders(orders) {
+  const container = document.getElementById("orderList");
+  container.innerHTML = "";
+  orders.forEach(order => {
+    const div = document.createElement("div");
+    div.className = `order ${order.status}`;
+    div.innerHTML = `
+      <div><strong>Table:</strong> ${order.table || "Unknown"}</div>
+<div><strong>Items:</strong> ${
+  Array.isArray(order.items)
+    ? order.items.map(i => `${i.name} x${i.qty}`).join(", ")
+    : "No items found"
+}</div>      <div><strong>Time:</strong> ${order.timestamp?.toDate().toLocaleTimeString() || "—"}</div>
+      <div class="status">Status: ${order.status}</div>
+      <button class="btn" onclick="updateStatus('${order.id}', 'preparing')">Preparing</button>
+      <button class="btn" onclick="updateStatus('${order.id}', 'served')">Served</button>
+      <button class="btn" onclick="updateStatus('${order.id}', 'cancelled')">Cancel</button>
+      <button class="btn" onclick="modifyOrder('${order.id}', ${JSON.stringify(order.items)})">Modify</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function modifyOrder(orderId, items) {
+  const updatedItems = items.map(item => {
+    const newQty = prompt(`Modify quantity for ${item.name}:`, item.qty);
+    return {
+      name: item.name,
+      qty: parseInt(newQty) || item.qty,
+      price: item.price || 0
+    };
+  });
+  if (updatedItems.some(i => i.qty <= 0)) {
+    alert("Quantity must be greater than 0");
+    return;
+  }
+
+  db.collection("orders").doc(orderId).update({
+    items: updatedItems
+  });
+}
+
+function showNotification(message) {
+  const notif = document.createElement("div");
+  notif.textContent = message;
+  notif.style.position = "fixed";
+  notif.style.bottom = "20px";
+  notif.style.right = "20px";
+  notif.style.background = "#333";
+  notif.style.color = "#fff";
+  notif.style.padding = "10px 20px";
+  notif.style.borderRadius = "6px";
+  notif.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
+  notif.style.zIndex = "1000";
+  document.body.appendChild(notif);
+
+  setTimeout(() => {
+    notif.remove();
+  }, 4000);
+}
+
+    // Update order status
+    function updateStatus(id, status) {
+      db.collection("orders").doc(id).update({ status });
+    }
+
+    // Listen for new orders
+    db.collection("orders")
+  .orderBy("timestamp", "desc")
+  .onSnapshot(snapshot => {
+    const orders = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      console.log("Incoming order:", data);
+      orders.push({ id: doc.id, ...data });
+    });
+
+    console.log("All orders received:", orders); // ✅ This works
+    renderOrders(orders); // Or whatever function you're using to display them
+  });
+
+  let userHasInteracted = false;
+
+["click", "touchstart", "keydown"].forEach(evt => {
+  window.addEventListener(evt, () => {
+    userHasInteracted = true;
+  }, { once: true });
+});
+
+
+  let previousOrderIds = new Set();
+
+db.collection("orders")
+  .orderBy("timestamp", "desc")
+  .onSnapshot(snapshot => {
+    const orders = [];
+    const currentOrderIds = new Set();
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const orderId = doc.id;
+      currentOrderIds.add(orderId);
+      orders.push({ id: orderId, ...data });
+
+      // 🔔 Play sound if it's a new order
+if (!previousOrderIds.has(orderId) && userHasInteracted) {
+        document.getElementById("newOrderSound").play();
+        showNotification(`🆕 New order from Table ${data.table || "?"}`);
+        console.log("New order detected:", orderId);
+      }
+    });
+
+    previousOrderIds = currentOrderIds;
+    renderOrders(orders);
+  });
+
+
+    // Initial fetch
+    db.collection("orders")
+  .orderBy("timestamp", "desc")
+  .onSnapshot(snapshot => {
+    const orders = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (selectedStatus === "all" || data.status === selectedStatus) {
+        orders.push({ id: doc.id, ...data });
+      }
+    });
+    renderOrders(orders);
+  });
+
+    // Filter orders by status
+    function filterOrders(status) {
+  selectedStatus = status;
+
+  db.collection("orders")
+    .orderBy("timestamp", "desc")
+    .onSnapshot(snapshot => {
+      const orders = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+
+        const isIncoming = status === "incoming" && (data.status === "pending" || data.status === "preparing");
+        const isServed = status === "served" && data.status === "served";
+        const isCancelled = status === "cancelled" && data.status === "cancelled";
+        const isAll = status === "all";
+
+        if (isAll || isIncoming || isServed || isCancelled) {
+          orders.push({ id: doc.id, ...data });
+        }
+      });
+
+      renderOrders(orders);
+    });
+}
+  </script>
+</body>
+</html>
