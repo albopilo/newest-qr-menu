@@ -18,10 +18,39 @@ const tableNumber = urlParams.get('table') || "unknown";
 
 let currentUser = null;
 let cart = [];
+let sessionTimer = null;
+
+function startSessionTimeout() {
+  clearTimeout(sessionTimer);
+  sessionTimer = setTimeout(() => {
+    cart = [];
+    currentUser = null;
+    localStorage.removeItem("currentUser");
+    localStorage.removeItem("sessionStart");
+    renderCart();
+    document.getElementById("userStatus").textContent = "Guest";
+    alert("Session expired after 1 hour of inactivity. Please sign in again.");
+  }, 3600000); // 1 hour in milliseconds
+}
 
 document.addEventListener("DOMContentLoaded", () => {
-  const signInBtn = document.getElementById("signInBtn");
+  const savedUser = localStorage.getItem("currentUser");
+  const sessionStart = localStorage.getItem("sessionStart");
 
+  if (savedUser && sessionStart) {
+    const elapsed = Date.now() - Number(sessionStart);
+    if (elapsed < 3600000) {
+      currentUser = JSON.parse(savedUser);
+      document.getElementById("userStatus").textContent = currentUser.displayName;
+      startSessionTimeout();
+    } else {
+      localStorage.removeItem("currentUser");
+      localStorage.removeItem("sessionStart");
+      alert("Session expired. Please sign in again.");
+    }
+  }
+
+  const signInBtn = document.getElementById("signInBtn");
   if (!signInBtn) {
     console.error("signInBtn not found");
     return;
@@ -31,7 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const input = prompt("Enter your phone number (e.g. 081234567890):");
     if (!input) return;
 
-    const phone = input.startsWith("0") ? "+62" + input.slice(1) : input;
+    const phone = input.trim();
 
     try {
       const snapshot = await db.collection("members")
@@ -54,6 +83,9 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       document.getElementById("userStatus").textContent = currentUser.displayName;
+      localStorage.setItem("currentUser", JSON.stringify(currentUser));
+      localStorage.setItem("sessionStart", Date.now().toString());
+      startSessionTimeout();
       console.log("Signed in as:", currentUser.displayName, "Tier:", currentUser.tier);
     } catch (error) {
       console.error("Sign-in error:", error);
@@ -61,6 +93,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 });
+
+function getDiscountByTier(tier) {
+  switch (tier?.toLowerCase()) {
+    case "silver": return 0.15;
+    case "gold": return 0.2;
+    case "bronze": return 0.1;
+    default: return 0.1;
+  }
+}
+
 
 async function fetchMemberTier(phone) {
   const snapshot = await db.collection("members")
@@ -71,11 +113,12 @@ async function fetchMemberTier(phone) {
   if (!snapshot.empty) {
     const member = snapshot.docs[0].data();
     currentUser.tier = member.tier;
-    currentUser.discountRate = member.discountRate || 0.1;
-    currentUser.taxRate = member.taxRate || 0.05;
-    console.log("Tier info:", currentUser.tier);
+    currentUser.discountRate = member.discountRate ?? getDiscountByTier(member.tier);
+    currentUser.taxRate = member.taxRate ?? 0.05;
+    console.log("Tier info:", currentUser.tier, "Discount:", currentUser.discountRate);
   }
 }
+
 
 async function fetchProducts() {
   const snapshot = await db.collection("products").get();
@@ -207,16 +250,21 @@ window.removeFromCart = function(id) {
 
 document.getElementById("tableInfo").textContent = `Table ${tableNumber}`;
 
-document.getElementById("checkoutBtn").onclick = () => {
+document.getElementById("checkoutBtn").onclick = async () => {
   if (cart.length === 0) {
     alert("Your cart is empty!");
     return;
   }
 
+  // Ensure latest tier info is loaded
+  if (currentUser?.phoneNumber) {
+    await fetchMemberTier(currentUser.phoneNumber);
+  }
+
   const subtotal = cart.reduce((sum, i) => sum + i.pos_sell_price * i.qty, 0);
   const discount = currentUser?.discountRate ? subtotal * currentUser.discountRate : 0;
   const tax = (subtotal - discount) * 0.10;
-  const total = Math.round((subtotal - discount + tax) * 100) / 100;
+const total = (Math.round((subtotal - discount + tax) / 100) * 100).toFixed(2);
 
   const query = new URLSearchParams({
     subtotal,
@@ -228,7 +276,7 @@ document.getElementById("checkoutBtn").onclick = () => {
     items: encodeURIComponent(JSON.stringify(cart.map(i => ({
       name: i.name,
       qty: i.qty
-    }))))
+    })))),
   }).toString();
 
   window.location.href = `summary.html?${query}`;
@@ -236,4 +284,5 @@ document.getElementById("checkoutBtn").onclick = () => {
 
 window.onload = () => {
   renderProducts();
+  startSessionTimeout();
 };
