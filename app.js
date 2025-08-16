@@ -27,37 +27,39 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  // Create and render reCAPTCHA
-  const appVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-    size: 'invisible',
-    callback: response => {
-      console.log("reCAPTCHA solved");
-    }
-  });
+  signInBtn.onclick = async () => {
+    const input = prompt("Enter your phone number (e.g. 081234567890):");
+    if (!input) return;
 
-  appVerifier.render().then(widgetId => {
-    signInBtn.onclick = () => {
-      const phoneNumber = prompt("Enter your phone number:");
-      firebase.auth().signInWithPhoneNumber(phoneNumber, appVerifier)
-        .then(confirmationResult => {
-          const code = prompt("Enter the verification code:");
-          return confirmationResult.confirm(code);
-        })
-        .then(result => {
-          const user = result.user;
-          currentUser = user;
-          document.getElementById("userStatus").textContent = user.phoneNumber;
-          console.log("Signed in:", user.phoneNumber);
-          fetchMemberTier(user.phoneNumber);
-        })
-        .catch(error => {
-          console.error("Sign-in error:", error);
-          alert("Sign-in failed. Please try again.");
-        });
-    };
-  }).catch(err => {
-    console.error("reCAPTCHA render failed:", err);
-  });
+    const phone = input.startsWith("0") ? "+62" + input.slice(1) : input;
+
+    try {
+      const snapshot = await db.collection("members")
+        .where("phone", "==", phone)
+        .limit(1)
+        .get();
+
+      if (snapshot.empty) {
+        alert("Phone number not found. Please check and try again.");
+        return;
+      }
+
+      const member = snapshot.docs[0].data();
+      currentUser = {
+        phoneNumber: phone,
+        tier: member.tier,
+        discountRate: member.discountRate || 0.1,
+        taxRate: member.taxRate || 0.05,
+        displayName: member.name || "Guest"
+      };
+
+      document.getElementById("userStatus").textContent = currentUser.displayName;
+      console.log("Signed in as:", currentUser.displayName, "Tier:", currentUser.tier);
+    } catch (error) {
+      console.error("Sign-in error:", error);
+      alert("Failed to sign in. Please try again.");
+    }
+  };
 });
 
 async function fetchMemberTier(phone) {
