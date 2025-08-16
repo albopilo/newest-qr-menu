@@ -13,7 +13,7 @@ header {
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 main {
-  padding-bottom: 200px; /* Adjust based on cart height */
+  padding-bottom: 100px; /* Adjust based on cart height */
 }
 button {
   padding: 10px 16px;
@@ -64,6 +64,19 @@ button {
   color: white; /* 👈 This keeps the active tab white */
 }
 
+#toggleCartBtn {
+  position: center;
+  top: -24px;
+  right: 12px;
+  background: #333;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+  z-index: 1001;
+}
+
 #cart-container {
   position: fixed;
   bottom: 0;
@@ -77,17 +90,17 @@ button {
 }
 
 #cart-header {
-  padding: 8px 12px;
+  padding: 2px 4px;
   background: #f7f7f7;
   border-bottom: 1px solid #ddd;
   text-align: center;
 }
 
 #cart-body {
-  max-height: 300px;
+  max-height: 100px;
   overflow-y: auto;
   transition: max-height 0.3s ease;
-  padding: 12px;
+  padding: 4px 12px;
 }
 
 #cart-body.hidden {
@@ -116,31 +129,44 @@ button {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 0;
+  padding: 4px 0;
+  font-size: 13px;
   border-bottom: 1px solid #eee;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  font-size: 14px;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
 }
 
 .qty-adjuster {
   display: flex;
   align-items: center;
-  gap: 6px;
-  justify-content: center;
-  flex: 1;
+  gap: 4px;
+  font-size: 12px;
 }
 
 .qty-adjuster button {
-  background: #eee;
+  background: #ddd;
   border: none;
-  padding: 4px 8px;
-  font-size: 16px;
+  padding: 2px 4px;       /* 👈 Smaller padding */
+  font-size: 12px;         /* 👈 Smaller text */
+  line-height: 1;
+  border-radius: 3px;
   cursor: pointer;
-  border-radius: 4px;
+  min-width: 24px;         /* 👈 Prevent shrinking too far */
+  height: 24px;
 }
 
 .item-qty {
-  min-width: 24px;
+  min-width: 20px;
   text-align: center;
-  font-weight: 500;
+  font-size: 13px;
 }
 
 .item-price {

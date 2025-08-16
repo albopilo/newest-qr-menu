@@ -129,9 +129,9 @@ function renderCart() {
       <li>
         <span>${item.name}</span>
         <div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 10px;">
-          <button onclick="decreaseQty('${item.id}')">−</button>
+          <button class="icon-btn" onclick="decreaseQty('${item.id}')">➖</button>
           <span>${item.qty}</span>
-          <button onclick="increaseQty('${item.id}')">+</button>
+          <button class="icon-btn" onclick="increaseQty('${item.id}')">➕</button>
         </div>
         <span style="float: right;">Rp${(item.pos_sell_price * item.qty).toLocaleString()}</span>
       </li>
@@ -166,7 +166,7 @@ window.removeFromCart = function(id) {
   renderCart();
 };
 
-document.getElementById("tableInfo").textContent = `Ordering from Table ${tableNumber}`;
+document.getElementById("tableInfo").textContent = `Table ${tableNumber}`;
 
 document.getElementById("checkoutBtn").onclick = async () => {
   if (cart.length === 0) {
