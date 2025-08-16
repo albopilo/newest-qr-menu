@@ -1,4 +1,4 @@
-// Initialize Firebase (see firebase.js for config)
+// Initialize Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
   authDomain: "e-loyalty-12563.firebaseapp.com",
@@ -11,18 +11,69 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const auth = firebase.auth();
 
 const urlParams = new URLSearchParams(window.location.search);
-const tableNumber = urlParams.get('table') || "unknown"; // fallback if missing
+const tableNumber = urlParams.get('table') || "unknown";
 
 let currentUser = null;
-
-document.getElementById("signInBtn").onclick = () => {
-  // Show sign-in modal (phone number or mobile login)
-  // Implement Firebase Auth with phone number
-};
-
 let cart = [];
+
+document.addEventListener("DOMContentLoaded", () => {
+  const signInBtn = document.getElementById("signInBtn");
+
+  if (!signInBtn) {
+    console.error("signInBtn not found");
+    return;
+  }
+
+  // Create and render reCAPTCHA
+  const appVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+    size: 'invisible',
+    callback: response => {
+      console.log("reCAPTCHA solved");
+    }
+  });
+
+  appVerifier.render().then(widgetId => {
+    signInBtn.onclick = () => {
+      const phoneNumber = prompt("Enter your phone number:");
+      firebase.auth().signInWithPhoneNumber(phoneNumber, appVerifier)
+        .then(confirmationResult => {
+          const code = prompt("Enter the verification code:");
+          return confirmationResult.confirm(code);
+        })
+        .then(result => {
+          const user = result.user;
+          currentUser = user;
+          document.getElementById("userStatus").textContent = user.phoneNumber;
+          console.log("Signed in:", user.phoneNumber);
+          fetchMemberTier(user.phoneNumber);
+        })
+        .catch(error => {
+          console.error("Sign-in error:", error);
+          alert("Sign-in failed. Please try again.");
+        });
+    };
+  }).catch(err => {
+    console.error("reCAPTCHA render failed:", err);
+  });
+});
+
+async function fetchMemberTier(phone) {
+  const snapshot = await db.collection("members")
+    .where("phone", "==", phone)
+    .limit(1)
+    .get();
+
+  if (!snapshot.empty) {
+    const member = snapshot.docs[0].data();
+    currentUser.tier = member.tier;
+    currentUser.discountRate = member.discountRate || 0.1;
+    currentUser.taxRate = member.taxRate || 0.05;
+    console.log("Tier info:", currentUser.tier);
+  }
+}
 
 async function fetchProducts() {
   const snapshot = await db.collection("products").get();
@@ -33,7 +84,6 @@ async function renderProducts(selectedCategory = "") {
   const products = (await fetchProducts()).filter(prod => prod.pos_hidden === 0);
   window.products = products;
 
-  // Group products by category
   const grouped = {};
   products.forEach(prod => {
     const cat = prod.category?.trim() || "Uncategorized";
@@ -41,21 +91,18 @@ async function renderProducts(selectedCategory = "") {
     grouped[cat].push(prod);
   });
 
-  // Render category tabs
   const tabs = document.getElementById("categoryTabs");
   tabs.innerHTML = "";
   Object.keys(grouped).forEach(cat => {
-  const btn = document.createElement("button");
-  btn.textContent = cat;
-  btn.className = cat === selectedCategory ? "active" : "";
-  btn.onclick = () => renderProducts(cat);
-  tabs.appendChild(btn);
-});
+    const btn = document.createElement("button");
+    btn.textContent = cat;
+    btn.className = cat === selectedCategory ? "active" : "";
+    btn.onclick = () => renderProducts(cat);
+    tabs.appendChild(btn);
+  });
 
-  // Render selected category
   const list = document.getElementById("productList");
   list.innerHTML = `<h3>${selectedCategory || "Select a Category"}</h3>`;
-
   if (!selectedCategory || !grouped[selectedCategory]) return;
 
   grouped[selectedCategory].forEach(prod => {
@@ -70,18 +117,9 @@ async function renderProducts(selectedCategory = "") {
     list.appendChild(item);
   });
 
-
   window.products = products;
   console.log("Categories found:", Object.keys(grouped));
-
-  const order = {
-  items: cart.map(i => ({ name: i.name, qty: i.qty, price: i.pos_sell_price })),
-  timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-  status: "pending"
-};
 }
-
-
 
 window.addToCart = function(id) {
   console.log("Clicked Add to Cart:", id);
@@ -90,7 +128,6 @@ window.addToCart = function(id) {
     console.error("Product not found:", id);
     return;
   }
-  const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const existing = cart.find(c => c.id === id);
   if (existing) {
     existing.qty++;
@@ -155,7 +192,7 @@ function decreaseQty(id) {
   if (item) {
     item.qty -= 1;
     if (item.qty <= 0) {
-      cart = cart.filter(i => i.id !== id); // Remove item if qty hits 0
+      cart = cart.filter(i => i.id !== id);
     }
     renderCart();
   }
@@ -168,27 +205,33 @@ window.removeFromCart = function(id) {
 
 document.getElementById("tableInfo").textContent = `Table ${tableNumber}`;
 
-document.getElementById("checkoutBtn").onclick = async () => {
+document.getElementById("checkoutBtn").onclick = () => {
   if (cart.length === 0) {
     alert("Your cart is empty!");
     return;
   }
 
-  const order = {
-    table: tableNumber,
-    items: cart.map(i => ({ name: i.name, qty: i.qty, price: i.pos_sell_price })),
-    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-    status: "pending"
-  };
+  const subtotal = cart.reduce((sum, i) => sum + i.pos_sell_price * i.qty, 0);
+  const discount = currentUser?.discountRate ? subtotal * currentUser.discountRate : 0;
+  const tax = (subtotal - discount) * 0.10;
+  const total = Math.round((subtotal - discount + tax) * 100) / 100;
 
-  await db.collection("orders").add(order);
-  alert("Order placed!\n" + cart.map(i => `${i.name} x${i.qty}`).join("\n"));
-  cart = [];
-  renderCart();
+  const query = new URLSearchParams({
+    subtotal,
+    discount,
+    tax,
+    total,
+    table: tableNumber,
+    guestName: currentUser?.displayName || "Guest",
+    items: encodeURIComponent(JSON.stringify(cart.map(i => ({
+      name: i.name,
+      qty: i.qty
+    }))))
+  }).toString();
+
+  window.location.href = `summary.html?${query}`;
 };
 
-
 window.onload = () => {
-  renderProducts(); // No category selected initially
-  renderCart();
+  renderProducts();
 };

@@ -54,213 +54,174 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <audio id="newOrderSound" src="https://albopilo.github.io/newest-qr-menu/assets/sound.mp3" preload="auto"></audio>  <script>
       // 🔘 Track which status is currently selected
-  let selectedStatus = "all";
+  const firebaseConfig = {
+    apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
+    authDomain: "e-loyalty-12563.firebaseapp.com",
+    projectId: "e-loyalty-12563",
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-  
-    // Initialize Firebase
-    const firebaseConfig = {
-      apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
-      authDomain: "e-loyalty-12563.firebaseapp.com",
-      projectId: "e-loyalty-12563",
-    };
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
-const orderDateInput = document.getElementById('orderDate');
-const orderList = document.getElementById('orderList');
-
-// Set default to today
-const today = new Date().toISOString().split('T')[0];
-orderDateInput.value = today;
-
-// Listen for date changes
-orderDateInput.addEventListener('change', () => {
-  const selectedDate = orderDateInput.value;
-  fetchOrdersForDate(selectedDate);
-});
-
-// Initial load
-fetchOrdersForDate(today);
-
-function fetchOrdersForDate(dateStr) {
-  orderList.innerHTML = 'Loading...';
-
-  const start = new Date(dateStr);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(dateStr);
-  end.setHours(23, 59, 59, 999);
-
-  const ordersRef = firebase.firestore().collection('orders');
-  ordersRef
-    .where('timestamp', '>=', start)
-    .where('timestamp', '<=', end)
-    .orderBy('timestamp', 'desc')
-    .get()
-    .then(snapshot => {
-      const orders = [];
-      snapshot.forEach(doc => {
-        orders.push({ id: doc.id, ...doc.data() });
-      });
-      renderOrders(orders); // ✅ Use your consistent renderer
-    });
-}
-    
-    // Render orders
-    function renderOrders(orders) {
-  const container = document.getElementById("orderList");
-  container.innerHTML = "";
-  orders.forEach(order => {
-    const div = document.createElement("div");
-    div.className = `order ${order.status}`;
-    div.innerHTML = `
-      <div><strong>Table:</strong> ${order.table || "Unknown"}</div>
-<div><strong>Items:</strong> ${
-  Array.isArray(order.items)
-    ? order.items.map(i => `${i.name} x${i.qty}`).join(", ")
-    : "No items found"
-}</div>      <div><strong>Time:</strong> ${order.timestamp?.toDate().toLocaleTimeString() || "—"}</div>
-      <div class="status">Status: ${order.status}</div>
-      <button class="btn" onclick="updateStatus('${order.id}', 'preparing')">Preparing</button>
-      <button class="btn" onclick="updateStatus('${order.id}', 'served')">Served</button>
-      <button class="btn" onclick="updateStatus('${order.id}', 'cancelled')">Cancel</button>
-      <button class="btn" onclick="modifyOrder('${order.id}', ${JSON.stringify(order.items)})">Modify</button>
-    `;
-    container.appendChild(div);
-  });
-}
-
-function modifyOrder(orderId, items) {
-  const updatedItems = items.map(item => {
-    const newQty = prompt(`Modify quantity for ${item.name}:`, item.qty);
-    return {
-      name: item.name,
-      qty: parseInt(newQty) || item.qty,
-      price: item.price || 0
-    };
-  });
-  if (updatedItems.some(i => i.qty <= 0)) {
-    alert("Quantity must be greater than 0");
-    return;
-  }
-
-  db.collection("orders").doc(orderId).update({
-    items: updatedItems
-  });
-}
-
-function showNotification(message) {
-  const notif = document.createElement("div");
-  notif.textContent = message;
-  notif.style.position = "fixed";
-  notif.style.bottom = "20px";
-  notif.style.right = "20px";
-  notif.style.background = "#333";
-  notif.style.color = "#fff";
-  notif.style.padding = "10px 20px";
-  notif.style.borderRadius = "6px";
-  notif.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
-  notif.style.zIndex = "1000";
-  document.body.appendChild(notif);
-
-  setTimeout(() => {
-    notif.remove();
-  }, 4000);
-}
-
-    // Update order status
-    function updateStatus(id, status) {
-      db.collection("orders").doc(id).update({ status });
-    }
-
-    // Listen for new orders
-    db.collection("orders")
-  .orderBy("timestamp", "desc")
-  .onSnapshot(snapshot => {
-    const orders = [];
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      console.log("Incoming order:", data);
-      orders.push({ id: doc.id, ...data });
-    });
-
-    console.log("All orders received:", orders); // ✅ This works
-    renderOrders(orders); // Or whatever function you're using to display them
-  });
-
+  let selectedStatus = "incoming";
+  let liveMode = true;
+  let allOrders = [];
+  let previousOrderIds = new Set();
   let userHasInteracted = false;
 
-["click", "touchstart", "keydown"].forEach(evt => {
-  window.addEventListener(evt, () => {
-    userHasInteracted = true;
-  }, { once: true });
-});
+  const orderDateInput = document.getElementById("orderDate");
+  const orderList = document.getElementById("orderList");
+  const today = new Date().toISOString().split("T")[0];
+  orderDateInput.value = today;
 
-
-  let previousOrderIds = new Set();
-
-db.collection("orders")
-  .orderBy("timestamp", "desc")
-  .onSnapshot(snapshot => {
-    const orders = [];
-    const currentOrderIds = new Set();
-
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      const orderId = doc.id;
-      currentOrderIds.add(orderId);
-      orders.push({ id: orderId, ...data });
-
-      // 🔔 Play sound if it's a new order
-if (!previousOrderIds.has(orderId) && userHasInteracted) {
-        document.getElementById("newOrderSound").play();
-        showNotification(`🆕 New order from Table ${data.table || "?"}`);
-        console.log("New order detected:", orderId);
-      }
-    });
-
-    previousOrderIds = currentOrderIds;
-    renderOrders(orders);
+  ["click", "touchstart", "keydown"].forEach(evt => {
+    window.addEventListener(evt, () => userHasInteracted = true, { once: true });
   });
 
+  // ⏱️ Auto-disable live mode after 10 minutes of inactivity
+setTimeout(() => {
+  if (!userHasInteracted) liveMode = false;
+}, 600000);
 
-    // Initial fetch
+
+  // 🔄 Toggle between live and date mode
+  orderDateInput.addEventListener("change", () => {
+    liveMode = false;
+    fetchOrdersForDate(orderDateInput.value);
+  });
+
+  function fetchOrdersForDate(dateStr) {
+    const start = new Date(dateStr); start.setHours(0, 0, 0, 0);
+    const end = new Date(dateStr); end.setHours(23, 59, 59, 999);
+
     db.collection("orders")
-  .orderBy("timestamp", "desc")
-  .onSnapshot(snapshot => {
-    const orders = [];
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      if (selectedStatus === "all" || data.status === selectedStatus) {
-        orders.push({ id: doc.id, ...data });
-      }
-    });
-    renderOrders(orders);
-  });
+      .where("timestamp", ">=", start)
+      .where("timestamp", "<=", end)
+      .orderBy("timestamp", "desc")
+      .get()
+      .then(snapshot => {
+        const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        allOrders = orders;
+        renderFilteredOrders();
+      });
+  }
 
-    // Filter orders by status
-    function filterOrders(status) {
-  selectedStatus = status;
-
+  // ✅ Single listener for live updates
   db.collection("orders")
     .orderBy("timestamp", "desc")
+    .limit(20)
     .onSnapshot(snapshot => {
-      const orders = [];
+      if (!liveMode) return;
+
+      const currentOrderIds = new Set();
+      const updatedOrders = [];
+
       snapshot.forEach(doc => {
         const data = doc.data();
+        const id = doc.id;
+        currentOrderIds.add(id);
+        updatedOrders.push({ id, ...data });
 
-        const isIncoming = status === "incoming" && (data.status === "pending" || data.status === "preparing");
-        const isServed = status === "served" && data.status === "served";
-        const isCancelled = status === "cancelled" && data.status === "cancelled";
-        const isAll = status === "all";
-
-        if (isAll || isIncoming || isServed || isCancelled) {
-          orders.push({ id: doc.id, ...data });
+        if (!previousOrderIds.has(id) && userHasInteracted) {
+          document.getElementById("newOrderSound").play();
+          showNotification(`🆕 New order from Table ${data.table || "?"}`);
         }
       });
 
-      renderOrders(orders);
+      previousOrderIds = currentOrderIds;
+      allOrders = updatedOrders;
+      renderFilteredOrders();
     });
+
+  function renderFilteredOrders() {
+    const filtered = allOrders.filter(order => {
+      if (selectedStatus === "all") return true;
+      if (selectedStatus === "incoming") return ["pending", "preparing"].includes(order.status);
+      return order.status === selectedStatus;
+    });
+    renderOrders(filtered);
+  }
+
+  function filterOrders(status) {
+    selectedStatus = status;
+    renderFilteredOrders();
+  }
+
+  function renderOrders(orders) {
+    orderList.innerHTML = "";
+    orders.forEach(order => {
+      const div = document.createElement("div");
+      div.className = `order ${order.status}`;
+      div.innerHTML = `
+        <div><strong>Table:</strong> ${order.table || "Unknown"}</div>
+        <div><strong>Items:</strong> ${
+          Array.isArray(order.items)
+            ? order.items.map(i => `${i.name} x${i.qty}`).join(", ")
+            : "No items found"
+        }</div>
+        <div><strong>Time:</strong> ${order.timestamp?.toDate().toLocaleTimeString() || "—"}</div>
+        <div class="status">Status: ${order.status}</div>
+        <button class="btn" onclick="updateStatus('${order.id}', 'preparing')">Preparing</button>
+        <button class="btn" onclick="updateStatus('${order.id}', 'served')">Served</button>
+        <button class="btn" onclick="updateStatus('${order.id}', 'cancelled')">Cancel</button>
+        <button class="btn" onclick="modifyOrder('${order.id}', ${JSON.stringify(order.items)})">Modify</button>
+      `;
+      orderList.appendChild(div);
+    });
+  }
+
+  async function updateStatus(id, status) {
+  try {
+    await db.collection("orders").doc(id).update({ status });
+
+    if (status === "served") {
+      const doc = await db.collection("orders").doc(id).get();
+      const order = doc.data();
+
+      if (order.userId) {
+        await db.collection("members")
+          .doc(order.userId)
+          .collection("transactions")
+          .add({
+            ...order,
+            importedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+      }
+    }
+  } catch (error) {
+    console.error("Error updating status or importing transaction:", error);
+  }
 }
-  </script>
+
+  function modifyOrder(orderId, items) {
+    const updatedItems = items.map(item => {
+      const newQty = prompt(`Modify quantity for ${item.name}:`, item.qty);
+      return {
+        name: item.name,
+        qty: parseInt(newQty) || item.qty,
+        price: item.price || 0
+      };
+    });
+    if (updatedItems.some(i => i.qty <= 0)) {
+      alert("Quantity must be greater than 0");
+      return;
+    }
+    db.collection("orders").doc(orderId).update({ items: updatedItems });
+  }
+
+  function showNotification(message) {
+    const notif = document.createElement("div");
+    notif.textContent = message;
+    Object.assign(notif.style, {
+      position: "fixed", bottom: "20px", right: "20px",
+      background: "#333", color: "#fff", padding: "10px 20px",
+      borderRadius: "6px", boxShadow: "0 2px 6px rgba(0,0,0,0.3)", zIndex: "1000"
+    });
+    document.body.appendChild(notif);
+    setTimeout(() => notif.remove(), 4000);
+  }
+
+  // Initial load
+  fetchOrdersForDate(today);
+</script>
 </body>
 </html>

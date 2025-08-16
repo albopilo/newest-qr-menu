@@ -5,6 +5,7 @@
   <title>13e Café Mobile POS</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="app.js" defer></script>
   
@@ -15,6 +16,7 @@
     <div id="tableInfo"></div>
     <span id="userStatus">Guest</span>
     <button id="signInBtn">Sign In</button>
+<div id="recaptcha-container" style="display: none;"></div>
   </header>
   <main>
 <div id="categoryTabsContainer">

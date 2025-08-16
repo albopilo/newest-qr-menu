@@ -181,7 +181,14 @@ button {
   align-items: center;
 }
 
-
+#cart-summary p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+#cart-summary strong {
+  font-size: 16px;
+  color: #000;
+}
 
 #checkoutBtn {
   position: fixed;
