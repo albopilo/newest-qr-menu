@@ -101,32 +101,64 @@ window.addToCart = function(id) {
   renderCart();
 };
 
+function toggleCart() {
+  const cartBody = document.getElementById("cart-body");
+  const toggleBtn = document.getElementById("toggleCartBtn");
+
+  const isHidden = cartBody.classList.contains("hidden");
+  if (isHidden) {
+    cartBody.classList.remove("hidden");
+    toggleBtn.textContent = "❌ Hide Cart";
+  } else {
+    cartBody.classList.add("hidden");
+    toggleBtn.textContent = "🛒 Show Cart";
+  }
+}
+
 function renderCart() {
-  const cartDiv = document.getElementById("cart");
+  const cartBody = document.getElementById("cart-body");
+
   if (cart.length === 0) {
-    cartDiv.innerHTML = "<h3>Cart</h3><p>Your cart is empty.</p>";
+    cartBody.innerHTML = "<p>Your cart is empty.</p>";
     return;
   }
-  let html = "<h3>Cart</h3><ul>";
+
+  let html = "<ul>";
   cart.forEach(item => {
-    html += `<li>${item.name} x${item.qty} - Rp${(item.pos_sell_price * item.qty).toLocaleString()}
-      <button onclick="removeFromCart('${item.id}')">Remove</button></li>`;
+    html += `
+      <li>
+        <span>${item.name}</span>
+        <div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 10px;">
+          <button onclick="decreaseQty('${item.id}')">−</button>
+          <span>${item.qty}</span>
+          <button onclick="increaseQty('${item.id}')">+</button>
+        </div>
+        <span style="float: right;">Rp${(item.pos_sell_price * item.qty).toLocaleString()}</span>
+      </li>
+    `;
   });
   html += "</ul>";
   html += `<strong>Total: Rp${cart.reduce((sum, i) => sum + i.pos_sell_price * i.qty, 0).toLocaleString()}</strong>`;
-  cartDiv.innerHTML = html;
+  cartBody.innerHTML = html;
+}
 
-  const total = cart.reduce((sum, item) => {
-  const price = Number(item.pos_sell_price);
-  const qty = Number(item.qty);
-  if (isNaN(price) || isNaN(qty)) {
-    console.warn("Invalid price or qty:", item);
-    return sum;
+function increaseQty(id) {
+  const item = cart.find(i => i.id === id);
+  if (item) {
+    item.qty += 1;
+    renderCart();
   }
-  return sum + price * qty;
-}, 0);
-console.log("Cart contents:", cart);
-  console.log("Cart total:", total);
+}
+
+function decreaseQty(id) {
+  const item = cart.find(i => i.id === id);
+  if (item) {
+    item.qty -= 1;
+    if (item.qty <= 0) {
+      cart = cart.filter(i => i.id !== id); // Remove item if qty hits 0
+    }
+    renderCart();
+  }
 }
 
 window.removeFromCart = function(id) {

@@ -12,6 +12,7 @@
 <body>
   <header>
     <h2>🛒 13e Café POS</h2>
+    <div id="tableInfo"></div>
     <span id="userStatus">Guest</span>
     <button id="signInBtn">Sign In</button>
   </header>
@@ -21,10 +22,32 @@
 </div>
     <div id="productList"></div>
     <section id="productList"></section>
-    <section id="cart"></section>
-    <div id="tableInfo"></div>
-    <div id="cart-total"></div>
+    <button id="toggleCartBtn" onclick="toggleCart()">🛒 Show/Hide Cart</button>
+
+<div id="cart-container">
+  <div id="cart-header">
+    <button id="toggleCartBtn" onclick="toggleCart()">🛒 Show Cart</button>
+  </div>
+  <div id="cart-body">
+    <!-- Cart content will be injected here by renderCart() -->
+    <h3>🛒 Cart</h3> 
+  <ul class="cart-list">
+  <li class="cart-item">
+  <span class="item-name">Latte</span>
+  <div class="qty-adjuster">
+    <button onclick="decreaseQty('latte-id')">−</button>
+    <span class="item-qty">2</span>
+    <button onclick="increaseQty('latte-id')">+</button>
+  </div>
+  <span class="item-price">Rp40.000</span>
+</li>
+</ul>
+  <div class="cart-footer">
+    <strong>Total: Rp120.000</strong>
     <button id="checkoutBtn">Checkout</button>
+  </div>
+</div>   </div>  
+   
   </main>
 </body>
 </html>
