@@ -42,6 +42,9 @@
   <button onclick="filterOrders('incoming')">Incoming</button>
   <button onclick="filterOrders('served')">Served</button>
   <button onclick="filterOrders('cancelled')">Cancelled</button>
+  <!-- staff.html -->
+<h2>Orders for <input type="date" id="orderDate" /></h2>
+<ul id="orderList"></ul>
 </div>
   <div id="orderList"></div>
 
@@ -49,11 +52,11 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <audio id="newOrderSound" src="C:\Users\ASUS\Desktop\LoyaltyApp\Newest qr menu\assets\sound.mp3" preload="auto"></audio>
-  <script>
+<audio id="newOrderSound" src="https://albopilo.github.io/newest-qr-menu/assets/sound.mp3" preload="auto"></audio>  <script>
       // 🔘 Track which status is currently selected
   let selectedStatus = "all";
 
+  
     // Initialize Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
@@ -63,6 +66,45 @@
     const app = firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
+const orderDateInput = document.getElementById('orderDate');
+const orderList = document.getElementById('orderList');
+
+// Set default to today
+const today = new Date().toISOString().split('T')[0];
+orderDateInput.value = today;
+
+// Listen for date changes
+orderDateInput.addEventListener('change', () => {
+  const selectedDate = orderDateInput.value;
+  fetchOrdersForDate(selectedDate);
+});
+
+// Initial load
+fetchOrdersForDate(today);
+
+function fetchOrdersForDate(dateStr) {
+  orderList.innerHTML = 'Loading...';
+
+  const start = new Date(dateStr);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(dateStr);
+  end.setHours(23, 59, 59, 999);
+
+  const ordersRef = firebase.firestore().collection('orders');
+  ordersRef
+    .where('timestamp', '>=', start)
+    .where('timestamp', '<=', end)
+    .orderBy('timestamp', 'desc')
+    .get()
+    .then(snapshot => {
+      const orders = [];
+      snapshot.forEach(doc => {
+        orders.push({ id: doc.id, ...doc.data() });
+      });
+      renderOrders(orders); // ✅ Use your consistent renderer
+    });
+}
+    
     // Render orders
     function renderOrders(orders) {
   const container = document.getElementById("orderList");
