@@ -165,10 +165,11 @@ document.addEventListener("DOMContentLoaded", () => {
         alert("Your cart is empty!");
         return;
       }
+      
 
-      if (currentUser?.phoneNumber) {
-        await fetchMemberTier(currentUser.phoneNumber);
-      }
+if (currentUser?.phoneNumber && !currentUser?.tier) {
+  await fetchMemberTier(currentUser.phoneNumber);
+}
 
       const subtotal = cart.reduce((sum, i) => sum + i.pos_sell_price * i.qty, 0);
       const discount = currentUser?.discountRate ? subtotal * currentUser.discountRate : 0;
@@ -218,8 +219,16 @@ async function fetchMemberTier(phone) {
 }
 
 async function fetchProducts() {
-  const snapshot = await db.collection("products").get();
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+const cached = localStorage.getItem("productCache");
+const cacheTime = localStorage.getItem("productCacheTime");
+if (cached && cacheTime && Date.now() - cacheTime < 3600000) {
+  return JSON.parse(cached);
+}
+const snapshot = await db.collection("products").get();
+const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+localStorage.setItem("productCache", JSON.stringify(products));
+localStorage.setItem("productCacheTime", Date.now().toString());
+return products;
 }
 
 async function renderProducts(selectedCategory = "") {
