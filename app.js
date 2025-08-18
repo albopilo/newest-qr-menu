@@ -27,14 +27,12 @@ if (window.location.pathname.includes("staff")) {
 
   const messaging = firebase.messaging();
 
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/firebase-messaging-sw.js")
-      .then(reg => {
-        console.log("✅ Service Worker registered:", reg);
-        messaging.useServiceWorker(reg);
-      })
-      .catch(err => console.error("❌ SW registration failed:", err));
-  }
+navigator.serviceWorker.register("/firebase-messaging-sw.js")
+  .then(reg => {
+    console.log("✅ Service Worker registered:", reg);
+    // No need to call messaging.useServiceWorker(reg)
+  })
+  .catch(err => console.error("❌ SW registration failed:", err));
 
   Notification.requestPermission().then(permission => {
     if (permission === "granted") {

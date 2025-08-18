@@ -90,6 +90,7 @@
 </head>
 <body class="staff">
   <h1>📋 Incoming Orders</h1>
+  
 
   <div id="orderFilters">
     <button onclick="filterOrders('all')" class="btn">All</button>
@@ -101,7 +102,9 @@
 <h2 style="text-align:center;">Orders for <input type="date" id="orderDate" /></h2>
 <p id="tableInfo" style="text-align:center; font-weight:bold;"></p>
 
+
   <audio id="newOrderSound" src="https://albopilo.github.io/newest-qr-menu/assets/sound.mp3" preload="auto"></audio>
+<button id="installBtn" style="display:none;">Install App</button>
 
   <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
