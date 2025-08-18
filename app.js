@@ -11,28 +11,26 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-const auth = firebase.auth();
 
 // ✅ Scoped logic for staff.html
 if (document.body.classList.contains("staff")) {
-  // FCM setup
   const messaging = firebase.messaging();
 
   navigator.serviceWorker.register("/firebase-messaging-sw.js")
-    .then(reg => {
-      console.log("✅ Service Worker registered:", reg);
-    })
+    .then(reg => console.log("✅ Service Worker registered:", reg))
     .catch(err => console.error("❌ SW registration failed:", err));
 
   Notification.requestPermission().then(permission => {
     if (permission === "granted") {
       const vapidKey = "BB46kklO696abLSqlK13UKbJh5zCJR-ZCjNa4j4NE08X7JOSJM_IpsJIjsLck4Aqx9QEnQ6Rid4gjLhk1cNjd2w".trim();
 
-      messaging.getToken({ vapidKey })
-        .then(token => {
-          console.log("📲 FCM Token:", token);
-        })
-        .catch(err => console.error("❌ Token fetch error:", err));
+      navigator.serviceWorker.ready.then(registration => {
+        messaging.getToken({ vapidKey, serviceWorkerRegistration: registration })
+          .then(token => {
+            console.log("📲 FCM Token:", token);
+          })
+          .catch(err => console.error("❌ Token fetch error:", err));
+      });
     } else if (Notification.permission === "denied") {
       alert("🔕 Notifications are blocked. Please enable them in browser settings.");
     } else {
@@ -271,17 +269,25 @@ async function renderProducts(selectedCategory = "") {
 
 window.addToCart = function(id) {
   console.log("Clicked Add to Cart:", id);
+
+  if (!window.products) {
+    console.error("Product list not loaded.");
+    return;
+  }
+
   const prod = window.products.find(p => p.id === id);
   if (!prod) {
     console.error("Product not found:", id);
     return;
   }
+
   const existing = cart.find(c => c.id === id);
   if (existing) {
     existing.qty++;
   } else {
     cart.push({ ...prod, qty: 1 });
   }
+
   console.log("Cart updated:", cart);
   renderCart();
 };
