@@ -42,6 +42,8 @@ navigator.serviceWorker.register("/firebase-messaging-sw.js")
           // Optional: Save token to Firestore
         })
         .catch(err => console.error("❌ Token error:", err));
+      } else if(Notification.permission === "denied") {
+  alert("🔕 Notifications are blocked. Please enable them in browser settings.");
     } else {
       console.warn("🔕 Notification permission denied");
     }
