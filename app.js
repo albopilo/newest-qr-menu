@@ -381,6 +381,51 @@ document.addEventListener("DOMContentLoaded", () => {
   if (dateInput) {
     const today = new Date().toISOString().split("T")[0];
     dateInput.value = today;
+
+    listenForOrders(today);
+
+    dateInput.onchange = () => {
+      listenForOrders(dateInput.value);
+    };
+  }
+});
+
+function listenForOrders(selectedDate) {
+  const ordersContainer = document.getElementById("orderList");
+  if (!ordersContainer) return;
+
+  db.collection("orders")
+    .where("date", "==", selectedDate)
+    .orderBy("timestamp", "desc")
+    .onSnapshot(snapshot => {
+      ordersContainer.innerHTML = "";
+
+      snapshot.forEach(doc => {
+        const order = doc.data();
+        const div = document.createElement("div");
+        div.className = "order";
+        div.setAttribute("data-status", order.status || "incoming");
+
+        div.innerHTML = `
+          <div><strong>Table ${order.table}</strong> - ${order.items.length} items</div>
+          <div class="status">${order.status}</div>
+        `;
+
+        ordersContainer.appendChild(div);
+
+        // Optional: play sound for new incoming orders
+        if (order.status === "incoming") {
+          document.getElementById("newOrderSound")?.play();
+        }
+      });
+    });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const dateInput = document.getElementById("orderDate");
+  if (dateInput) {
+    const today = new Date().toISOString().split("T")[0];
+    dateInput.value = today;
   }
 
   // ✅ Only run on guest pages

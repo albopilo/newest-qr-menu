@@ -89,17 +89,19 @@
 
       document.getElementById("confirmBtn").onclick = async () => {
         try {
-          await db.collection("orders").add({
-            table,
-            guestName,
-            items,
-            subtotal,
-            discount,
-            tax,
-            total,
-            status: "pending",
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-          });
+           await db.collection("orders").add({
+    table,
+    guestName,
+    items,
+    subtotal,
+    discount,
+    tax,
+    total,
+    status: "incoming", // ✅ must match staff filter
+    date: new Date().toISOString().split("T")[0], // ✅ enables date filtering
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  });
+
 
           alert("Order confirmed and sent to staff!");
           // Optional redirect:
@@ -109,6 +111,8 @@
           alert("Failed to confirm order. Please try again.");
         }
       };
+
+      document.getElementById("confirmBtn").disabled = true;
     });
   </script>
 </body>
