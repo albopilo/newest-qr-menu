@@ -16,12 +16,6 @@ const auth = firebase.auth();
 // ✅ Scoped logic for staff.html
 if (document.body.classList.contains("staff")) {
   // FCM setup
-  // PWA install prompt
-  // Order rendering
-  // Any staff-only UI logic
-}
-
-if (window.location.pathname.includes("staff")) {
   const messaging = firebase.messaging();
 
   navigator.serviceWorker.register("/firebase-messaging-sw.js")
@@ -31,18 +25,20 @@ if (window.location.pathname.includes("staff")) {
     .catch(err => console.error("❌ SW registration failed:", err));
 
   Notification.requestPermission().then(permission => {
-  if (permission === "granted") {
-    messaging.getToken({ vapidKey: "BB46kklO696abLSqlK13UKbJh5zCJR-ZCjNa4j4NE08X7JOSJM_IpsJIjsLck4Aqx9QEnQ6Rid4gjLhk1cNjd2w " })
-      .then(token => {
-        console.log("📲 FCM Token:", token); // Use this for sending notifications
-      })
-      .catch(err => console.error("❌ Token fetch error:", err));
-  } else if (Notification.permission === "denied") {
-    alert("🔕 Notifications are blocked. Please enable them in browser settings.");
-  } else {
-    console.warn("🔕 Notification permission denied");
-  }
-});
+    if (permission === "granted") {
+      const vapidKey = "BB46kklO696abLSqlK13UKbJh5zCJR-ZCjNa4j4NE08X7JOSJM_IpsJIjsLck4Aqx9QEnQ6Rid4gjLhk1cNjd2w".trim();
+
+      messaging.getToken({ vapidKey })
+        .then(token => {
+          console.log("📲 FCM Token:", token);
+        })
+        .catch(err => console.error("❌ Token fetch error:", err));
+    } else if (Notification.permission === "denied") {
+      alert("🔕 Notifications are blocked. Please enable them in browser settings.");
+    } else {
+      console.warn("🔕 Notification permission denied");
+    }
+  });
 
   messaging.onMessage(payload => {
     const { title, body } = payload.notification || {};
@@ -149,42 +145,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const tableInfo = document.getElementById("tableInfo");
   if (tableInfo) tableInfo.textContent = `Table ${tableNumber}`;
-
-  const checkoutBtn = document.getElementById("checkoutBtn");
-  if (checkoutBtn) {
-    checkoutBtn.onclick = async () => {
-      if (cart.length === 0) {
-        alert("Your cart is empty!");
-        return;
-      }
-      
-
-if (currentUser?.phoneNumber && !currentUser?.tier) {
-  await fetchMemberTier(currentUser.phoneNumber);
-}
-
-      const subtotal = cart.reduce((sum, i) => sum + i.pos_sell_price * i.qty, 0);
-      const discount = currentUser?.discountRate ? subtotal * currentUser.discountRate : 0;
-      const tax = (subtotal - discount) * 0.10;
-      const total = (Math.round((subtotal - discount + tax) / 100) * 100).toFixed(2);
-
-      const query = new URLSearchParams({
-        subtotal,
-        discount,
-        tax,
-        total,
-        table: tableNumber,
-        guestName: currentUser?.displayName || "Guest",
-        items: encodeURIComponent(JSON.stringify(cart.map(i => ({
-          name: i.name,
-          qty: i.qty
-        })))),
-      }).toString();
-
-      window.location.href = `summary.html?${query}`;
-    };
-  }
 });
+
+const checkoutBtn = document.getElementById("checkoutBtn");
+if (checkoutBtn) {
+  checkoutBtn.onclick = async () => {
+    if (cart.length === 0) {
+      alert("Your cart is empty!");
+      return;
+    }
+
+    if (currentUser?.phoneNumber && !currentUser?.tier) {
+      await fetchMemberTier(currentUser.phoneNumber);
+    }
+
+    const subtotal = cart.reduce((sum, i) => sum + i.pos_sell_price * i.qty, 0);
+    const discount = currentUser?.discountRate ? subtotal * currentUser.discountRate : 0;
+    const tax = (subtotal - discount) * 0.10;
+    const total = (Math.round((subtotal - discount + tax) / 100) * 100).toFixed(2);
+
+    const query = new URLSearchParams({
+      subtotal,
+      discount,
+      tax,
+      total,
+      table: tableNumber,
+      guestName: currentUser?.displayName || "Guest",
+      items: encodeURIComponent(JSON.stringify(cart.map(i => ({
+        name: i.name,
+        qty: i.qty
+      })))),
+    }).toString();
+
+    window.location.href = `summary.html?${query}`;
+  };
+}
 
 function getDiscountByTier(tier) {
   switch (tier?.toLowerCase()) {
@@ -211,16 +206,16 @@ async function fetchMemberTier(phone) {
 }
 
 async function fetchProducts() {
-const cached = localStorage.getItem("productCache");
-const cacheTime = localStorage.getItem("productCacheTime");
-if (cached && cacheTime && Date.now() - cacheTime < 3600000) {
-  return JSON.parse(cached);
-}
-const snapshot = await db.collection("products").get();
-const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-localStorage.setItem("productCache", JSON.stringify(products));
-localStorage.setItem("productCacheTime", Date.now().toString());
-return products;
+  const cached = localStorage.getItem("productCache");
+  const cacheTime = localStorage.getItem("productCacheTime");
+  if (cached && cacheTime && Date.now() - cacheTime < 3600000) {
+    return JSON.parse(cached);
+  }
+  const snapshot = await db.collection("products").get();
+  const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  localStorage.setItem("productCache", JSON.stringify(products));
+  localStorage.setItem("productCacheTime", Date.now().toString());
+  return products;
 }
 
 async function renderProducts(selectedCategory = "") {
