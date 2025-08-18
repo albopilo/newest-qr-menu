@@ -1,4 +1,4 @@
-// Initialize Firebase
+// ✅ Firebase Initialization
 const firebaseConfig = {
   apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
   authDomain: "e-loyalty-12563.firebaseapp.com",
@@ -12,60 +12,20 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// ✅ Scoped logic for staff.html
-if (document.body.classList.contains("staff")) {
-  const messaging = firebase.messaging();
+let userHasInteracted = false;
 
-  navigator.serviceWorker.register("/firebase-messaging-sw.js")
-    .then(reg => console.log("✅ Service Worker registered:", reg))
-    .catch(err => console.error("❌ SW registration failed:", err));
-
-  Notification.requestPermission().then(permission => {
-    if (permission === "granted") {
-      const vapidKey = "BB46kklO696abLSqlK13UKbJh5zCJR-ZCjNa4j4NE08X7JOSJM_IpsJIjsLck4Aqx9QEnQ6Rid4gjLhk1cNjd2w".trim();
-
-      navigator.serviceWorker.ready.then(registration => {
-        messaging.getToken({ vapidKey, serviceWorkerRegistration: registration })
-          .then(token => {
-            console.log("📲 FCM Token:", token);
-          })
-          .catch(err => console.error("❌ Token fetch error:", err));
-      });
-    } else if (Notification.permission === "denied") {
-      alert("🔕 Notifications are blocked. Please enable them in browser settings.");
-    } else {
-      console.warn("🔕 Notification permission denied");
-    }
-  });
-
-  messaging.onMessage(payload => {
-    const { title, body } = payload.notification || {};
-    if (title && body) alert(`${title}\n\n${body}`);
-  });
-
-  window.addEventListener("beforeinstallprompt", e => {
-    e.preventDefault();
-    const installBtn = document.getElementById("installBtn");
-    if (installBtn) {
-      installBtn.style.display = "block";
-      installBtn.onclick = () => {
-        e.prompt();
-        e.userChoice.then(choice => {
-          console.log("📲 PWA install:", choice.outcome);
-          installBtn.style.display = "none";
-        });
-      };
-    }
-  });
-}
+window.addEventListener("click", () => {
+  userHasInteracted = true;
+});
 
 const urlParams = new URLSearchParams(window.location.search);
-const tableNumber = urlParams.get('table') || "unknown";
+const tableNumber = urlParams.get("table") || "unknown";
 
 let currentUser = null;
 let cart = [];
 let sessionTimer = null;
 
+// ✅ Session Timeout Logic
 function startSessionTimeout() {
   if (!window.location.pathname.includes("index")) return;
 
@@ -82,6 +42,7 @@ function startSessionTimeout() {
   }, 3600000); // 1 hour
 }
 
+// ✅ DOM Ready: Restore Session + Sign-In
 document.addEventListener("DOMContentLoaded", () => {
   const savedUser = localStorage.getItem("currentUser");
   const sessionStart = localStorage.getItem("sessionStart");
@@ -107,7 +68,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!input) return;
 
       const phone = input.trim();
-
       try {
         const snapshot = await db.collection("members")
           .where("phone", "==", phone)
@@ -123,15 +83,15 @@ document.addEventListener("DOMContentLoaded", () => {
         currentUser = {
           phoneNumber: phone,
           tier: member.tier,
-          discountRate: member.discountRate || 0.1,
+          discountRate: member.discountRate || getDiscountByTier(member.tier),
           taxRate: member.taxRate || 0.05,
           displayName: member.name || "Guest"
         };
 
-        const userStatus = document.getElementById("userStatus");
-        if (userStatus) userStatus.textContent = currentUser.displayName;
         localStorage.setItem("currentUser", JSON.stringify(currentUser));
         localStorage.setItem("sessionStart", Date.now().toString());
+        const userStatus = document.getElementById("userStatus");
+        if (userStatus) userStatus.textContent = currentUser.displayName;
         startSessionTimeout();
         console.log("Signed in as:", currentUser.displayName, "Tier:", currentUser.tier);
       } catch (error) {
@@ -145,40 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (tableInfo) tableInfo.textContent = `Table ${tableNumber}`;
 });
 
-const checkoutBtn = document.getElementById("checkoutBtn");
-if (checkoutBtn) {
-  checkoutBtn.onclick = async () => {
-    if (cart.length === 0) {
-      alert("Your cart is empty!");
-      return;
-    }
-
-    if (currentUser?.phoneNumber && !currentUser?.tier) {
-      await fetchMemberTier(currentUser.phoneNumber);
-    }
-
-    const subtotal = cart.reduce((sum, i) => sum + i.pos_sell_price * i.qty, 0);
-    const discount = currentUser?.discountRate ? subtotal * currentUser.discountRate : 0;
-    const tax = (subtotal - discount) * 0.10;
-    const total = (Math.round((subtotal - discount + tax) / 100) * 100).toFixed(2);
-
-    const query = new URLSearchParams({
-      subtotal,
-      discount,
-      tax,
-      total,
-      table: tableNumber,
-      guestName: currentUser?.displayName || "Guest",
-      items: encodeURIComponent(JSON.stringify(cart.map(i => ({
-        name: i.name,
-        qty: i.qty
-      })))),
-    }).toString();
-
-    window.location.href = `summary.html?${query}`;
-  };
-}
-
+// ✅ Tier Discount Helper
 function getDiscountByTier(tier) {
   switch (tier?.toLowerCase()) {
     case "silver": return 0.15;
@@ -188,6 +115,7 @@ function getDiscountByTier(tier) {
   }
 }
 
+// ✅ Fetch Member Tier (fallback)
 async function fetchMemberTier(phone) {
   const snapshot = await db.collection("members")
     .where("phone", "==", phone)
@@ -203,12 +131,15 @@ async function fetchMemberTier(phone) {
   }
 }
 
+// ✅ Fetch Products with Caching
 async function fetchProducts() {
   const cached = localStorage.getItem("productCache");
   const cacheTime = localStorage.getItem("productCacheTime");
+
   if (cached && cacheTime && Date.now() - cacheTime < 3600000) {
     return JSON.parse(cached);
   }
+
   const snapshot = await db.collection("products").get();
   const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   localStorage.setItem("productCache", JSON.stringify(products));
@@ -216,15 +147,16 @@ async function fetchProducts() {
   return products;
 }
 
+// ✅ Render Products by Category
 async function renderProducts(selectedCategory = "") {
-  const products = (await fetchProducts()).filter(prod => prod.pos_hidden === 0);
+  const products = (await fetchProducts()).filter(p => p.pos_hidden === 0);
   window.products = products;
 
   const grouped = {};
-  products.forEach(prod => {
-    const cat = prod.category?.trim() || "Uncategorized";
+  products.forEach(p => {
+    const cat = p.category?.trim() || "Uncategorized";
     if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(prod);
+    grouped[cat].push(p);
   });
 
   const preferredOrder = ['Snacks', 'Western', 'Ricebowl', 'Nasi', 'Nasi Goreng', 'Mie', 'Matcha', 'Coffee', 'Non coffee', 'Tea & Juices'];
@@ -267,19 +199,12 @@ async function renderProducts(selectedCategory = "") {
   console.log("Categories found:", Object.keys(grouped));
 }
 
+// ✅ Add to Cart
 window.addToCart = function(id) {
-  console.log("Clicked Add to Cart:", id);
-
-  if (!window.products) {
-    console.error("Product list not loaded.");
-    return;
-  }
+  if (!window.products) return;
 
   const prod = window.products.find(p => p.id === id);
-  if (!prod) {
-    console.error("Product not found:", id);
-    return;
-  }
+  if (!prod) return;
 
   const existing = cart.find(c => c.id === id);
   if (existing) {
@@ -288,42 +213,10 @@ window.addToCart = function(id) {
     cart.push({ ...prod, qty: 1 });
   }
 
-  console.log("Cart updated:", cart);
   renderCart();
 };
 
-function toggleCart() {
-  const cartBody = document.getElementById("cart-body");
-  const toggleBtn = document.getElementById("toggleCartBtn");
-
-  if (cartBody && toggleBtn) {
-    const isHidden = cartBody.classList.contains("hidden");
-    if (isHidden) {
-      cartBody.classList.remove("hidden");
-      toggleBtn.textContent = "❌ Hide Cart";
-    } else {
-      cartBody.classList.add("hidden");
-      toggleBtn.textContent = "🛒 Show Cart";
-    }
-  }
-}
-
-function filterOrders(status) {
-  const allOrders = document.querySelectorAll(".order");
-
-  allOrders.forEach(order => {
-    const orderStatus = order.getAttribute("data-status");
-    if (status === "all" || orderStatus === status) {
-      order.style.display = "block";
-    } else {
-      order.style.display = "none";
-    }
-  });
-}
-
-// ✅ Attach globally once
-window.filterOrders = filterOrders;
-
+// ✅ Cart Rendering
 function renderCart() {
   const cartBody = document.getElementById("cart-body");
   if (!cartBody) return;
@@ -352,6 +245,7 @@ function renderCart() {
   cartBody.innerHTML = html;
 }
 
+// ✅ Quantity Controls
 function increaseQty(id) {
   const item = cart.find(i => i.id === id);
   if (item) {
@@ -376,20 +270,112 @@ window.removeFromCart = function(id) {
   renderCart();
 };
 
-document.addEventListener("DOMContentLoaded", () => {
-  const dateInput = document.getElementById("orderDate");
-  if (dateInput) {
-    const today = new Date().toISOString().split("T")[0];
-    dateInput.value = today;
+// ✅ Toggle Cart Visibility
+function toggleCart() {
+  const cartBody = document.getElementById("cart-body");
+  const toggleBtn = document.getElementById("toggleCartBtn");
 
-    listenForOrders(today);
-
-    dateInput.onchange = () => {
-      listenForOrders(dateInput.value);
-    };
+  if (cartBody && toggleBtn) {
+    const isHidden = cartBody.classList.contains("hidden");
+    cartBody.classList.toggle("hidden");
+    toggleBtn.textContent = isHidden ? "❌ Hide Cart" : "🛒 Show Cart";
   }
-});
+}
 
+// ✅ Checkout Flow
+const checkoutBtn = document.getElementById("checkoutBtn");
+if (checkoutBtn) {
+  checkoutBtn.onclick = async () => {
+    if (cart.length === 0) {
+      alert("Your cart is empty!");
+      return;
+    }
+
+    if (currentUser?.phoneNumber && !currentUser?.tier) {
+      await fetchMemberTier(currentUser.phoneNumber);
+    }
+
+    const subtotal = cart.reduce((sum, i) => sum + i.pos_sell_price * i.qty, 0);
+    const discount = currentUser?.discountRate ? subtotal * currentUser.discountRate : 0;
+    const tax = (subtotal - discount) * 0.10;
+    const total = (Math.round((subtotal - discount + tax) / 100) * 100).toFixed(2);
+
+    const query = new URLSearchParams({
+      subtotal,
+      discount,
+      tax,
+      total,
+      table: tableNumber,
+      guestName: currentUser?.displayName || "Guest",
+      items: encodeURIComponent(JSON.stringify(cart.map(i => ({
+        name: i.name,
+        qty: i.qty
+      })))),
+    }).toString();
+
+    window.location.href = `summary.html?${query}`;
+  };
+}
+
+// ✅ Scoped logic for staff.html
+if (document.body.classList.contains("staff")) {
+  const messaging = firebase.messaging();
+
+  navigator.serviceWorker.register("/firebase-messaging-sw.js")
+    .then(reg => console.log("✅ Service Worker registered:", reg))
+    .catch(err => console.error("❌ SW registration failed:", err));
+
+  Notification.requestPermission().then(permission => {
+    if (permission === "granted") {
+      const vapidKey = "BB46kklO696abLSqlK13UKbJh5zCJR-ZCjNa4j4NE08X7JOSJM_IpsJIjsLck4Aqx9QEnQ6Rid4gjLhk1cNjd2w";
+      navigator.serviceWorker.ready.then(registration => {
+        messaging.getToken({ vapidKey, serviceWorkerRegistration: registration })
+          .then(token => console.log("📲 FCM Token:", token))
+          .catch(err => console.error("❌ Token fetch error:", err));
+      });
+    } else if (Notification.permission === "denied") {
+      alert("🔕 Notifications are blocked. Please enable them in browser settings.");
+    } else {
+      console.warn("🔕 Notification permission denied");
+    }
+  });
+
+  messaging.onMessage(payload => {
+    const { title, body } = payload.notification || {};
+    if (title && body) alert(`${title}\n\n${body}`);
+  });
+
+  window.addEventListener("beforeinstallprompt", e => {
+    e.preventDefault();
+    const installBtn = document.getElementById("installBtn");
+    if (installBtn) {
+      installBtn.style.display = "block";
+      installBtn.onclick = () => {
+        e.prompt();
+        e.userChoice.then(choice => {
+          console.log("📲 PWA install:", choice.outcome);
+          installBtn.style.display = "none";
+        });
+      };
+    }
+  });
+}
+
+// ✅ Order Filtering Logic
+let currentFilter = "all";
+
+function filterOrders(status) {
+  currentFilter = status;
+
+  document.querySelectorAll(".order").forEach(el => {
+    const orderStatus = (el.dataset.status || "").toLowerCase();
+    el.style.display = (status === "all" || orderStatus === status) ? "block" : "none";
+  });
+}
+
+window.filterOrders = filterOrders;
+
+// ✅ Listen for Orders by Date
 function listenForOrders(selectedDate) {
   const ordersContainer = document.getElementById("orderList");
   if (!ordersContainer) return;
@@ -402,43 +388,89 @@ function listenForOrders(selectedDate) {
 
       snapshot.forEach(doc => {
         const order = doc.data();
+        const rawStatus = order.status || "pending";
+        const normalizedStatus = ["pending", "preparing"].includes(rawStatus) ? "incoming" : rawStatus;
+
         const div = document.createElement("div");
         div.className = "order";
-        div.setAttribute("data-status", order.status || "incoming");
+        div.setAttribute("data-status", normalizedStatus);
+
+        // ✅ Format timestamp
+        const time = order.timestamp?.toDate().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' });
+        const date = order.date || "—";
+
+        // ✅ Render item list
+        const itemList = order.items.map(i => `<li>${i.qty} × ${i.name}</li>`).join("");
 
         div.innerHTML = `
           <div><strong>Table ${order.table}</strong> - ${order.items.length} items</div>
-          <div class="status">${order.status}</div>
+          <div class="status">${rawStatus}</div>
+          <div><strong>Name:</strong> ${order.guestName || "—"}</div>
+          <div><strong>Time:</strong> ${time || "—"} | <strong>Date:</strong> ${date}</div>
+          <ul style="margin-top: 6px; padding-left: 16px;">${itemList}</ul>
         `;
 
+        // ✅ Minimalistic status buttons
+        const statusControls = document.createElement("div");
+        statusControls.className = "status-controls";
+
+        ["preparing", "served", "cancelled"].forEach(newStatus => {
+          const btn = document.createElement("button");
+          btn.textContent = newStatus;
+          btn.className = "btn minimal";
+          btn.onclick = async () => {
+            try {
+              await db.collection("orders").doc(doc.id).update({ status: newStatus });
+              console.log(`✅ Order ${doc.id} updated to ${newStatus}`);
+            } catch (err) {
+              console.error("❌ Failed to update status:", err);
+              alert("Failed to update order status.");
+            }
+          };
+          statusControls.appendChild(btn);
+        });
+
+        div.appendChild(statusControls);
         ordersContainer.appendChild(div);
 
-        // Optional: play sound for new incoming orders
-        if (order.status === "incoming") {
-          document.getElementById("newOrderSound")?.play();
+        if (normalizedStatus === "incoming" && userHasInteracted) {
+          document.getElementById("newOrderSound")?.play().catch(err => {
+            console.warn("🔇 Sound blocked:", err);
+          });
         }
       });
+
+      filterOrders(currentFilter);
     });
 }
 
+// ✅ DOM Ready for Staff Page
 document.addEventListener("DOMContentLoaded", () => {
-  const dateInput = document.getElementById("orderDate");
-  if (dateInput) {
-    const today = new Date().toISOString().split("T")[0];
-    dateInput.value = today;
+  const savedUser = localStorage.getItem("currentUser");
+  const sessionStart = localStorage.getItem("sessionStart");
+
+  if (savedUser && sessionStart) {
+    const elapsed = Date.now() - Number(sessionStart);
+    if (elapsed < 3600000) {
+      currentUser = JSON.parse(savedUser);
+      const userStatus = document.getElementById("userStatus");
+      if (userStatus) userStatus.textContent = currentUser.displayName;
+      startSessionTimeout();
+    } else {
+      localStorage.removeItem("currentUser");
+      localStorage.removeItem("sessionStart");
+      alert("Session expired. Please sign in again.");
+    }
   }
 
-  // ✅ Only run on guest pages
-  if (!document.body.classList.contains("staff")) {
-    renderProducts();
-  }
 
-  if (window.location.pathname === "/" || window.location.pathname.includes("index")) {
-    startSessionTimeout();
-  }
+  const tableInfo = document.getElementById("tableInfo");
+  if (tableInfo) tableInfo.textContent = `Table ${tableNumber}`;
+
+  renderProducts(); // ✅ Add this line
 });
 
-// Handle PWA install prompt (fallback)
+// ✅ PWA Install Fallback
 let deferredPrompt;
 window.addEventListener("beforeinstallprompt", e => {
   e.preventDefault();
@@ -449,11 +481,7 @@ window.addEventListener("beforeinstallprompt", e => {
     installBtn.onclick = () => {
       deferredPrompt.prompt();
       deferredPrompt.userChoice.then(choice => {
-        if (choice.outcome === "accepted") {
-          console.log("📲 PWA installed");
-        } else {
-          console.log("🚫 PWA install dismissed");
-        }
+        console.log(choice.outcome === "accepted" ? "📲 PWA installed" : "🚫 PWA install dismissed");
         deferredPrompt = null;
         installBtn.style.display = "none";
       });
