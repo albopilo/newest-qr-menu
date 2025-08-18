@@ -210,3 +210,55 @@ button {
   background: #f0f0f0;
   border-radius: 6px;
 }
+
+body.staff .cart-item {
+  font-size: 14px;
+  padding: 6px 0;
+}
+
+body.staff .qty-adjuster button {
+  min-width: 28px;
+  height: 28px;
+  font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  body.staff header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.5em;
+  }
+
+  body.staff button {
+    font-size: 0.95em;
+    padding: 8px 12px;
+    width: 100%;
+  }
+
+  body.staff #categoryTabsContainer {
+    padding: 4px;
+  }
+
+  body.staff #cart-body {
+    max-height: 150px;
+  }
+
+  body.staff #checkoutBtn {
+    right: 8px;
+    bottom: 8px;
+    padding: 8px 12px;
+    font-size: 0.9em;
+  }
+}
+
+body.staff .icon-btn {
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+}
+
+@media (max-width: 600px) {
+  body.staff .some-extra-info {
+    display: none;
+  }
+}

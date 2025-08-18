@@ -13,6 +13,15 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
+// ✅ Scoped logic for staff.html
+if (document.body.classList.contains("staff")) {
+  // FCM setup
+  // PWA install prompt
+  // Order rendering
+  // Any staff-only UI logic
+}
+
+
 if (window.location.pathname.includes("staff")) {
   // 🔐 FCM + PWA logic only for staff.html
 
@@ -101,10 +110,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const signInBtn = document.getElementById("signInBtn");
-  if (!signInBtn) {
-    console.error("signInBtn not found");
-    return;
-  }
+if (signInBtn) {
+  signInBtn.onclick = async () => {
+    // sign-in logic here
+  };
+}
 
   signInBtn.onclick = async () => {
     const input = prompt("Enter your phone number (e.g. 081234567890):");

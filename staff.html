@@ -1,228 +1,113 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="manifest" href="/manifest.json" />
   <meta charset="UTF-8" />
   <title>Staff Dashboard</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body {
+    body.staff {
       font-family: sans-serif;
       background: #f9f9f9;
-      padding: 20px;
+      padding: 16px;
     }
+
     h1 {
       text-align: center;
+      font-size: 1.5em;
+      margin-bottom: 12px;
     }
+
+    #orderFilters {
+      position: sticky;
+      top: 0;
+      background: #f9f9f9;
+      padding: 10px 0;
+      z-index: 10;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+
     .order {
       background: white;
       border-radius: 8px;
       padding: 12px;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      font-size: 0.95rem;
     }
+
     .status {
       font-weight: bold;
       color: #555;
+      margin-top: 6px;
     }
+
     .btn {
-      margin-top: 8px;
-      padding: 6px 12px;
+      margin: 6px 4px 0 0;
+      padding: 8px 12px;
       border: none;
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
+      font-size: 0.95rem;
     }
+
     .pending { background: #ffeeba; }
     .preparing { background: #bee5eb; }
     .served { background: #c3e6cb; }
-  </style>
-</head>
-<body>
-  <h1>📋 Incoming Orders</h1>
-  <div id="orderFilters">
-  <button onclick="filterOrders('all')">All</button>
-  <button onclick="filterOrders('incoming')">Incoming</button>
-  <button onclick="filterOrders('served')">Served</button>
-  <button onclick="filterOrders('cancelled')">Cancelled</button>
-  <!-- staff.html -->
-<h2>Orders for <input type="date" id="orderDate" /></h2>
-<ul id="orderList"></ul>
-</div>
-  <div id="orderList"></div>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<audio id="newOrderSound" src="https://albopilo.github.io/newest-qr-menu/assets/sound.mp3" preload="auto"></audio>  <script>
-      // 🔘 Track which status is currently selected
-  const firebaseConfig = {
-    apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
-    authDomain: "e-loyalty-12563.firebaseapp.com",
-    projectId: "e-loyalty-12563",
-  };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
+    #orderDate {
+      font-size: 1rem;
+      padding: 6px;
+      margin: 10px 0;
+      width: 100%;
+      max-width: 300px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
 
-  let selectedStatus = "incoming";
-  let liveMode = true;
-  let allOrders = [];
-  let previousOrderIds = new Set();
-  let userHasInteracted = false;
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 1.2rem;
+      }
 
-  const orderDateInput = document.getElementById("orderDate");
-  const orderList = document.getElementById("orderList");
-  const today = new Date().toISOString().split("T")[0];
-  orderDateInput.value = today;
+      .btn {
+        display: block;
+        width: 100%;
+        margin: 6px 0;
+      }
 
-  ["click", "touchstart", "keydown"].forEach(evt => {
-    window.addEventListener(evt, () => userHasInteracted = true, { once: true });
-  });
-
-  // ⏱️ Auto-disable live mode after 10 minutes of inactivity
-setTimeout(() => {
-  if (!userHasInteracted) liveMode = false;
-}, 600000);
-
-
-  // 🔄 Toggle between live and date mode
-  orderDateInput.addEventListener("change", () => {
-    liveMode = false;
-    fetchOrdersForDate(orderDateInput.value);
-  });
-
-  function fetchOrdersForDate(dateStr) {
-    const start = new Date(dateStr); start.setHours(0, 0, 0, 0);
-    const end = new Date(dateStr); end.setHours(23, 59, 59, 999);
-
-    db.collection("orders")
-      .where("timestamp", ">=", start)
-      .where("timestamp", "<=", end)
-      .orderBy("timestamp", "desc")
-      .get()
-      .then(snapshot => {
-        const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        allOrders = orders;
-        renderFilteredOrders();
-      });
-  }
-
-  // ✅ Single listener for live updates
-  db.collection("orders")
-    .orderBy("timestamp", "desc")
-    .limit(20)
-    .onSnapshot(snapshot => {
-      if (!liveMode) return;
-
-      const currentOrderIds = new Set();
-      const updatedOrders = [];
-
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        const id = doc.id;
-        currentOrderIds.add(id);
-        updatedOrders.push({ id, ...data });
-
-        if (!previousOrderIds.has(id) && userHasInteracted) {
-          document.getElementById("newOrderSound").play();
-          showNotification(`🆕 New order from Table ${data.table || "?"}`);
-        }
-      });
-
-      previousOrderIds = currentOrderIds;
-      allOrders = updatedOrders;
-      renderFilteredOrders();
-    });
-
-  function renderFilteredOrders() {
-    const filtered = allOrders.filter(order => {
-      if (selectedStatus === "all") return true;
-      if (selectedStatus === "incoming") return ["pending", "preparing"].includes(order.status);
-      return order.status === selectedStatus;
-    });
-    renderOrders(filtered);
-  }
-
-  function filterOrders(status) {
-    selectedStatus = status;
-    renderFilteredOrders();
-  }
-
-  function renderOrders(orders) {
-    orderList.innerHTML = "";
-    orders.forEach(order => {
-      const div = document.createElement("div");
-      div.className = `order ${order.status}`;
-      div.innerHTML = `
-        <div><strong>Table:</strong> ${order.table || "Unknown"}</div>
-        <div><strong>Items:</strong> ${
-          Array.isArray(order.items)
-            ? order.items.map(i => `${i.name} x${i.qty}`).join(", ")
-            : "No items found"
-        }</div>
-        <div><strong>Time:</strong> ${order.timestamp?.toDate().toLocaleTimeString() || "—"}</div>
-        <div class="status">Status: ${order.status}</div>
-        <button class="btn" onclick="updateStatus('${order.id}', 'preparing')">Preparing</button>
-        <button class="btn" onclick="updateStatus('${order.id}', 'served')">Served</button>
-        <button class="btn" onclick="updateStatus('${order.id}', 'cancelled')">Cancel</button>
-        <button class="btn" onclick="modifyOrder('${order.id}', ${JSON.stringify(order.items)})">Modify</button>
-      `;
-      orderList.appendChild(div);
-    });
-  }
-
-  async function updateStatus(id, status) {
-  try {
-    await db.collection("orders").doc(id).update({ status });
-
-    if (status === "served") {
-      const doc = await db.collection("orders").doc(id).get();
-      const order = doc.data();
-
-      if (order.userId) {
-        await db.collection("members")
-          .doc(order.userId)
-          .collection("transactions")
-          .add({
-            ...order,
-            importedAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
+      .order {
+        font-size: 0.9rem;
+        padding: 10px;
       }
     }
-  } catch (error) {
-    console.error("Error updating status or importing transaction:", error);
-  }
-}
+  </style>
+</head>
+<body class="staff">
+  <h1>📋 Incoming Orders</h1>
 
-  function modifyOrder(orderId, items) {
-    const updatedItems = items.map(item => {
-      const newQty = prompt(`Modify quantity for ${item.name}:`, item.qty);
-      return {
-        name: item.name,
-        qty: parseInt(newQty) || item.qty,
-        price: item.price || 0
-      };
-    });
-    if (updatedItems.some(i => i.qty <= 0)) {
-      alert("Quantity must be greater than 0");
-      return;
-    }
-    db.collection("orders").doc(orderId).update({ items: updatedItems });
-  }
+  <div id="orderFilters">
+    <button onclick="filterOrders('all')" class="btn">All</button>
+    <button onclick="filterOrders('incoming')" class="btn">Incoming</button>
+    <button onclick="filterOrders('served')" class="btn">Served</button>
+    <button onclick="filterOrders('cancelled')" class="btn">Cancelled</button>
+  </div>
 
-  function showNotification(message) {
-    const notif = document.createElement("div");
-    notif.textContent = message;
-    Object.assign(notif.style, {
-      position: "fixed", bottom: "20px", right: "20px",
-      background: "#333", color: "#fff", padding: "10px 20px",
-      borderRadius: "6px", boxShadow: "0 2px 6px rgba(0,0,0,0.3)", zIndex: "1000"
-    });
-    document.body.appendChild(notif);
-    setTimeout(() => notif.remove(), 4000);
-  }
+<h2 style="text-align:center;">Orders for <input type="date" id="orderDate" /></h2>
+<p id="tableInfo" style="text-align:center; font-weight:bold;"></p>
 
-  // Initial load
-  fetchOrdersForDate(today);
-</script>
+  <audio id="newOrderSound" src="https://albopilo.github.io/newest-qr-menu/assets/sound.mp3" preload="auto"></audio>
+
+  <!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
+<script src="app.js" defer></script>
 </body>
 </html>
