@@ -31,28 +31,18 @@ if (window.location.pathname.includes("staff")) {
     .catch(err => console.error("❌ SW registration failed:", err));
 
   Notification.requestPermission().then(permission => {
-    if (permission === "granted") {
-      messaging.getToken({ vapidKey: "YOUR_PUBLIC_VAPID_KEY" })
-        .then(token => {
-          try {
-            const payload = token?.split?.('.')[1];
-            if (payload) {
-              const decoded = atob(payload);
-              console.log("📲 FCM Token:", token);
-            } else {
-              console.warn("⚠️ Token format invalid");
-            }
-          } catch (err) {
-            console.error("❌ Token decoding error:", err);
-          }
-        })
-        .catch(err => console.error("❌ Token fetch error:", err));
-    } else if (Notification.permission === "denied") {
-      alert("🔕 Notifications are blocked. Please enable them in browser settings.");
-    } else {
-      console.warn("🔕 Notification permission denied");
-    }
-  });
+  if (permission === "granted") {
+    messaging.getToken({ vapidKey: "YOUR_PUBLIC_VAPID_KEY" })
+      .then(token => {
+        console.log("📲 FCM Token:", token); // Use this for sending notifications
+      })
+      .catch(err => console.error("❌ Token fetch error:", err));
+  } else if (Notification.permission === "denied") {
+    alert("🔕 Notifications are blocked. Please enable them in browser settings.");
+  } else {
+    console.warn("🔕 Notification permission denied");
+  }
+});
 
   messaging.onMessage(payload => {
     const { title, body } = payload.notification || {};
