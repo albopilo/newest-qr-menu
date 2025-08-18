@@ -380,10 +380,16 @@ function listenForOrders(selectedDate) {
   const ordersContainer = document.getElementById("orderList");
   if (!ordersContainer) return;
 
-  db.collection("orders")
-    .where("date", "==", selectedDate)
-    .orderBy("timestamp", "desc")
-    .onSnapshot(snapshot => {
+  console.log("📅 Listening for orders on:", selectedDate);
+db.collection("orders")
+  .where("date", "==", selectedDate)
+  .orderBy("timestamp", "desc")
+  .onSnapshot(snapshot => {
+    console.log("📡 Snapshot received:", snapshot.size);
+    if (snapshot.empty) {
+      console.warn("⚠️ No orders found for", selectedDate);
+    }
+    // ...rest of your rendering logic
       ordersContainer.innerHTML = "";
 
       snapshot.forEach(doc => {
@@ -434,10 +440,20 @@ function listenForOrders(selectedDate) {
         ordersContainer.appendChild(div);
 
         if (normalizedStatus === "incoming" && userHasInteracted) {
-          document.getElementById("newOrderSound")?.play().catch(err => {
-            console.warn("🔇 Sound blocked:", err);
-          });
-        }
+  const audio = document.getElementById("newOrderSound");
+  if (audio) {
+    audio.pause();              // Reset any previous playback
+    audio.currentTime = 0;      // Start from beginning
+    audio.volume = 0.8;         // Optional: set volume
+
+    audio.play().catch(err => {
+      console.warn("🔇 Sound blocked:", err);
+      console.log("User interaction status:", userHasInteracted);
+    });
+  } else {
+    console.warn("🎧 Audio element not found");
+  }
+}
       });
 
       filterOrders(currentFilter);
@@ -463,11 +479,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-
   const tableInfo = document.getElementById("tableInfo");
   if (tableInfo) tableInfo.textContent = `Table ${tableNumber}`;
 
-  renderProducts(); // ✅ Add this line
+  renderProducts(); // ✅ Already present
+
+  // ✅ Add this block to activate order listener
+  const dateInput = document.getElementById("orderDate");
+  if (dateInput) {
+    const today = new Date().toISOString().split("T")[0];
+    dateInput.value = today;
+    listenForOrders(today);
+    filterOrders("incoming");
+
+    dateInput.onchange = () => {
+      listenForOrders(dateInput.value);
+      filterOrders("incoming");
+    };
+  } else {
+    console.warn("⚠️ No #orderDate input found — listener not triggered");
+  }
 });
 
 // ✅ PWA Install Fallback
