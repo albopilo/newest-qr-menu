@@ -308,6 +308,22 @@ function toggleCart() {
   }
 }
 
+function filterOrders(status) {
+  const allOrders = document.querySelectorAll(".order");
+
+  allOrders.forEach(order => {
+    const orderStatus = order.getAttribute("data-status");
+    if (status === "all" || orderStatus === status) {
+      order.style.display = "block";
+    } else {
+      order.style.display = "none";
+    }
+  });
+}
+
+// ✅ Attach globally once
+window.filterOrders = filterOrders;
+
 function renderCart() {
   const cartBody = document.getElementById("cart-body");
   if (!cartBody) return;
@@ -360,13 +376,22 @@ window.removeFromCart = function(id) {
   renderCart();
 };
 
-window.onload = () => {
-  renderProducts();
+document.addEventListener("DOMContentLoaded", () => {
+  const dateInput = document.getElementById("orderDate");
+  if (dateInput) {
+    const today = new Date().toISOString().split("T")[0];
+    dateInput.value = today;
+  }
+
+  // ✅ Only run on guest pages
+  if (!document.body.classList.contains("staff")) {
+    renderProducts();
+  }
 
   if (window.location.pathname === "/" || window.location.pathname.includes("index")) {
     startSessionTimeout();
   }
-};
+});
 
 // Handle PWA install prompt (fallback)
 let deferredPrompt;
