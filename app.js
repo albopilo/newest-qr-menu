@@ -13,6 +13,56 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
+if (window.location.pathname.includes("staff")) {
+  // 🔐 FCM + PWA logic only for staff.html
+
+  const messaging = firebase.messaging();
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/firebase-messaging-sw.js")
+      .then(reg => {
+        console.log("✅ Service Worker registered:", reg);
+        messaging.useServiceWorker(reg);
+      })
+      .catch(err => console.error("❌ SW registration failed:", err));
+  }
+
+  Notification.requestPermission().then(permission => {
+    if (permission === "granted") {
+      messaging.getToken({ vapidKey: "YOUR_PUBLIC_VAPID_KEY" })
+        .then(token => {
+          console.log("📲 FCM Token:", token);
+          // Optional: Save token to Firestore
+        })
+        .catch(err => console.error("❌ Token error:", err));
+    } else {
+      console.warn("🔕 Notification permission denied");
+    }
+  });
+
+  messaging.onMessage(payload => {
+    const { title, body } = payload.notification || {};
+    if (title && body) alert(`${title}\n\n${body}`);
+  });
+
+  // Optional: PWA install prompt
+  window.addEventListener("beforeinstallprompt", e => {
+    e.preventDefault();
+    const installBtn = document.getElementById("installBtn");
+    if (installBtn) {
+      installBtn.style.display = "block";
+      installBtn.onclick = () => {
+        e.prompt();
+        e.userChoice.then(choice => {
+          console.log("📲 PWA install:", choice.outcome);
+          installBtn.style.display = "none";
+        });
+      };
+    }
+  });
+} 
+
+
 const urlParams = new URLSearchParams(window.location.search);
 const tableNumber = urlParams.get('table') || "unknown";
 
@@ -136,10 +186,17 @@ async function renderProducts(selectedCategory = "") {
     grouped[cat].push(prod);
   });
 
+  const preferredOrder = ['Snacks', 'Western', 'Ricebowl', 'Nasi', 'Nasi Goreng', 'Mie', 'Matcha', 'Coffee', 'Non coffee', 'Tea & Juices'];
+const sortedCategoryNames = Object.keys(grouped).sort((a, b) => {
+  const indexA = preferredOrder.indexOf(a);
+  const indexB = preferredOrder.indexOf(b);
+  return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+});
+
   const tabs = document.getElementById("categoryTabs");
   tabs.innerHTML = "";
-  Object.keys(grouped).forEach(cat => {
-    const btn = document.createElement("button");
+sortedCategoryNames.forEach(cat => {
+      const btn = document.createElement("button");
     btn.textContent = cat;
     btn.className = cat === selectedCategory ? "active" : "";
     btn.onclick = () => renderProducts(cat);
@@ -286,3 +343,26 @@ window.onload = () => {
   renderProducts();
   startSessionTimeout();
 };
+
+// Handle PWA install prompt
+let deferredPrompt;
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const installBtn = document.getElementById("installBtn");
+  if (installBtn) {
+    installBtn.style.display = "block";
+    installBtn.onclick = () => {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(choice => {
+        if (choice.outcome === "accepted") {
+          console.log("📲 PWA installed");
+        } else {
+          console.log("🚫 PWA install dismissed");
+        }
+        deferredPrompt = null;
+        installBtn.style.display = "none";
+      });
+    };
+  }
+});
