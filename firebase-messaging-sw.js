@@ -16,7 +16,7 @@ messaging.onBackgroundMessage(payload => {
   const { title, body } = payload.notification || {};
   self.registration.showNotification(title, {
     body,
-    icon: "/icons/icon-192.png" // Optional: your PWA icon
+    icon: "/assets/icon-192.png" // Optional: your PWA icon
   });
 });
 
