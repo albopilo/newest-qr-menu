@@ -32,7 +32,7 @@ if (window.location.pathname.includes("staff")) {
 
   Notification.requestPermission().then(permission => {
   if (permission === "granted") {
-    messaging.getToken({ vapidKey: "VPFwm_C_GPv0AAtxLfI1LWOZegHj4t8k5nLlD9s5ZLs" })
+    messaging.getToken({ vapidKey: "BB46kklO696abLSqlK13UKbJh5zCJR-ZCjNa4j4NE08X7JOSJM_IpsJIjsLck4Aqx9QEnQ6Rid4gjLhk1cNjd2w " })
       .then(token => {
         console.log("📲 FCM Token:", token); // Use this for sending notifications
       })
