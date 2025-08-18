@@ -73,6 +73,8 @@ let cart = [];
 let sessionTimer = null;
 
 function startSessionTimeout() {
+  if (!window.location.pathname.includes("index")) return;
+
   clearTimeout(sessionTimer);
   sessionTimer = setTimeout(() => {
     cart = [];
@@ -359,7 +361,10 @@ window.removeFromCart = function(id) {
 
 window.onload = () => {
   renderProducts();
-  startSessionTimeout();
+
+  if (window.location.pathname === "/" || window.location.pathname.includes("index")) {
+    startSessionTimeout();
+  }
 };
 
 // Handle PWA install prompt (fallback)
