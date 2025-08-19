@@ -1,4 +1,6 @@
-// ✅ Firebase Initialization
+/***********************
+ * Firebase initialization
+ ***********************/
 const firebaseConfig = {
   apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
   authDomain: "e-loyalty-12563.firebaseapp.com",
@@ -8,15 +10,16 @@ const firebaseConfig = {
   appId: "1:3887061029:web:f9c238731d7e6dd5fb47cc",
   measurementId: "G-966P8W06W2"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+/***********************
+ * Globals
+ ***********************/
 let userHasInteracted = false;
-
-window.addEventListener("click", () => {
-  userHasInteracted = true;
-});
+["pointerdown", "keydown"].forEach(evt =>
+  window.addEventListener(evt, () => { userHasInteracted = true; }, { once: true })
+);
 
 const urlParams = new URLSearchParams(window.location.search);
 const tableNumber = urlParams.get("table") || "unknown";
@@ -24,257 +27,412 @@ const tableNumber = urlParams.get("table") || "unknown";
 let currentUser = null;
 let cart = [];
 let sessionTimer = null;
+let unsubscribeOrders = null;
+let ordersFirstSnapshot = true;
 
-// ✅ Session Timeout Logic
+/***********************
+ * Banner helper
+ ***********************/
+function showBanner(msg, ms = 3000) {
+  let b = document.getElementById("banner");
+  if (!b) {
+    b = document.createElement("div");
+    b.id = "banner";
+    b.className = "banner hidden";
+    document.body.appendChild(b);
+  }
+  b.textContent = msg;
+  b.classList.remove("hidden");
+  clearTimeout(b.__hideTimer);
+  b.__hideTimer = setTimeout(() => b.classList.add("hidden"), ms);
+}
+
+/***********************
+ * Session timeout (customer pages only)
+ ***********************/
 function startSessionTimeout() {
-  if (!window.location.pathname.includes("index")) return;
-
+  const isIndexLike = !!document.getElementById("productList");
+  if (!isIndexLike) return;
   clearTimeout(sessionTimer);
   sessionTimer = setTimeout(() => {
     cart = [];
     currentUser = null;
     localStorage.removeItem("currentUser");
     localStorage.removeItem("sessionStart");
+    localStorage.removeItem("cart");
+    localStorage.removeItem("cartSavedAt");
     renderCart();
     const userStatus = document.getElementById("userStatus");
     if (userStatus) userStatus.textContent = "Guest";
-    alert("Session expired after 1 hour of inactivity. Please sign in again.");
-  }, 3600000); // 1 hour
+    showBanner("Session expired after 1 hour. Please sign in again.", 5000);
+    sessionTimer = null;
+  }, 3600000);
 }
 
-// ✅ DOM Ready: Restore Session + Sign-In
-document.addEventListener("DOMContentLoaded", () => {
-  const savedUser = localStorage.getItem("currentUser");
-  const sessionStart = localStorage.getItem("sessionStart");
-
-  if (savedUser && sessionStart) {
-    const elapsed = Date.now() - Number(sessionStart);
-    if (elapsed < 3600000) {
-      currentUser = JSON.parse(savedUser);
-      const userStatus = document.getElementById("userStatus");
-      if (userStatus) userStatus.textContent = currentUser.displayName;
-      startSessionTimeout();
-    } else {
-      localStorage.removeItem("currentUser");
-      localStorage.removeItem("sessionStart");
-      alert("Session expired. Please sign in again.");
-    }
-  }
-
-  const signInBtn = document.getElementById("signInBtn");
-  if (signInBtn) {
-    signInBtn.onclick = async () => {
-      const input = prompt("Enter your phone number (e.g. 081234567890):");
-      if (!input) return;
-
-      const phone = input.trim();
-      try {
-        const snapshot = await db.collection("members")
-          .where("phone", "==", phone)
-          .limit(1)
-          .get();
-
-        if (snapshot.empty) {
-          alert("Phone number not found. Please check and try again.");
-          return;
-        }
-
-        const member = snapshot.docs[0].data();
-        currentUser = {
-          phoneNumber: phone,
-          tier: member.tier,
-          discountRate: member.discountRate || getDiscountByTier(member.tier),
-          taxRate: member.taxRate || 0.05,
-          displayName: member.name || "Guest"
-        };
-
-        localStorage.setItem("currentUser", JSON.stringify(currentUser));
-        localStorage.setItem("sessionStart", Date.now().toString());
-        const userStatus = document.getElementById("userStatus");
-        if (userStatus) userStatus.textContent = currentUser.displayName;
-        startSessionTimeout();
-        console.log("Signed in as:", currentUser.displayName, "Tier:", currentUser.tier);
-      } catch (error) {
-        console.error("Sign-in error:", error);
-        alert("Failed to sign in. Please try again.");
-      }
-    };
-  }
-
-  const tableInfo = document.getElementById("tableInfo");
-  if (tableInfo) tableInfo.textContent = `Table ${tableNumber}`;
-});
-
-// ✅ Tier Discount Helper
+/***********************
+ * Tier helpers
+ ***********************/
 function getDiscountByTier(tier) {
   switch (tier?.toLowerCase()) {
     case "silver": return 0.15;
-    case "gold": return 0.2;
-    case "bronze": return 0.1;
-    default: return 0.1;
+    case "gold": return 0.20;
+    case "bronze": return 0.10;
+    default: return 0.10;
   }
 }
-
-// ✅ Fetch Member Tier (fallback)
 async function fetchMemberTier(phone) {
-  const snapshot = await db.collection("members")
-    .where("phone", "==", phone)
-    .limit(1)
-    .get();
-
+  const snapshot = await db.collection("members").where("phone", "==", phone).limit(1).get();
   if (!snapshot.empty) {
     const member = snapshot.docs[0].data();
-    currentUser.tier = member.tier;
+    currentUser.tier = member.tier || null;
     currentUser.discountRate = member.discountRate ?? getDiscountByTier(member.tier);
-    currentUser.taxRate = member.taxRate ?? 0.05;
-    console.log("Tier info:", currentUser.tier, "Discount:", currentUser.discountRate);
+    currentUser.taxRate = member.taxRate ?? 0.10;
+    localStorage.setItem("currentUser", JSON.stringify(currentUser));
+    console.log("Tier info:", currentUser.tier, "Discount:", currentUser.discountRate, "Tax:", currentUser.taxRate);
   }
 }
 
-// ✅ Fetch Products with Caching
-async function fetchProducts() {
-  const cached = localStorage.getItem("productCache");
-  const cacheTime = localStorage.getItem("productCacheTime");
+/***********************
+ * Product cache + fetch (with stale fallback)
+ ***********************/
+async function fetchProductsRaw() {
+  const cacheKey = "productCacheV2";
+  const cacheTimeKey = "productCacheTimeV2";
+  const cached = localStorage.getItem(cacheKey);
+  const cacheTime = Number(localStorage.getItem(cacheTimeKey));
 
-  if (cached && cacheTime && Date.now() - cacheTime < 3600000) {
-    return JSON.parse(cached);
+  try {
+    if (cached && cacheTime && Date.now() - cacheTime < 3600000) {
+      return JSON.parse(cached);
+    }
+    const snapshot = await db.collection("products").get();
+    const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    localStorage.setItem(cacheKey, JSON.stringify(products));
+    localStorage.setItem(cacheTimeKey, Date.now().toString());
+    return products;
+  } catch (err) {
+    console.error("Failed to fetch products, using cached if available", err);
+    if (cached) return JSON.parse(cached);
+    showBanner("Unable to load menu. Please check your connection.", 4000);
+    return [];
   }
-
-  const snapshot = await db.collection("products").get();
-  const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  localStorage.setItem("productCache", JSON.stringify(products));
-  localStorage.setItem("productCacheTime", Date.now().toString());
-  return products;
 }
 
-// ✅ Render Products by Category
-async function renderProducts(selectedCategory = "") {
-  const products = (await fetchProducts()).filter(p => p.pos_hidden === 0);
-  window.products = products;
-
+/***********************
+ * Group by name and aggregate variants
+ ***********************/
+function buildVariantsFromDoc(p) {
+  const price = p.pos_sell_price ?? p.price ?? 0;
+  const variantField = p.variant || p.size || p.variant_name || p.variant_names;
+  if (Array.isArray(variantField) && variantField.length > 0) {
+    return variantField.map(vn => ({ id: p.id, variant: vn, price }));
+  } else if (typeof variantField === "string" && variantField.trim() !== "") {
+    return [{ id: p.id, variant: variantField.trim(), price }];
+  }
+  return [{ id: p.id, variant: null, price }];
+}
+async function fetchGroupedProducts() {
+  const raw = (await fetchProductsRaw()).filter(p => Number(p.pos_hidden ?? 0) === 0);
   const grouped = {};
-  products.forEach(p => {
-    const cat = p.category?.trim() || "Uncategorized";
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(p);
+  for (const p of raw) {
+    const nameKey = (p.name || "").trim() || "Unnamed";
+    if (!grouped[nameKey]) {
+      grouped[nameKey] = {
+        name: nameKey,
+        category: p.category?.trim() || "Uncategorized",
+        basePrice: p.pos_sell_price ?? p.price ?? 0,
+        variants: [],
+        variant_label: p.variant_label || null
+      };
+    }
+    const variants = buildVariantsFromDoc(p);
+    grouped[nameKey].variants.push(...variants);
+    const minPrice = Math.min(grouped[nameKey].basePrice, ...variants.map(v => v.price));
+    grouped[nameKey].basePrice = isFinite(minPrice) ? minPrice : grouped[nameKey].basePrice;
+  }
+  // Deduplicate (normalized) + sort variants
+  Object.values(grouped).forEach(group => {
+    const unique = new Map();
+    group.variants.forEach(v => {
+      const keyVariant = (v.variant ?? "").trim().toLowerCase();
+      const k = `${keyVariant}::${Number(v.price) || 0}`;
+      if (!unique.has(k)) unique.set(k, { ...v, variant: v.variant?.trim() || v.variant });
+    });
+    group.variants = Array.from(unique.values()).sort((a, b) => a.price - b.price);
+  });
+  window.groupedProducts = grouped;
+  return grouped;
+}
+
+/***********************
+ * Render products with category tabs (safe DOM creation)
+ ***********************/
+async function renderProducts(selectedCategory = "") {
+  const grouped = await fetchGroupedProducts();
+
+  // Map categories
+  const categoryMap = {};
+  Object.values(grouped).forEach(prod => {
+    const cat = prod.category || "Uncategorized";
+    if (!categoryMap[cat]) categoryMap[cat] = [];
+    categoryMap[cat].push(prod);
   });
 
+  // Sort with case-insensitive match to preferred order
   const preferredOrder = ['Snacks', 'Western', 'Ricebowl', 'Nasi', 'Nasi Goreng', 'Mie', 'Matcha', 'Coffee', 'Non coffee', 'Tea & Juices'];
-  const sortedCategoryNames = Object.keys(grouped).sort((a, b) => {
-    const indexA = preferredOrder.indexOf(a);
-    const indexB = preferredOrder.indexOf(b);
-    return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+  const norm = s => s.toLowerCase();
+  const sortedCats = Object.keys(categoryMap).sort((a, b) => {
+    const ia = preferredOrder.findIndex(x => norm(x) === norm(a));
+    const ib = preferredOrder.findIndex(x => norm(x) === norm(b));
+    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
   });
 
+  // Build category tabs
   const tabs = document.getElementById("categoryTabs");
   if (tabs) {
     tabs.innerHTML = "";
-    sortedCategoryNames.forEach(cat => {
+    sortedCats.forEach(cat => {
       const btn = document.createElement("button");
       btn.textContent = cat;
-      btn.className = cat === selectedCategory ? "active" : "";
-      btn.onclick = () => renderProducts(cat);
+      if (norm(cat) === norm(selectedCategory)) btn.classList.add("active");
+      btn.addEventListener("click", () => {
+        renderProducts(cat);
+        startSessionTimeout();
+      });
       tabs.appendChild(btn);
     });
   }
 
+  // Build product list for chosen category
   const list = document.getElementById("productList");
   if (list) {
-    list.innerHTML = `<h3>${selectedCategory || "Select a Category"}</h3>`;
-    if (!selectedCategory || !grouped[selectedCategory]) return;
+    list.innerHTML = "";
+    const heading = document.createElement("h3");
+    heading.textContent = selectedCategory || "Select a Category";
+    list.appendChild(heading);
 
-    grouped[selectedCategory].forEach(prod => {
-      const price = prod.pos_sell_price ?? prod.price ?? 0;
-      const item = document.createElement("div");
-      item.style.marginBottom = "1em";
-      item.innerHTML = `
-        <strong>${prod.name}</strong><br>
-        Rp${Number(price).toLocaleString()}<br>
-        <button onclick="addToCart('${prod.id}')">Add to Cart</button>
-      `;
-      list.appendChild(item);
+    if (!selectedCategory || !categoryMap[selectedCategory]) return;
+    categoryMap[selectedCategory].forEach(prod => {
+      const hasVariants = prod.variants.length > 1 || !!prod.variants[0]?.variant;
+      const div = document.createElement("div");
+      div.style.marginBottom = "1em";
+
+      const nameEl = document.createElement("strong");
+      nameEl.textContent = prod.name;
+      div.appendChild(nameEl);
+      div.appendChild(document.createElement("br"));
+
+      const priceEl = document.createTextNode(`Rp${Number(prod.basePrice).toLocaleString()}`);
+      div.appendChild(priceEl);
+      div.appendChild(document.createElement("br"));
+
+      const btn = document.createElement("button");
+      btn.className = "add-to-cart";
+      btn.dataset.productName = prod.name;
+      btn.textContent = hasVariants ? "Select variation" : "Add to cart";
+      div.appendChild(btn);
+
+      list.appendChild(div);
     });
   }
-
-  console.log("Categories found:", Object.keys(grouped));
 }
 
-// ✅ Add to Cart
-window.addToCart = function(id) {
-  if (!window.products) return;
-
-  const prod = window.products.find(p => p.id === id);
-  if (!prod) return;
-
-  const existing = cart.find(c => c.id === id);
-  if (existing) {
-    existing.qty++;
+/***********************
+ * Add to cart by product name (opens modal if needed)
+ ***********************/
+window.handleAddToCartByName = function(productName) {
+  const group = window.groupedProducts?.[productName];
+  if (!group) return;
+  const hasVariants = group.variants.length > 1 || !!group.variants[0]?.variant;
+  if (hasVariants) {
+    showVariantSelector(group);
   } else {
-    cart.push({ ...prod, qty: 1 });
+    const v = group.variants[0];
+    addToCart({ id: v.id, name: group.name, price: v.price, variant: v.variant || null });
   }
-
-  renderCart();
 };
 
-// ✅ Cart Rendering
-function renderCart() {
-  const cartBody = document.getElementById("cart-body");
-  if (!cartBody) return;
+/***********************
+ * Variant selector modal
+ ***********************/
+function showVariantSelector(group) {
+  if (!userHasInteracted) return;
 
-  if (cart.length === 0) {
-    cartBody.innerHTML = "<p>Your cart is empty.</p>";
+  const modal = document.getElementById("variantModal");
+  const options = document.getElementById("variantOptions");
+  const title = document.getElementById("variantTitle");
+  if (!modal || !options) return;
+
+  options.innerHTML = "";
+  if (title) {
+    title.textContent = group.variant_label
+      ? `Choose ${group.variant_label} for ${group.name}`
+      : `Choose option for ${group.name}`;
+  }
+
+  group.variants.forEach(v => {
+    const btn = document.createElement("button");
+    btn.textContent = (v.variant && v.variant.trim())
+      ? `${v.variant} — Rp${Number(v.price).toLocaleString()}`
+      : `${group.name} — Rp${Number(v.price).toLocaleString()}`;
+    btn.addEventListener("click", () => {
+      addToCart({ id: v.id, name: group.name, price: v.price, variant: v.variant || null });
+      closeModal();
+    });
+    options.appendChild(btn);
+  });
+
+  modal.classList.remove("hidden");
+}
+
+function closeModal() {
+  const modal = document.getElementById("variantModal");
+  if (modal) modal.classList.add("hidden");
+}
+
+// Always hide modal on load
+document.addEventListener("DOMContentLoaded", () => {
+  const modal = document.getElementById("variantModal");
+  if (modal) modal.classList.add("hidden");
+});
+
+/***********************
+ * Cart storage helpers (TTL only for guests/no active session)
+ ***********************/
+function restoreCartFromStorage() {
+  const saved = localStorage.getItem("cart");
+  if (!saved) return;
+
+  const savedAt = Number(localStorage.getItem("cartSavedAt") || 0);
+  const sessionStart = Number(localStorage.getItem("sessionStart") || 0);
+  const hasActiveSession = !!localStorage.getItem("currentUser") && sessionStart && (Date.now() - sessionStart < 3600000);
+
+  // Expire cart only if no active session (guest or expired)
+  if (!hasActiveSession && savedAt && Date.now() - savedAt > 3600000) {
+    localStorage.removeItem("cart");
+    localStorage.removeItem("cartSavedAt");
     return;
   }
 
-  let html = "<ul>";
-  cart.forEach(item => {
-    html += `
-      <li>
-        <span>${item.name}</span>
-        <div style="display: inline-flex; align-items: center; gap: 6px; margin-left: 10px;">
-          <button class="icon-btn" onclick="decreaseQty('${item.id}')">➖</button>
-          <span>${item.qty}</span>
-          <button class="icon-btn" onclick="increaseQty('${item.id}')">➕</button>
-        </div>
-        <span style="float: right;">Rp${(item.pos_sell_price * item.qty).toLocaleString()}</span>
-      </li>
-    `;
-  });
-  html += "</ul>";
-  html += `<strong>Total: Rp${cart.reduce((sum, i) => sum + i.pos_sell_price * i.qty, 0).toLocaleString()}</strong>`;
-  cartBody.innerHTML = html;
-}
-
-// ✅ Quantity Controls
-function increaseQty(id) {
-  const item = cart.find(i => i.id === id);
-  if (item) {
-    item.qty += 1;
-    renderCart();
+  try {
+    const parsed = JSON.parse(saved);
+    if (Array.isArray(parsed)) {
+      cart = parsed;
+      renderCart();
+    }
+  } catch (e) {
+    console.warn("Failed to parse saved cart:", e);
   }
 }
+function saveCartToStorage() {
+  localStorage.setItem("cart", JSON.stringify(cart));
+  localStorage.setItem("cartSavedAt", Date.now().toString());
+}
 
-function decreaseQty(id) {
-  const item = cart.find(i => i.id === id);
+/***********************
+ * Cart operations
+ ***********************/
+function addToCart(product) {
+  if (!product) return;
+  const key = product.variant || "default";
+  const existing = cart.find(c => c.id === product.id && (c.variant || "default") === key);
+  if (existing) existing.qty++;
+  else cart.push({ ...product, qty: 1 });
+
+  saveCartToStorage();
+  renderCart();
+  startSessionTimeout();
+  showBanner(`${product.name}${product.variant ? ` (${product.variant})` : ""} added to cart`, 2000);
+}
+
+/***********************
+ * Safe cart rendering
+ ***********************/
+function renderCart() {
+  const list = document.querySelector(".cart-list");
+  const totalEl = document.getElementById("cart-total");
+  if (!list) return;
+  list.innerHTML = "";
+  let total = 0;
+
+  cart.forEach(item => {
+    total += item.price * item.qty;
+
+    const li = document.createElement("li");
+    li.className = "cart-item";
+
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = item.name + (item.variant ? ` — ${item.variant}` : "");
+    li.appendChild(nameSpan);
+
+    const qtyWrap = document.createElement("div");
+    qtyWrap.className = "qty-adjuster";
+
+    const decBtn = document.createElement("button");
+    decBtn.className = "icon-btn dec";
+    decBtn.dataset.id = item.id;
+    decBtn.dataset.variant = item.variant || "";
+    decBtn.textContent = "−";
+    qtyWrap.appendChild(decBtn);
+
+    const qtySpan = document.createElement("span");
+    qtySpan.className = "item-qty";
+    qtySpan.textContent = item.qty;
+    qtyWrap.appendChild(qtySpan);
+
+    const incBtn = document.createElement("button");
+    incBtn.className = "icon-btn inc";
+    incBtn.dataset.id = item.id;
+    incBtn.dataset.variant = item.variant || "";
+    incBtn.textContent = "+";
+    qtyWrap.appendChild(incBtn);
+
+    li.appendChild(qtyWrap);
+
+    const priceSpan = document.createElement("span");
+    priceSpan.className = "item-price";
+    priceSpan.textContent = `Rp${(item.price * item.qty).toLocaleString()}`;
+    li.appendChild(priceSpan);
+
+    list.appendChild(li);
+  });
+
+  if (totalEl) totalEl.textContent = `Rp${total.toLocaleString()}`;
+}
+
+function increaseQty(id, variant = "") {
+  const item = cart.find(i => i.id === id && (i.variant || "") === variant);
+  if (item) {
+    item.qty += 1;
+    saveCartToStorage();
+    renderCart();
+    startSessionTimeout();
+  }
+}
+function decreaseQty(id, variant = "") {
+  const item = cart.find(i => i.id === id && (i.variant || "") === variant);
   if (item) {
     item.qty -= 1;
     if (item.qty <= 0) {
-      cart = cart.filter(i => i.id !== id);
+      cart = cart.filter(i => !(i.id === id && (i.variant || "") === variant));
     }
+    saveCartToStorage();
     renderCart();
+    startSessionTimeout();
   }
 }
-
-window.removeFromCart = function(id) {
-  cart = cart.filter(item => item.id !== id);
+function removeFromCart(id, variant = "") {
+  cart = cart.filter(item => !(item.id === id && (item.variant || "") === variant));
+  saveCartToStorage();
   renderCart();
-};
+}
 
-// ✅ Toggle Cart Visibility
+/***********************
+ * Toggle cart visibility
+ ***********************/
 function toggleCart() {
   const cartBody = document.getElementById("cart-body");
   const toggleBtn = document.getElementById("toggleCartBtn");
-
   if (cartBody && toggleBtn) {
     const isHidden = cartBody.classList.contains("hidden");
     cartBody.classList.toggle("hidden");
@@ -282,63 +440,84 @@ function toggleCart() {
   }
 }
 
-// ✅ Checkout Flow
+/***********************
+ * Checkout flow
+ ***********************/
 const checkoutBtn = document.getElementById("checkoutBtn");
 if (checkoutBtn) {
-  checkoutBtn.onclick = async () => {
+  checkoutBtn.addEventListener("click", async () => {
     if (cart.length === 0) {
-      alert("Your cart is empty!");
+      showBanner("Your cart is empty", 3000);
       return;
     }
-
     if (currentUser?.phoneNumber && !currentUser?.tier) {
       await fetchMemberTier(currentUser.phoneNumber);
     }
+    const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+    const discountRate = currentUser?.discountRate || 0;
+    const discount = subtotal * discountRate;
+    const taxRate = typeof currentUser?.taxRate === "number" ? currentUser.taxRate : 0.10;
+    const tax = (subtotal - discount) * taxRate;
+    const total = Math.round((subtotal - discount + tax) / 100) * 100;
 
-    const subtotal = cart.reduce((sum, i) => sum + i.pos_sell_price * i.qty, 0);
-    const discount = currentUser?.discountRate ? subtotal * currentUser.discountRate : 0;
-    const tax = (subtotal - discount) * 0.10;
-    const total = (Math.round((subtotal - discount + tax) / 100) * 100).toFixed(2);
+    const items = cart.map(i => ({
+      name: i.name + (i.variant ? ` (${i.variant})` : ""),
+      qty: i.qty
+    }));
 
     const query = new URLSearchParams({
-      subtotal,
-      discount,
-      tax,
-      total,
+      subtotal: String(subtotal),
+      discount: String(discount),
+      tax: String(tax),
+      total: String(total),
       table: tableNumber,
       guestName: currentUser?.displayName || "Guest",
-      items: encodeURIComponent(JSON.stringify(cart.map(i => ({
-        name: i.name,
-        qty: i.qty
-      })))),
+      items: JSON.stringify(items)
     }).toString();
 
     window.location.href = `summary.html?${query}`;
-  };
+  });
 }
 
-// ✅ Scoped logic for staff.html
+/***********************
+ * Staff page scoped logic
+ ***********************/
 if (document.body.classList.contains("staff")) {
   const messaging = firebase.messaging();
+  const vapidKey = "BB46kklO696abLSqlK13UKbJh5zCJR-ZCjNa4j4NE08X7JOSJM_IpsJIjsLck4Aqx9QEnQ6Rid4gjLhk1cNjd2w";
 
   navigator.serviceWorker.register("/firebase-messaging-sw.js")
     .then(reg => console.log("✅ Service Worker registered:", reg))
     .catch(err => console.error("❌ SW registration failed:", err));
 
-  Notification.requestPermission().then(permission => {
-    if (permission === "granted") {
-      const vapidKey = "BB46kklO696abLSqlK13UKbJh5zCJR-ZCjNa4j4NE08X7JOSJM_IpsJIjsLck4Aqx9QEnQ6Rid4gjLhk1cNjd2w";
-      navigator.serviceWorker.ready.then(registration => {
-        messaging.getToken({ vapidKey, serviceWorkerRegistration: registration })
-          .then(token => console.log("📲 FCM Token:", token))
-          .catch(err => console.error("❌ Token fetch error:", err));
+  // Auto-fetch token if already granted
+  if (Notification.permission === "granted") {
+    navigator.serviceWorker.ready.then(registration => {
+      messaging.getToken({ vapidKey, serviceWorkerRegistration: registration })
+        .then(token => console.log("📲 FCM Token:", token))
+        .catch(err => console.error("❌ Token fetch error:", err));
+    });
+  }
+
+  // Gate notification request behind a button
+  const notifBtn = document.getElementById("enableNotifications");
+  if (notifBtn) {
+    notifBtn.addEventListener("click", () => {
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          navigator.serviceWorker.ready.then(registration => {
+            messaging.getToken({ vapidKey, serviceWorkerRegistration: registration })
+              .then(token => console.log("📲 FCM Token:", token))
+              .catch(err => console.error("❌ Token fetch error:", err));
+          });
+        } else if (Notification.permission === "denied") {
+          alert("🔕 Notifications are blocked. Please enable them in browser settings.");
+        } else {
+          console.warn("🔕 Notification permission denied");
+        }
       });
-    } else if (Notification.permission === "denied") {
-      alert("🔕 Notifications are blocked. Please enable them in browser settings.");
-    } else {
-      console.warn("🔕 Notification permission denied");
-    }
-  });
+    });
+  }
 
   messaging.onMessage(payload => {
     const { title, body } = payload.notification || {};
@@ -361,161 +540,275 @@ if (document.body.classList.contains("staff")) {
   });
 }
 
-// ✅ Order Filtering Logic
+/***********************
+ * Order filtering + listen by date (staff)
+ ***********************/
 let currentFilter = "all";
-
 function filterOrders(status) {
   currentFilter = status;
-
   document.querySelectorAll(".order").forEach(el => {
     const orderStatus = (el.dataset.status || "").toLowerCase();
-    el.style.display = (status === "all" || orderStatus === status) ? "block" : "none";
+    el.style.display = (status === "all" || orderStatus === status) ? "" : "none";
   });
 }
-
 window.filterOrders = filterOrders;
 
-// ✅ Listen for Orders by Date
 function listenForOrders(selectedDate) {
+  // Stop any existing listener before starting a new one
+  if (typeof unsubscribeOrders === "function") {
+    unsubscribeOrders();
+    unsubscribeOrders = null;
+  }
   const ordersContainer = document.getElementById("orderList");
   if (!ordersContainer) return;
 
   console.log("📅 Listening for orders on:", selectedDate);
-db.collection("orders")
-  .where("date", "==", selectedDate)
-  .orderBy("timestamp", "desc")
-  .onSnapshot(snapshot => {
-    console.log("📡 Snapshot received:", snapshot.size);
-    if (snapshot.empty) {
-      console.warn("⚠️ No orders found for", selectedDate);
-    }
-    // ...rest of your rendering logic
+  ordersFirstSnapshot = true;
+
+  unsubscribeOrders = db.collection("orders")
+    .where("date", "==", selectedDate)
+    .orderBy("timestamp", "desc")
+    .onSnapshot(snapshot => {
       ordersContainer.innerHTML = "";
 
-      snapshot.forEach(doc => {
-        const order = doc.data();
-        const rawStatus = order.status || "pending";
+      snapshot.forEach(docSnap => {
+        const order = docSnap.data();
+        const rawStatus = (order.status || "pending").toLowerCase();
         const normalizedStatus = ["pending", "preparing"].includes(rawStatus) ? "incoming" : rawStatus;
 
         const div = document.createElement("div");
         div.className = "order";
-        div.setAttribute("data-status", normalizedStatus);
+        div.dataset.status = normalizedStatus;
 
-        // ✅ Format timestamp
-        const time = order.timestamp?.toDate().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' });
+        const time = order.timestamp?.toDate().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' }) || "—";
         const date = order.date || "—";
 
-        // ✅ Render item list
-        const itemList = order.items.map(i => `<li>${i.qty} × ${i.name}</li>`).join("");
+        // Table line
+        const tableLine = document.createElement("div");
+        const tableStrong = document.createElement("strong");
+        tableStrong.textContent = `Table ${order.table}`;
+        tableLine.appendChild(tableStrong);
+        tableLine.appendChild(document.createTextNode(` - ${(order.items || []).length} items`));
+        div.appendChild(tableLine);
 
-        div.innerHTML = `
-          <div><strong>Table ${order.table}</strong> - ${order.items.length} items</div>
-          <div class="status">${rawStatus}</div>
-          <div><strong>Name:</strong> ${order.guestName || "—"}</div>
-          <div><strong>Time:</strong> ${time || "—"} | <strong>Date:</strong> ${date}</div>
-          <ul style="margin-top: 6px; padding-left: 16px;">${itemList}</ul>
-        `;
+        // Status line
+        const statusLine = document.createElement("div");
+        statusLine.className = "status";
+        statusLine.textContent = rawStatus;
+        div.appendChild(statusLine);
 
-        // ✅ Minimalistic status buttons
+        // Name line
+        const nameLine = document.createElement("div");
+        const nameStrong = document.createElement("strong");
+        nameStrong.textContent = "Name:";
+        nameLine.appendChild(nameStrong);
+        nameLine.appendChild(document.createTextNode(` ${order.guestName || "—"}`));
+        div.appendChild(nameLine);
+
+        // Time/Date line
+        const timeLine = document.createElement("div");
+        const timeStrong = document.createElement("strong");
+        timeStrong.textContent = "Time:";
+        timeLine.appendChild(timeStrong);
+        timeLine.appendChild(document.createTextNode(` ${time} | `));
+        const dateStrong = document.createElement("strong");
+        dateStrong.textContent = "Date:";
+        timeLine.appendChild(dateStrong);
+        timeLine.appendChild(document.createTextNode(` ${date}`));
+        div.appendChild(timeLine);
+
+        // Items
+        if (order.items?.length) {
+          const ul = document.createElement("ul");
+          ul.style.marginTop = "6px";
+          ul.style.paddingLeft = "16px";
+          order.items.forEach(i => {
+            const li = document.createElement("li");
+            li.textContent = `${i.qty} × ${i.name}`;
+            ul.appendChild(li);
+          });
+          div.appendChild(ul);
+        }
+
+        // Status controls
         const statusControls = document.createElement("div");
         statusControls.className = "status-controls";
-
         ["preparing", "served", "cancelled"].forEach(newStatus => {
           const btn = document.createElement("button");
           btn.textContent = newStatus;
           btn.className = "btn minimal";
-          btn.onclick = async () => {
+          btn.addEventListener("click", async () => {
             try {
-              await db.collection("orders").doc(doc.id).update({ status: newStatus });
-              console.log(`✅ Order ${doc.id} updated to ${newStatus}`);
+              await db.collection("orders").doc(docSnap.id).update({ status: newStatus });
+              console.log(`✅ Order ${docSnap.id} updated to ${newStatus}`);
             } catch (err) {
               console.error("❌ Failed to update status:", err);
               alert("Failed to update order status.");
             }
-          };
+          });
           statusControls.appendChild(btn);
         });
-
         div.appendChild(statusControls);
+
         ordersContainer.appendChild(div);
-
-        if (normalizedStatus === "incoming" && userHasInteracted) {
-  const audio = document.getElementById("newOrderSound");
-  if (audio) {
-    audio.pause();              // Reset any previous playback
-    audio.currentTime = 0;      // Start from beginning
-    audio.volume = 0.8;         // Optional: set volume
-
-    audio.play().catch(err => {
-      console.warn("🔇 Sound blocked:", err);
-      console.log("User interaction status:", userHasInteracted);
-    });
-  } else {
-    console.warn("🎧 Audio element not found");
-  }
-}
       });
+
+      // Chime only for newly added incoming docs, not on the first snapshot
+      const newIncoming = snapshot.docChanges().some(
+        change =>
+          change.type === "added" &&
+          ["pending", "preparing"].includes((change.doc.data().status || "").toLowerCase())
+      );
+      if (!ordersFirstSnapshot && newIncoming && userHasInteracted) {
+        const audio = document.getElementById("newOrderSound");
+        if (audio) {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = 0.8;
+          audio.play().catch(err => console.warn("🔇 Sound blocked:", err));
+        }
+      }
+      ordersFirstSnapshot = false;
 
       filterOrders(currentFilter);
     });
 }
 
-// ✅ DOM Ready for Staff Page
+/***********************
+ * Staff DOM bootstrap
+ ***********************/
 document.addEventListener("DOMContentLoaded", () => {
-  const savedUser = localStorage.getItem("currentUser");
-  const sessionStart = localStorage.getItem("sessionStart");
-
-  if (savedUser && sessionStart) {
-    const elapsed = Date.now() - Number(sessionStart);
-    if (elapsed < 3600000) {
-      currentUser = JSON.parse(savedUser);
-      const userStatus = document.getElementById("userStatus");
-      if (userStatus) userStatus.textContent = currentUser.displayName;
-      startSessionTimeout();
-    } else {
-      localStorage.removeItem("currentUser");
-      localStorage.removeItem("sessionStart");
-      alert("Session expired. Please sign in again.");
-    }
-  }
-
-  const tableInfo = document.getElementById("tableInfo");
-  if (tableInfo) tableInfo.textContent = `Table ${tableNumber}`;
-
-  renderProducts(); // ✅ Already present
-
-  // ✅ Add this block to activate order listener
   const dateInput = document.getElementById("orderDate");
   if (dateInput) {
     const today = new Date().toISOString().split("T")[0];
     dateInput.value = today;
     listenForOrders(today);
     filterOrders("incoming");
-
-    dateInput.onchange = () => {
+    dateInput.addEventListener("change", () => {
       listenForOrders(dateInput.value);
       filterOrders("incoming");
-    };
-  } else {
-    console.warn("⚠️ No #orderDate input found — listener not triggered");
+    });
   }
 });
 
-// ✅ PWA Install Fallback
-let deferredPrompt;
-window.addEventListener("beforeinstallprompt", e => {
-  e.preventDefault();
-  deferredPrompt = e;
-  const installBtn = document.getElementById("installBtn");
-  if (installBtn) {
-    installBtn.style.display = "block";
-    installBtn.onclick = () => {
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then(choice => {
-        console.log(choice.outcome === "accepted" ? "📲 PWA installed" : "🚫 PWA install dismissed");
-        deferredPrompt = null;
-        installBtn.style.display = "none";
-      });
-    };
+/***********************
+ * Customer DOM bootstrap
+ ***********************/
+document.addEventListener("DOMContentLoaded", () => {
+  // Ensure banner exists
+  if (!document.getElementById("banner")) {
+    const banner = document.createElement("div");
+    banner.id = "banner";
+    banner.className = "banner hidden";
+    document.body.appendChild(banner);
   }
+
+  // Restore session + cart
+  const savedUser = localStorage.getItem("currentUser");
+  const sessionStart = localStorage.getItem("sessionStart");
+  if (savedUser && sessionStart) {
+    const elapsed = Date.now() - Number(sessionStart);
+    if (elapsed < 3600000) {
+      currentUser = JSON.parse(savedUser);
+      const userStatus = document.getElementById("userStatus");
+      if (userStatus) userStatus.textContent = currentUser.displayName || "Guest";
+      startSessionTimeout();
+    } else {
+      localStorage.removeItem("currentUser");
+      localStorage.removeItem("sessionStart");
+      localStorage.removeItem("cart");
+      localStorage.removeItem("cartSavedAt");
+      showBanner("Session expired. Please sign in again.", 5000);
+    }
+  }
+  restoreCartFromStorage();
+
+  // Set table label
+  const tableInfo = document.getElementById("tableInfo");
+  if (tableInfo) tableInfo.textContent = `Table ${tableNumber}`;
+
+  // Sign-in flow
+  const signInBtn = document.getElementById("signInBtn");
+  if (signInBtn) {
+    signInBtn.addEventListener("click", async () => {
+      const input = prompt("Enter your phone number (e.g. 081234567890):");
+      if (!input) return;
+      const phone = input
+        .replace(/[^\d+]/g, "")   // keep digits and '+'
+        .replace(/^\+?62/, "0")   // +62… or 62… -> 0…
+        .replace(/^0+/, "0");     // collapse leading zeros
+      try {
+        const snapshot = await db.collection("members").where("phone", "==", phone).limit(1).get();
+        if (snapshot.empty) {
+          showBanner("Phone number not found. Please check and try again.", 4000);
+          return;
+        }
+        const member = snapshot.docs[0].data();
+        currentUser = {
+          phoneNumber: phone,
+          tier: member.tier,
+          discountRate: member.discountRate ?? getDiscountByTier(member.tier),
+          taxRate: member.taxRate ?? 0.10,
+          displayName: member.name || "Guest"
+        };
+        localStorage.setItem("currentUser", JSON.stringify(currentUser));
+        localStorage.setItem("sessionStart", Date.now().toString());
+        const userStatus = document.getElementById("userStatus");
+        if (userStatus) userStatus.textContent = currentUser.displayName;
+        startSessionTimeout();
+        showBanner(`Signed in as ${currentUser.displayName}`, 3000);
+      } catch (error) {
+        console.error("Sign-in error:", error);
+        showBanner("Failed to sign in. Please try again.", 4000);
+      }
+    });
+  }
+
+  // Bind modal close
+  const modal = document.getElementById("variantModal");
+  function bindModalCloseHandlers() {
+    setTimeout(() => {
+      const cancelBtn = document.getElementById("cancelVariant");
+      if (cancelBtn) cancelBtn.addEventListener("click", closeModal);
+    }, 100);
+    if (modal) {
+      modal.addEventListener("click", e => {
+        if (e.target === modal) closeModal();
+      });
+    }
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") closeModal();
+    });
+  }
+  bindModalCloseHandlers();
+
+  // Product list: attach delegation for add-to-cart
+  const productList = document.getElementById("productList");
+  if (productList) {
+    productList.addEventListener("click", e => {
+      const t = e.target;
+      if (t.classList && t.classList.contains("add-to-cart")) {
+        const productName = t.dataset.productName;
+        if (productName) window.handleAddToCartByName(productName);
+      }
+    });
+    renderProducts();
+  }
+
+  // Cart list: attach delegation for qty controls (scoped)
+  const cartList = document.querySelector(".cart-list");
+  if (cartList) {
+    cartList.addEventListener("click", e => {
+      const t = e.target;
+      if (!t.classList) return;
+      if (t.classList.contains("inc")) {
+        increaseQty(t.dataset.id, t.dataset.variant || "");
+      } else if (t.classList.contains("dec")) {
+        decreaseQty(t.dataset.id, t.dataset.variant || "");
+      }
+    });
+  }
+
+  // Initial cart render
+  renderCart();
 });

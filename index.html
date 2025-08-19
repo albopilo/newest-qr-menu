@@ -1,39 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>13e Café Mobile POS</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>13e Café – Order</title>
   <link rel="stylesheet" href="style.css" />
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="app.js" defer></script>
-  
 </head>
 <body>
+
+  <!-- Header -->
   <header>
-    <h2>🛒 13e Café</h2>
-    <div id="tableInfo"></div>
-    <span id="userStatus">Guest</span>
+    <h2>13e Café</h2>
     <button id="signInBtn">Sign In</button>
-<div id="recaptcha-container" style="display: none;"></div>
   </header>
+
+  <!-- Category Tabs -->
+  <div id="categoryTabsContainer">
+    <div id="categoryTabs">
+      <!-- Category buttons will be dynamically rendered -->
+    </div>
+  </div>
+
+  <!-- Product List -->
   <main>
-<div id="categoryTabsContainer">
-  <div id="categoryTabs"></div>
-</div>
     <div id="productList"></div>
-    <section id="productList"></section>
-<div id="cart-container">
-  <button id="toggleCartBtn" onclick="toggleCart()">🛒</button>
-  <div id="cart-body">
-    <ul id="cart-list"></ul>
-  </div>
-  <div id="cart-footer">
-    <button id="checkoutBtn">Checkout</button>
-  </div>
-</div>
-   
   </main>
+
+  <!-- Variant Modal -->
+  <div id="variantModal" class="hidden">
+    <div class="modal-content">
+      <h3>Select a Variant</h3>
+      <div id="variantOptions"></div>
+      <button id="cancelVariant">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Cart -->
+  <div id="cart-container">
+    <div id="cart-header">Your Cart</div>
+    <div id="cart-body">
+      <ul class="cart-list"></ul>
+      <div id="cart-summary">
+        <p><strong>Total:</strong> <span id="cart-total">Rp 0</span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Checkout -->
+  <button id="checkoutBtn">Checkout</button>
+
+  <!-- Banner for notifications -->
+  <div id="banner" class="banner hidden"></div>
+
+  <!-- Optional Categories -->
+  <section id="categories">
+    <!-- Category buttons get injected here if category filtering is implemented -->
+  </section>
+
+  <!-- Optional Footer -->
+  <footer style="padding:1em; text-align:center; font-size:0.85em; color:#777;">
+    <p>© 2025 13e Café. All rights reserved.</p>
+    <p><a href="/privacy.html">Privacy Policy</a> | <a href="/terms.html">Terms</a></p>
+  </footer>
+
+<!-- Firebase Core -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+
+<!-- Firebase services you use -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
+
+<!-- Then your app -->
+<script src="app.js"></script>
 </body>
 </html>
