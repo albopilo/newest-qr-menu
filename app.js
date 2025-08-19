@@ -17,7 +17,7 @@ const db = firebase.firestore();
  * Globals
  ***********************/
 let userHasInteracted = false;
-["pointerdown", "keydown"].forEach(evt =>
+["pointerdown", "click", "keydown", "touchstart"].forEach(evt =>
   window.addEventListener(evt, () => { userHasInteracted = true; }, { once: true })
 );
 
@@ -559,11 +559,16 @@ function listenForOrders(selectedDate) {
     unsubscribeOrders();
     unsubscribeOrders = null;
   }
+
   const ordersContainer = document.getElementById("orderList");
   if (!ordersContainer) return;
 
   console.log("📅 Listening for orders on:", selectedDate);
-  ordersFirstSnapshot = true;
+
+  // Track last known status to detect transitions into incoming
+  const prevStatuses = new Map();
+  const INCOMING_STATUSES = ["pending", "preparing", "incoming"];
+  let initialProcessed = false;
 
   unsubscribeOrders = db.collection("orders")
     .where("date", "==", selectedDate)
@@ -571,10 +576,11 @@ function listenForOrders(selectedDate) {
     .onSnapshot(snapshot => {
       ordersContainer.innerHTML = "";
 
+      // Render orders
       snapshot.forEach(docSnap => {
         const order = docSnap.data();
         const rawStatus = (order.status || "pending").toLowerCase();
-        const normalizedStatus = ["pending", "preparing"].includes(rawStatus) ? "incoming" : rawStatus;
+        const normalizedStatus = INCOMING_STATUSES.includes(rawStatus) ? "incoming" : rawStatus;
 
         const div = document.createElement("div");
         div.className = "order";
@@ -583,7 +589,6 @@ function listenForOrders(selectedDate) {
         const time = order.timestamp?.toDate().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' }) || "—";
         const date = order.date || "—";
 
-        // Table line
         const tableLine = document.createElement("div");
         const tableStrong = document.createElement("strong");
         tableStrong.textContent = `Table ${order.table}`;
@@ -591,13 +596,11 @@ function listenForOrders(selectedDate) {
         tableLine.appendChild(document.createTextNode(` - ${(order.items || []).length} items`));
         div.appendChild(tableLine);
 
-        // Status line
         const statusLine = document.createElement("div");
         statusLine.className = "status";
         statusLine.textContent = rawStatus;
         div.appendChild(statusLine);
 
-        // Name line
         const nameLine = document.createElement("div");
         const nameStrong = document.createElement("strong");
         nameStrong.textContent = "Name:";
@@ -605,7 +608,6 @@ function listenForOrders(selectedDate) {
         nameLine.appendChild(document.createTextNode(` ${order.guestName || "—"}`));
         div.appendChild(nameLine);
 
-        // Time/Date line
         const timeLine = document.createElement("div");
         const timeStrong = document.createElement("strong");
         timeStrong.textContent = "Time:";
@@ -617,7 +619,6 @@ function listenForOrders(selectedDate) {
         timeLine.appendChild(document.createTextNode(` ${date}`));
         div.appendChild(timeLine);
 
-        // Items
         if (order.items?.length) {
           const ul = document.createElement("ul");
           ul.style.marginTop = "6px";
@@ -630,7 +631,6 @@ function listenForOrders(selectedDate) {
           div.appendChild(ul);
         }
 
-        // Status controls
         const statusControls = document.createElement("div");
         statusControls.className = "status-controls";
         ["preparing", "served", "cancelled"].forEach(newStatus => {
@@ -653,26 +653,98 @@ function listenForOrders(selectedDate) {
         ordersContainer.appendChild(div);
       });
 
-      // Chime only for newly added incoming docs, not on the first snapshot
-      const newIncoming = snapshot.docChanges().some(
-        change =>
-          change.type === "added" &&
-          ["pending", "preparing"].includes((change.doc.data().status || "").toLowerCase())
-      );
-      if (!ordersFirstSnapshot && newIncoming && userHasInteracted) {
+      // Debug: show incoming changes
+      const changes = snapshot.docChanges();
+      if (changes.length) {
+        console.groupCollapsed(`Δ ${changes.length} change(s)`);
+        changes.forEach(ch => {
+          const s = (ch.doc.data().status || "").toLowerCase();
+          console.log(ch.type, ch.doc.id, "status:", s);
+        });
+        console.groupEnd();
+      }
+
+      // Decide whether to chime
+      let shouldChime = false;
+
+      if (!initialProcessed) {
+        // First snapshot: chime if there is any incoming order already present
+        const hasIncoming = snapshot.docs.some(d =>
+          INCOMING_STATUSES.includes((d.data().status || "").toLowerCase())
+        );
+        shouldChime = hasIncoming;
+        initialProcessed = true;
+      } else {
+        // Subsequent snapshots: chime for new docs that are incoming or docs that became incoming
+        changes.forEach(change => {
+          const now = (change.doc.data().status || "").toLowerCase();
+          if (!INCOMING_STATUSES.includes(now)) return;
+
+          if (change.type === "added") {
+            shouldChime = true;
+          } else if (change.type === "modified") {
+            const before = prevStatuses.get(change.doc.id);
+            if (!INCOMING_STATUSES.includes(before)) shouldChime = true;
+          }
+        });
+      }
+
+      console.log("New incoming order?", shouldChime);
+
+      if (shouldChime) {
         const audio = document.getElementById("newOrderSound");
         if (audio) {
           audio.pause();
           audio.currentTime = 0;
           audio.volume = 0.8;
-          audio.play().catch(err => console.warn("🔇 Sound blocked:", err));
+          audio.play()
+            .then(() => console.log("🔔 Chime played"))
+            .catch(err => console.warn("🔇 Sound blocked:", err));
         }
       }
-      ordersFirstSnapshot = false;
+
+      // Update prevStatuses AFTER detection to compare against the previous state next time
+      snapshot.forEach(docSnap => {
+        prevStatuses.set(docSnap.id, (docSnap.data().status || "").toLowerCase());
+      });
 
       filterOrders(currentFilter);
     });
 }
+
+let audioUnlocked = false;
+function unlockAudioOnce() {
+  if (audioUnlocked) return;
+  const audio = document.getElementById("newOrderSound");
+  if (audio) {
+    audio.muted = true;
+    audio.play().then(() => {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false;
+      audioUnlocked = true;
+      console.log("🎯 Audio unlocked by gesture");
+    }).catch(err => {
+      console.warn("🔇 Unlock failed:", err);
+    });
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const audio = document.getElementById("newOrderSound");
+  if (audio) {
+    // Try to autoplay muted right away
+    audio.muted = true;
+    audio.play().then(() => {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false; // unmute for real use
+      console.log("🎯 Audio primed at load — ready for chimes");
+    }).catch(err => {
+      console.warn("🔇 Auto‑prime failed:", err);
+    });
+  }
+});
 
 /***********************
  * Staff DOM bootstrap
