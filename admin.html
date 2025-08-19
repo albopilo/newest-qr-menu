@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>13e Café — Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
+
+  <style>
+    body.admin { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: #f9fafb; color: #111827; margin: 0; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    .hidden { display: none !important; }
+    .banner { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; background: #111827; color: #fff; padding: 10px 14px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.15); z-index: 9999; }
+    .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0 16px; }
+    .toolbar .spacer { flex: 1; }
+    .btn { padding: 8px 12px; border: 1px solid #e5e7eb; background: #fff; border-radius: 6px; cursor: pointer; }
+    .btn.primary { background: #111827; color: #fff; border-color: #111827; }
+    .btn.danger { background: #dc2626; color: #fff; border-color: #dc2626; }
+    .btn.minimal { background: #fff; color: #111827; border: 1px solid #e5e7eb; }
+    input[type="text"], input[type="email"], input[type="password"], input[type="number"], select, textarea {
+      width: 100%; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff;
+    }
+    .grid { display: grid; grid-template-columns: 2.2fr 1.6fr 1fr 1.2fr 0.8fr 1.4fr; gap: 8px; align-items: center; }
+    .grid.header { font-weight: 600; color: #374151; }
+    .row { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; }
+    .muted { color: #6b7280; font-size: 12px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #f3f4f6; font-size: 12px; color: #374151; }
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 10000; }
+    .modal-card { background: #fff; border-radius: 12px; width: min(680px, 100%); padding: 16px; border: 1px solid #e5e7eb; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+    .section { margin: 12px 0; }
+    .small { font-size: 12px; color: #6b7280; }
+    .thumb { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; border: 1px solid #e5e7eb; margin-right: 8px; }
+    .nameCell { display: flex; align-items: center; gap: 8px; }
+  </style>
+</head>
+<body class="admin">
+  <div id="banner" class="banner hidden"></div>
+
+  <div class="container">
+    <h2>Admin — Product Management</h2>
+
+    <!-- Login -->
+    <section id="loginSection">
+      <div class="section">
+        <label class="small">Administrator email</label>
+        <input type="email" id="adminEmail" placeholder="email@yourdomain.com" autocomplete="username">
+      </div>
+      <div class="section">
+        <label class="small">Password</label>
+        <input type="password" id="adminPass" placeholder="Password" autocomplete="current-password">
+      </div>
+      <div class="toolbar">
+        <button id="loginBtn" class="btn primary">Login</button>
+      </div>
+      <p class="muted">Access restricted. Only accounts listed in Firestore collection “admins” can enter.</p>
+    </section>
+
+    <!-- Admin panel -->
+    <section id="adminPanel" class="hidden">
+      <div class="toolbar">
+        <button id="addProductBtn" class="btn primary">Add product</button>
+        <button id="bulkAddBtn" class="btn">Bulk add variants</button>
+        <button id="invalidateCacheBtn" class="btn">Invalidate menu cache</button>
+        <span class="spacer"></span>
+        <input type="text" id="searchInput" placeholder="Search name, variant, category">
+        <button id="logoutBtn" class="btn danger">Logout</button>
+      </div>
+
+      <div class="grid header" style="margin-bottom: 8px;">
+        <div>Name</div>
+        <div>Variant</div>
+        <div>Price</div>
+        <div>Category</div>
+        <div>Hidden</div>
+        <div>Actions</div>
+      </div>
+      <div id="productList"></div>
+      <p id="listStatus" class="muted" style="margin-top: 10px;"></p>
+    </section>
+  </div>
+
+  <!-- Add/Edit modal -->
+  <div id="adminModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3 id="modalTitle">New product</h3>
+
+      <div class="section">
+        <label class="small">Name</label>
+        <input type="text" id="fieldName" placeholder="E.g., Iced Latte">
+      </div>
+
+      <div class="section">
+        <label class="small">Category</label>
+        <input type="text" id="fieldCategory" placeholder="E.g., Coffee">
+      </div>
+
+      <div class="section">
+        <label class="small">Variant label (optional)</label>
+        <input type="text" id="fieldVariantLabel" placeholder="E.g., Size or Sauce">
+      </div>
+
+      <div class="section">
+        <label class="small">Variant name (saved to variant_names)</label>
+        <input type="text" id="fieldVariant" placeholder="E.g., Large or Spicy">
+        <p class="muted">This editor uses one document per variant. If empty, this product is a single-variant item.</p>
+      </div>
+
+      <div class="section">
+        <label class="small">Price (pos_sell_price)</label>
+        <input type="number" id="fieldPrice" min="0" step="100" placeholder="e.g., 25000">
+        <p class="muted">We sync price and pos_sell_price for safety; menu uses pos_sell_price first.</p>
+      </div>
+
+      <div class="section">
+        <label class="small">Hidden</label>
+        <select id="fieldHidden">
+          <option value="0">Visible (0)</option>
+          <option value="1">Hidden (1)</option>
+        </select>
+      </div>
+
+      <div class="section">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+          <button type="button" id="togglePhotos" class="btn">Edit photos</button>
+          <img id="photoPreview" class="thumb hidden" alt="Preview">
+        </div>
+        <div id="photoFields" class="hidden">
+          <label class="small">Photo 1 URL</label>
+          <input type="text" id="photo_1">
+          <label class="small">Photo 2 URL</label>
+          <input type="text" id="photo_2">
+          <label class="small">Photo 3 URL</label>
+          <input type="text" id="photo_3">
+          <label class="small">Photo 4 URL</label>
+          <input type="text" id="photo_4">
+          <label class="small">Photo 5 URL</label>
+          <input type="text" id="photo_5">
+          <label class="small">Photo 6 URL</label>
+          <input type="text" id="photo_6">
+          <label class="small">Photo 7 URL</label>
+          <input type="text" id="photo_7">
+          <label class="small">Photo 8 URL</label>
+          <input type="text" id="photo_8">
+          <label class="small">Photo 9 URL</label>
+          <input type="text" id="photo_9">
+          <label class="small">Photo 10 URL</label>
+          <input type="text" id="photo_10">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="saveBtn" class="btn primary">Save</button>
+        <button id="cancelBtn" class="btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk add modal -->
+  <div id="bulkModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3>Bulk add variants</h3>
+
+      <div class="section">
+        <label class="small">Name</label>
+        <input type="text" id="bulkName" placeholder="E.g., Iced Latte">
+      </div>
+
+      <div class="section">
+        <label class="small">Category</label>
+        <input type="text" id="bulkCategory" placeholder="E.g., Coffee">
+      </div>
+
+      <div class="section">
+        <label class="small">Variant label (optional)</label>
+        <input type="text" id="bulkVariantLabel" placeholder="E.g., Size">
+      </div>
+
+      <div class="section">
+        <label class="small">Variants — one per line. Format: Variant Name | Price</label>
+        <textarea id="bulkVariants" rows="8" placeholder="Small | 18000
+Medium | 22000
+Large | 25000"></textarea>
+      </div>
+
+      <div class="section">
+        <label class="small">Hidden</label>
+        <select id="bulkHidden">
+          <option value="0">Visible (0)</option>
+          <option value="1">Hidden (1)</option>
+        </select>
+      </div>
+
+      <div class="modal-actions">
+        <button id="bulkSaveBtn" class="btn primary">Create</button>
+        <button id="bulkCancelBtn" class="btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+  <!-- Admin logic -->
+  <script src="admin.js"></script>
+</body>
+</html>
