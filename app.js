@@ -651,10 +651,54 @@ function filterOrders(status) {
   currentFilter = status;
   document.querySelectorAll(".order").forEach(el => {
     const orderStatus = (el.dataset.status || "").toLowerCase();
-    el.style.display = (status === "all" || orderStatus === status) ? "" : "none";
+    const isIncoming = status === "incoming" && ["pending", "preparing"].includes(orderStatus);
+    el.style.display = (status === "all" || isIncoming || orderStatus === status) ? "" : "none";
   });
 }
 window.filterOrders = filterOrders;
+
+/***********************
+ * Persistent chime repeater
+ ***********************/
+let chimeRepeatTimer = null;
+let repeatOrderIds = new Set();
+
+function startRepeatingChimes() {
+  if (chimeRepeatTimer) return; // already running
+  chimeRepeatTimer = setInterval(() => {
+    if (repeatOrderIds.size > 0) {
+      console.log("🔁 Repeating chime for pending orders:", [...repeatOrderIds]);
+      AudioChime.requestChime();
+    }
+  }, 7000); // 7 sec as midpoint between 5–10s
+}
+
+function stopRepeatingChimes() {
+  if (chimeRepeatTimer) {
+    clearInterval(chimeRepeatTimer);
+    chimeRepeatTimer = null;
+  }
+  repeatOrderIds.clear();
+}
+
+// Place this once (e.g., above listenForOrders)
+function styleOrderBox(el, status) {
+  const s = (status || "").toLowerCase();
+  const palette = {
+    pending:   { bg: "#ffffff", border: "#e5e7eb", text: "#111827" }, // white
+    preparing: { bg: "#fff7ed", border: "#f59e0b", text: "#7c2d12" }, // amber-50
+    served:    { bg: "#ecfdf5", border: "#10b981", text: "#064e3b" }, // green-50
+    cancelled: { bg: "#f3f4f6", border: "#9ca3af", text: "#374151" }, // gray-100
+    default:   { bg: "#f9fafb", border: "#e5e7eb", text: "#111827" }
+  };
+  const c = palette[s] || palette.default;
+  el.style.backgroundColor = c.bg;
+  el.style.border = `1px solid ${c.border}`;
+  el.style.borderRadius = "8px";
+  el.style.padding = "10px";
+  el.style.marginBottom = "10px";
+  el.style.color = c.text;
+}
 
 function listenForOrders(selectedDate) {
   // Stop any existing listener before starting a new one
@@ -668,9 +712,9 @@ function listenForOrders(selectedDate) {
 
   console.log("📅 Listening for orders on:", selectedDate);
 
-  // Track last known status to detect transitions into incoming
+  // Track last known status to detect transitions into pending
   const prevStatuses = new Map();
-  const INCOMING_STATUSES = ["pending", "preparing", "incoming"];
+  const INCOMING_STATUSES = ["pending"]; // chime strictly for pending
   let initialProcessed = false;
 
   unsubscribeOrders = db.collection("orders")
@@ -683,11 +727,11 @@ function listenForOrders(selectedDate) {
       snapshot.forEach(docSnap => {
         const order = docSnap.data();
         const rawStatus = (order.status || "pending").toLowerCase();
-        const normalizedStatus = INCOMING_STATUSES.includes(rawStatus) ? "incoming" : rawStatus;
 
         const div = document.createElement("div");
         div.className = "order";
-        div.dataset.status = normalizedStatus;
+div.dataset.status = rawStatus === "pending" ? "incoming" : rawStatus;
+        styleOrderBox(div, rawStatus);
 
         const time = order.timestamp?.toDate().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' }) || "—";
         const date = order.date || "—";
@@ -756,7 +800,7 @@ function listenForOrders(selectedDate) {
         ordersContainer.appendChild(div);
       });
 
-      // Debug: log changes
+      // Compute and log changes (once)
       const changes = snapshot.docChanges();
       if (changes.length) {
         console.groupCollapsed(`Δ ${changes.length} change(s)`);
@@ -767,18 +811,43 @@ function listenForOrders(selectedDate) {
         console.groupEnd();
       }
 
+      // Maintain the "pending" set for repeating chimes (every ~7s elsewhere)
+      repeatOrderIds.clear();
+      snapshot.forEach(docSnap => {
+        const s = (docSnap.data().status || "").toLowerCase();
+        if (INCOMING_STATUSES.includes(s)) repeatOrderIds.add(docSnap.id);
+      });
+      if (repeatOrderIds.size > 0) startRepeatingChimes();
+      else stopRepeatingChimes();
+
+      // Auto-correct: if a brand-new order arrives already "preparing", flip it to "pending"
+      if (initialProcessed) {
+        changes.forEach(async change => {
+          if (change.type !== "added") return;
+          const now = (change.doc.data().status || "").toLowerCase();
+          if (now === "preparing") {
+            try {
+              await db.collection("orders").doc(change.doc.id).update({ status: "pending" });
+              console.log(`↩️ Corrected new order ${change.doc.id} from "preparing" to "pending"`);
+            } catch (err) {
+              console.warn("Failed to correct status to pending:", err);
+            }
+          }
+        });
+      }
+
       // Decide whether to chime
       let shouldChime = false;
 
       if (!initialProcessed) {
-        // First snapshot: chime if there is any incoming order already present
-        const hasIncoming = snapshot.docs.some(d =>
+        // First snapshot: chime if there is any pending order already present
+        const hasPending = snapshot.docs.some(d =>
           INCOMING_STATUSES.includes((d.data().status || "").toLowerCase())
         );
-        shouldChime = hasIncoming;
+        shouldChime = hasPending;
         initialProcessed = true;
       } else {
-        // Subsequent snapshots: chime for new docs that are incoming or docs that became incoming
+        // Subsequent snapshots: chime for new docs that are pending or docs that became pending
         changes.forEach(change => {
           const now = (change.doc.data().status || "").toLowerCase();
           if (!INCOMING_STATUSES.includes(now)) return;
@@ -792,8 +861,7 @@ function listenForOrders(selectedDate) {
         });
       }
 
-      console.log("New incoming order?", shouldChime);
-
+      console.log("New pending order chime?", shouldChime);
       if (shouldChime) {
         AudioChime.requestChime();
       }
