@@ -18,7 +18,7 @@ const db = firebase.firestore();
  ***********************/
 let userHasInteracted = false;
 ["pointerdown", "click", "keydown", "touchstart"].forEach(evt =>
-  window.addEventListener(evt, () => { userHasInteracted = true; }, { once: true })
+  window.addEventListener(evt, () => { userHasInteracted = true; }, { once: true, passive: true })
 );
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -28,7 +28,6 @@ let currentUser = null;
 let cart = [];
 let sessionTimer = null;
 let unsubscribeOrders = null;
-let ordersFirstSnapshot = true;
 
 /***********************
  * Banner helper
@@ -46,6 +45,109 @@ function showBanner(msg, ms = 3000) {
   clearTimeout(b.__hideTimer);
   b.__hideTimer = setTimeout(() => b.classList.add("hidden"), ms);
 }
+
+/***********************
+ * Audio chime manager (gesture-gated with queue + debounce)
+ ***********************/
+const AudioChime = (() => {
+  let unlocked = false;
+  let queued = 0;
+  let lastPlay = 0;
+  const MIN_INTERVAL = 1200; // ms between chimes to avoid spam
+
+  function getEl() {
+    return document.getElementById("newOrderSound");
+  }
+
+  async function tryPlay() {
+    const audio = getEl();
+    if (!audio) {
+      console.warn("🔇 No #newOrderSound element found");
+      return false;
+    }
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.volume = 0.8;
+      await audio.play();
+      lastPlay = Date.now();
+      console.log("🔔 Chime played");
+      return true;
+    } catch (e) {
+      console.warn("🔇 Sound blocked:", e);
+      return false;
+    }
+  }
+
+  async function unlockByGesture() {
+    if (unlocked) return;
+    const audio = getEl();
+    if (!audio) {
+      unlocked = true; // nothing to unlock but don't block queue
+      return;
+    }
+    try {
+      audio.muted = true;
+      await audio.play();
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false;
+      unlocked = true;
+      console.log("🎯 Audio unlocked by gesture");
+      drainQueue();
+    } catch (e) {
+      console.warn("🔇 Unlock failed:", e);
+    }
+  }
+
+  function attachGestureUnlock() {
+    ["click", "pointerdown", "keydown", "touchstart"].forEach(evt =>
+      window.addEventListener(evt, unlockByGesture, { once: true, passive: true })
+    );
+  }
+
+  function requestChime() {
+    const now = Date.now();
+    if (!unlocked) {
+      queued++;
+      showBanner("🔔 Tap anywhere to enable sound alerts", 4000);
+      return;
+    }
+    if (now - lastPlay < MIN_INTERVAL) return;
+    tryPlay();
+  }
+
+  async function drainQueue() {
+    if (!unlocked || queued === 0) return;
+    queued = 0;
+    await tryPlay();
+  }
+
+  async function primeMutedAutoplay() {
+    // Attempt muted prime on load; strict policies may still block it.
+    const audio = getEl();
+    if (!audio) return;
+    audio.muted = true;
+    try {
+      await audio.play();
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false;
+      unlocked = true;
+      console.log("🎯 Audio primed at load — ready for chimes");
+    } catch {
+      attachGestureUnlock(); // fall back to gesture unlock
+    }
+  }
+
+  return {
+    requestChime,
+    primeMutedAutoplay,
+    attachGestureUnlock,
+    unlockByGesture,
+    isUnlocked: () => unlocked
+  };
+})();
 
 /***********************
  * Session timeout (customer pages only)
@@ -131,6 +233,7 @@ function buildVariantsFromDoc(p) {
   }
   return [{ id: p.id, variant: null, price }];
 }
+
 async function fetchGroupedProducts() {
   const raw = (await fetchProductsRaw()).filter(p => Number(p.pos_hidden ?? 0) === 0);
   const grouped = {};
@@ -289,12 +392,6 @@ function closeModal() {
   const modal = document.getElementById("variantModal");
   if (modal) modal.classList.add("hidden");
 }
-
-// Always hide modal on load
-document.addEventListener("DOMContentLoaded", () => {
-  const modal = document.getElementById("variantModal");
-  if (modal) modal.classList.add("hidden");
-});
 
 /***********************
  * Cart storage helpers (TTL only for guests/no active session)
@@ -482,7 +579,7 @@ if (checkoutBtn) {
 /***********************
  * Staff page scoped logic
  ***********************/
-if (document.body.classList.contains("staff")) {
+function initStaffMessaging() {
   const messaging = firebase.messaging();
   const vapidKey = "BB46kklO696abLSqlK13UKbJh5zCJR-ZCjNa4j4NE08X7JOSJM_IpsJIjsLck4Aqx9QEnQ6Rid4gjLhk1cNjd2w";
 
@@ -510,6 +607,8 @@ if (document.body.classList.contains("staff")) {
               .then(token => console.log("📲 FCM Token:", token))
               .catch(err => console.error("❌ Token fetch error:", err));
           });
+          // Also attempt audio unlock on the same gesture
+          AudioChime.unlockByGesture();
         } else if (Notification.permission === "denied") {
           alert("🔕 Notifications are blocked. Please enable them in browser settings.");
         } else {
@@ -519,11 +618,15 @@ if (document.body.classList.contains("staff")) {
     });
   }
 
+  // Foreground messages
   messaging.onMessage(payload => {
     const { title, body } = payload.notification || {};
     if (title && body) alert(`${title}\n\n${body}`);
+    // Also request a chime for foreground push
+    AudioChime.requestChime();
   });
 
+  // PWA install prompt
   window.addEventListener("beforeinstallprompt", e => {
     e.preventDefault();
     const installBtn = document.getElementById("installBtn");
@@ -653,7 +756,7 @@ function listenForOrders(selectedDate) {
         ordersContainer.appendChild(div);
       });
 
-      // Debug: show incoming changes
+      // Debug: log changes
       const changes = snapshot.docChanges();
       if (changes.length) {
         console.groupCollapsed(`Δ ${changes.length} change(s)`);
@@ -692,18 +795,10 @@ function listenForOrders(selectedDate) {
       console.log("New incoming order?", shouldChime);
 
       if (shouldChime) {
-        const audio = document.getElementById("newOrderSound");
-        if (audio) {
-          audio.pause();
-          audio.currentTime = 0;
-          audio.volume = 0.8;
-          audio.play()
-            .then(() => console.log("🔔 Chime played"))
-            .catch(err => console.warn("🔇 Sound blocked:", err));
-        }
+        AudioChime.requestChime();
       }
 
-      // Update prevStatuses AFTER detection to compare against the previous state next time
+      // Update prevStatuses AFTER detection
       snapshot.forEach(docSnap => {
         prevStatuses.set(docSnap.id, (docSnap.data().status || "").toLowerCase());
       });
@@ -712,44 +807,14 @@ function listenForOrders(selectedDate) {
     });
 }
 
-let audioUnlocked = false;
-function unlockAudioOnce() {
-  if (audioUnlocked) return;
-  const audio = document.getElementById("newOrderSound");
-  if (audio) {
-    audio.muted = true;
-    audio.play().then(() => {
-      audio.pause();
-      audio.currentTime = 0;
-      audio.muted = false;
-      audioUnlocked = true;
-      console.log("🎯 Audio unlocked by gesture");
-    }).catch(err => {
-      console.warn("🔇 Unlock failed:", err);
-    });
-  }
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  const audio = document.getElementById("newOrderSound");
-  if (audio) {
-    // Try to autoplay muted right away
-    audio.muted = true;
-    audio.play().then(() => {
-      audio.pause();
-      audio.currentTime = 0;
-      audio.muted = false; // unmute for real use
-      console.log("🎯 Audio primed at load — ready for chimes");
-    }).catch(err => {
-      console.warn("🔇 Auto‑prime failed:", err);
-    });
-  }
-});
-
 /***********************
  * Staff DOM bootstrap
  ***********************/
-document.addEventListener("DOMContentLoaded", () => {
+function initStaffUI() {
+  // Attempt to prime audio, then fall back to gesture unlock
+  AudioChime.primeMutedAutoplay();
+  AudioChime.attachGestureUnlock();
+
   const dateInput = document.getElementById("orderDate");
   if (dateInput) {
     const today = new Date().toISOString().split("T")[0];
@@ -761,12 +826,24 @@ document.addEventListener("DOMContentLoaded", () => {
       filterOrders("incoming");
     });
   }
-});
+
+  // Optional: show a gentle nudge if audio still locked after 2s
+  setTimeout(() => {
+    if (!AudioChime.isUnlocked()) {
+      showBanner("🔔 Tap anywhere to enable sound alerts", 4000);
+    }
+  }, 2000);
+}
+
+function initStaff() {
+  initStaffMessaging();
+  initStaffUI();
+}
 
 /***********************
  * Customer DOM bootstrap
  ***********************/
-document.addEventListener("DOMContentLoaded", () => {
+function initCustomer() {
   // Ensure banner exists
   if (!document.getElementById("banner")) {
     const banner = document.createElement("div");
@@ -883,4 +960,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initial cart render
   renderCart();
+}
+
+/***********************
+ * Unified DOMContentLoaded bootstrap
+ ***********************/
+document.addEventListener("DOMContentLoaded", () => {
+  // Always hide variant modal on load if present
+  const modal = document.getElementById("variantModal");
+  if (modal) modal.classList.add("hidden");
+
+  // Ensure banner exists early
+  if (!document.getElementById("banner")) {
+    const banner = document.createElement("div");
+    banner.id = "banner";
+    banner.className = "banner hidden";
+    document.body.appendChild(banner);
+  }
+
+  // Route by page mode
+  if (document.body.classList.contains("staff")) {
+    initStaff();
+  } else {
+    initCustomer();
+  }
 });
