@@ -2,139 +2,75 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>13e Café Loyalty – Members</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>13e Café – Order</title>
   <link rel="stylesheet" href="style.css" />
-
-  <!-- 🔥 Firebase SDKs (compat) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
-
-  <!-- 📤 EmailJS -->
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-  <script>
-    (function(){
-      emailjs.init("BbD0R8hL8K8Y_KwSA"); // replace with your EmailJS user ID
-    })();
-  </script>
-
-  <!-- 🔍 OCR -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.4/dist/tesseract.min.js"></script>
 </head>
 <body>
 
+  <!-- Header -->
   <header>
-    <h1>13e Café Loyalty Members</h1>
-    <button id="addBtn">Add</button>
-<button id="settingsBtn">Settings</button>
-<button id="dashboardBtn">Dashboard</button>
-<button id="backupMembersBtn" style="background:#00695c;color:white;">
-  💾 Backup All Members (JSON)
-</button>
-    <select id="modeSelect">
-      <option value="reader">Reader</option>
-      <option value="admin">Admin</option>
-      <option value="kafe">Café</option>
-    </select>
+    <h2>13e Café</h2>
+    <button id="signInBtn">Sign In</button>
   </header>
 
-  <!-- 🎂 Birthday banner -->
-  <div id="birthdayBanner" style="display:none;">
-    <p id="birthdayMessage"></p>
+  <!-- Category Tabs -->
+  <div id="categoryTabsContainer">
+    <div id="categoryTabs">
+      <!-- Category buttons will be dynamically rendered -->
+    </div>
   </div>
 
-  <!-- 🔎 Search + filter -->
-  <div class="controls">
-    <input type="text" id="searchInput" placeholder="Search by name..." />
-    <select id="tierFilter">
-      <option value="all">All Tiers</option>
-      <option value="Bronze">Bronze</option>
-      <option value="Silver">Silver</option>
-      <option value="Gold">Gold</option>
-    </select>
-    <select id="pageSizeSelect">
-      <option value="5">5 per page</option>
-      <option value="10">10 per page</option>
-      <option value="20">20 per page</option>
-    </select>
+  <!-- Product List -->
+  <main>
+    <div id="productList"></div>
+  </main>
+
+  <!-- Variant Modal -->
+  <div id="variantModal" class="hidden">
+    <div class="modal-content">
+      <h3>Select a Variant</h3>
+      <div id="variantOptions"></div>
+      <button id="cancelVariant">Cancel</button>
+    </div>
   </div>
 
-  <!-- 📋 Member list -->
-  <div id="memberList"></div>
-
-  <!-- ◀️ Pagination -->
-  <div class="pagination">
-    <button id="prevPage">Prev</button>
-    <button id="nextPage">Next</button>
+  <!-- Cart -->
+  <div id="cart-container">
+    <div id="cart-header">Your Cart</div>
+    <div id="cart-body">
+      <ul class="cart-list"></ul>
+      <div id="cart-summary">
+        <p><strong>Total:</strong> <span id="cart-total">Rp 0</span></p>
+      </div>
+    </div>
   </div>
 
-  <!-- ⚡ Scripts -->
-  <script src="common.js"></script>
+  <!-- Checkout -->
+  <button id="checkoutBtn">Checkout</button>
 
-  <!-- ✅ Hardcoded perks for rendering and email logic -->
-  <script>
-    window.tierBenefits = {
-      Bronze: [
-        "- 10% off at 13e Café",
-        "- 5% off Honda motorbike service (excl. spare parts)"
-      ],
-      Silver: [
-        "- 15% off at 13e Café",
-        "- 10% off Honda service + 5% off at Millennium",
-        "- 5% cashback (Rp15k/day cap)"
-      ],
-      Gold: [
-        "- 20% off at 13e Café",
-        "- 15% off Honda service + 10% off at Millennium",
-        "- 🏨 Free room upgrade (every 6 months)",
-        "- 💰 5% cashback (Rp30k/day cap) + new unit voucher"
-      ]
-    };
+  <!-- Banner for notifications -->
+  <div id="banner" class="banner hidden"></div>
 
-    window.birthdayPerks = {
-      Bronze: [
-        "🎂 Birthday Treat:",
-        "- Free drink/snack + 30% off Honda service"
-      ],
-      Silver: [
-        "🎂 Birthday Treat:",
-        "- Free drink and snack",
-        "- 50% off at Millennium",
-        "- 30% off Honda service"
-      ],
-      Gold: [
-        "🎂 VIP Birthday Package:",
-        "- 🏨 Free Deluxe room for one night",
-        "- 🍽️ Free Food+drink+snack combo",
-        "- 💰 30% cashback (Rp30k/day cap)",
-        "- 🍽️ Free VIP lounge access at 13e Café",
-        "- 🎁 Optional Free birthday gift delivered to home"
-      ]
-    };
-  </script>
+  <!-- Optional Categories -->
+  <section id="categories">
+    <!-- Category buttons get injected here if category filtering is implemented -->
+  </section>
 
-  <script src="index-details.js"></script>
+  <!-- Optional Footer -->
+  <footer style="padding:1em; text-align:center; font-size:0.85em; color:#777;">
+    <p>© 2025 13e Café. All rights reserved.</p>
+    <p><a href="/privacy.html">Privacy Policy</a> | <a href="/terms.html">Terms</a></p>
+  </footer>
 
-  <!-- 🔐 Auth bootstrap -->
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      firebase.auth().onAuthStateChanged(user => {
-        if (user) {
-          console.log("✅ Using existing sign-in:", user.email || user.uid);
-        } else {
-          const savedMode = localStorage.getItem("mode");
-          if (savedMode === "reader") {
-            firebase.auth().signInAnonymously()
-              .then(() => console.log("✅ Signed in anonymously for Reader mode:", firebase.auth().currentUser.uid))
-              .catch(err => console.error("❌ Anonymous auth error:", err));
-          } else {
-            console.warn("No auth session found — please log in manually.");
-          }
-        }
-      });
-    });
-  </script>
+<!-- Firebase Core -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 
+<!-- Firebase services you use -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
+
+<!-- Then your app -->
+<script src="app.js"></script>
 </body>
 </html>

@@ -1,88 +1,360 @@
+/* === Global Reset & Base === */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
-  font-family: sans-serif;
-  margin: 20px;
-  background-color: #fff;
+  font-family: system-ui, sans-serif;
+  margin: 0;
+  background: #fafafa;
   color: #333;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3 {
-  color: #633;
-}
-
-button {
-  padding: 8px 12px;
-  margin: 6px 4px;
-  cursor: pointer;
-}
-
-input, select {
-  padding: 6px;
-  margin: 4px 0;
-  width: 240px;
-}
-
-.member-card {
-  border: 1px solid #ddd;
-  padding: 12px 16px;
-  margin: 8px;
-  border-radius: 8px;
-  transition: transform 0.2s ease-in-out, box-shadow 0.2s;
-  cursor: pointer;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-}
-.member-card:hover {
-  transform: scale(1.02);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.12);
-}
-
-.tier-bronze { color: #cd7f32; }
-.tier-silver { color: #aaa; }
-.tier-gold   { color: #f7c744; }
-
-.shimmer {
-  background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-#memberSection {
-  margin-bottom: 1.5em;
-}
-
-#dashboardSection {
-  margin-top: 2em;
-}
-
-canvas {
-  background: #fff;
-  border: 1px solid #eee;
+/* === Header === */
+header {
   padding: 1em;
-  border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-  max-width: 100%;
-}
-
-#topMembers, #activityFeed {
   background: #fff;
-  padding: 1em 1.5em;
-  border-radius: 6px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-  margin-top: 1.5em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
-#topMembers ul, #activityFeed ul {
-  list-style-type: none;
-  padding-left: 0;
+header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #222;
+}
+
+/* === Main Content === */
+main {
+  padding-bottom: 100px; /* Leaves room for fixed cart on mobile */
+}
+
+/* === Buttons === */
+button {
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: none;
+  background: #633;
+  color: #fff;
+  font-size: 1em;
+  margin: 8px 0;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+button:hover {
+  background: #854;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Minimal button style for staff order controls */
+.btn.minimal {
+  background: none;
+  border: 1px solid #ccc;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: #333;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.btn.minimal:hover {
+  background: #f5f5f5;
+  border-color: #bbb;
+}
+
+/* === Category Tabs === */
+#categoryTabsContainer {
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 8px;
+  -webkit-overflow-scrolling: touch;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+}
+
+#categoryTabs {
+  display: inline-block;
+}
+
+#categoryTabs button {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 8px 14px;
+  border: none;
+  background-color: #eee;
+  border-radius: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+  color: #333;
+  font-size: 0.95em;
+}
+
+#categoryTabs button.active {
+  background-color: #333;
+  color: #fff;
+  font-weight: 500;
+}
+
+/* === Product List === */
+#productList h4 {
+  font-size: 1.2em;
+  margin-top: 1.5em;
+  border-bottom: 2px solid #ccc;
+  padding-bottom: 0.3em;
+}
+
+#productList div {
+  padding: 0.75em 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+/* === Cart Styles Continued === */
+#toggleCartBtn {
+  background: #333;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#cart-container {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-top: 1px solid #ccc;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+  font-size: 14px;
+  z-index: 1000;
+}
+
+#cart-header {
+  padding: 4px 8px;
+  background: #f7f7f7;
+  border-bottom: 1px solid #ddd;
+  text-align: center;
+  font-weight: 500;
+}
+
+#cart-body {
+  max-height: 120px;
+  overflow-y: auto;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  padding: 6px 12px;
+}
+
+#cart-body.hidden {
+  max-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.cart-list {
+  list-style: none;
+  padding: 0;
   margin: 0;
 }
 
-#topMembers li, #activityFeed li {
+.cart-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 6px 0;
-  border-bottom: 1px dashed #ddd;
-  color: #444;
+  font-size: 13px;
+  border-bottom: 1px solid #eee;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.qty-adjuster {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.qty-adjuster button {
+  background: #ddd;
+  border: none;
+  padding: 2px 6px;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 3px;
+  cursor: pointer;
+  min-width: 28px;
+  height: 28px;
+}
+
+.item-qty {
+  min-width: 20px;
+  text-align: center;
+  font-size: 13px;
+}
+
+.item-price {
+  flex: 1;
+  text-align: right;
+}
+
+.cart-footer {
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#cart-summary p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+#cart-summary strong {
+  font-size: 16px;
+  color: #000;
+}
+
+#checkoutBtn {
+  position: fixed;
+  bottom: 0;
+  right: 16px;
+  margin-bottom: 12px;
+  z-index: 1001;
+  background-color: #333;
+  color: white;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#cart-total {
+  font-weight: bold;
+  margin-top: 1em;
+  padding: 0.5em;
+  background: #f0f0f0;
+  border-radius: 6px;
+}
+
+/* === Staff Page Enhancements === */
+body.staff .cart-item {
+  font-size: 14px;
+  padding: 6px 0;
+}
+
+body.staff .qty-adjuster button {
+  min-width: 28px;
+  height: 28px;
+  font-size: 14px;
+}
+
+body.staff .icon-btn {
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+}
+
+/* === Responsive Adjustments === */
+@media (max-width: 600px) {
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.75em;
+    gap: 0.5em;
+  }
+
+  button {
+    width: 100%;
+    font-size: 0.95em;
+    padding: 8px 12px;
+  }
+
+  #categoryTabsContainer {
+    padding: 6px;
+  }
+
+  #cart-body {
+    max-height: 150px;
+  }
+
+  #checkoutBtn {
+    right: 8px;
+    bottom: 8px;
+    padding: 8px 12px;
+    font-size: 0.9em;
+  }
+}
+
+/* === Variant Modal === */
+#variantModal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+  padding: 1em;
+}
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  max-width: 90%;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#variantOptions button {
+  margin: 6px;
+  min-width: 140px;
+}
+
+/* === Banner Notifications === */
+.banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  background: #333;
+  color: #fff;
+  text-align: center;
+  padding: 10px 14px;
+  font-size: 0.95em;
+  z-index: 2000;
+  transition: opacity 0.3s;
+}
+
+.banner.hidden {
+  display: none;
+  opacity: 0;
 }
