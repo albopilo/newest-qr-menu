@@ -45,6 +45,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    
     document.addEventListener("DOMContentLoaded", () => {
       const params = new URLSearchParams(window.location.search);
 
@@ -89,18 +91,23 @@
 
       document.getElementById("confirmBtn").onclick = async () => {
         try {
-           await db.collection("orders").add({
-    table,
-    guestName,
-    items,
-    subtotal,
-    discount,
-    tax,
-    total,
-    status: "incoming", // ✅ must match staff filter
-    date: new Date().toISOString().split("T")[0], // ✅ enables date filtering
-    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-  });
+           const memberPhone = urlParams.get("memberPhone") || "";
+const memberId = urlParams.get("memberId") || "";
+
+await db.collection("orders").add({
+  subtotal,
+  discount,
+  tax,
+  total,
+  table,
+  guestName,
+  items,
+  date: new Date().toISOString().split("T")[0],
+  timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+  status: "pending",
+  memberPhone, // ✅ ensure loyalty link
+  memberId     // ✅ ensure loyalty link
+});
 
 
           alert("Order confirmed and sent to staff!");

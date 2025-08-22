@@ -17,7 +17,7 @@ const db = firebase.firestore();
  * Globals
  ***********************/
 let userHasInteracted = false;
-["pointerdown", "click", "keydown", "touchstart"].forEach(evt =>
+["pointerdown","click","keydown","touchstart"].forEach(evt =>
   window.addEventListener(evt, () => { userHasInteracted = true; }, { once: true, passive: true })
 );
 
@@ -53,28 +53,21 @@ const AudioChime = (() => {
   let unlocked = false;
   let queued = 0;
   let lastPlay = 0;
-  const MIN_INTERVAL = 1200; // ms between chimes to avoid spam
+  const MIN_INTERVAL = 1200; // ms
 
-  function getEl() {
-    return document.getElementById("newOrderSound");
-  }
+  const getEl = () => document.getElementById("newOrderSound");
 
   async function tryPlay() {
     const audio = getEl();
-    if (!audio) {
-      console.warn("🔇 No #newOrderSound element found");
-      return false;
-    }
+    if (!audio) return false;
     try {
       audio.pause();
       audio.currentTime = 0;
       audio.volume = 0.8;
       await audio.play();
       lastPlay = Date.now();
-      console.log("🔔 Chime played");
       return true;
-    } catch (e) {
-      console.warn("🔇 Sound blocked:", e);
+    } catch {
       return false;
     }
   }
@@ -82,37 +75,24 @@ const AudioChime = (() => {
   async function unlockByGesture() {
     if (unlocked) return;
     const audio = getEl();
-    if (!audio) {
-      unlocked = true; // nothing to unlock but don't block queue
-      return;
-    }
+    if (!audio) { unlocked = true; return; }
     try {
       audio.muted = true;
       await audio.play();
-      audio.pause();
-      audio.currentTime = 0;
-      audio.muted = false;
+      audio.pause(); audio.currentTime = 0; audio.muted = false;
       unlocked = true;
-      console.log("🎯 Audio unlocked by gesture");
       drainQueue();
-    } catch (e) {
-      console.warn("🔇 Unlock failed:", e);
-    }
+    } catch {}
   }
 
-  function attachGestureUnlock() {
-    ["click", "pointerdown", "keydown", "touchstart"].forEach(evt =>
+  const attachGestureUnlock = () => 
+    ["click","pointerdown","keydown","touchstart"].forEach(evt =>
       window.addEventListener(evt, unlockByGesture, { once: true, passive: true })
     );
-  }
 
   function requestChime() {
     const now = Date.now();
-    if (!unlocked) {
-      queued++;
-      showBanner("🔔 Tap anywhere to enable sound alerts", 4000);
-      return;
-    }
+    if (!unlocked) { queued++; showBanner("🔔 Tap anywhere to enable sound alerts", 4000); return; }
     if (now - lastPlay < MIN_INTERVAL) return;
     tryPlay();
   }
@@ -124,29 +104,17 @@ const AudioChime = (() => {
   }
 
   async function primeMutedAutoplay() {
-    // Attempt muted prime on load; strict policies may still block it.
     const audio = getEl();
-    if (!audio) return;
+    if (!audio) { unlocked = true; return; }
     audio.muted = true;
     try {
       await audio.play();
-      audio.pause();
-      audio.currentTime = 0;
-      audio.muted = false;
+      audio.pause(); audio.currentTime = 0; audio.muted = false;
       unlocked = true;
-      console.log("🎯 Audio primed at load — ready for chimes");
-    } catch {
-      attachGestureUnlock(); // fall back to gesture unlock
-    }
+    } catch { attachGestureUnlock(); }
   }
 
-  return {
-    requestChime,
-    primeMutedAutoplay,
-    attachGestureUnlock,
-    unlockByGesture,
-    isUnlocked: () => unlocked
-  };
+  return { requestChime, primeMutedAutoplay, attachGestureUnlock, unlockByGesture, isUnlocked: () => unlocked };
 })();
 
 /***********************
@@ -182,11 +150,14 @@ function getDiscountByTier(tier) {
     default: return 0.10;
   }
 }
+
 async function fetchMemberTier(phone) {
   const snapshot = await db.collection("members").where("phone", "==", phone).limit(1).get();
   if (!snapshot.empty) {
-    const member = snapshot.docs[0].data();
+    const memberDoc = snapshot.docs[0];
+    const member = memberDoc.data();
     currentUser.tier = member.tier || null;
+    currentUser.memberId = memberDoc.id; // capture for loyalty linkage
     currentUser.discountRate = member.discountRate ?? getDiscountByTier(member.tier);
     currentUser.taxRate = member.taxRate ?? 0.10;
     localStorage.setItem("currentUser", JSON.stringify(currentUser));
@@ -253,7 +224,7 @@ async function fetchGroupedProducts() {
     const minPrice = Math.min(grouped[nameKey].basePrice, ...variants.map(v => v.price));
     grouped[nameKey].basePrice = isFinite(minPrice) ? minPrice : grouped[nameKey].basePrice;
   }
-  // Deduplicate (normalized) + sort variants
+  // Deduplicate and sort variants
   Object.values(grouped).forEach(group => {
     const unique = new Map();
     group.variants.forEach(v => {
@@ -282,7 +253,10 @@ async function renderProducts(selectedCategory = "") {
   });
 
   // Sort with case-insensitive match to preferred order
-  const preferredOrder = ['Snacks', 'Western', 'Ricebowl', 'Nasi', 'Nasi Goreng', 'Mie', 'Matcha', 'Coffee', 'Non coffee', 'Tea & Juices'];
+  const preferredOrder = [
+    'Snacks','Western','Ricebowl','Nasi','Nasi Goreng',
+    'Mie','Matcha','Coffee','Non coffee','Tea & Juices'
+  ];
   const norm = s => s.toLowerCase();
   const sortedCats = Object.keys(categoryMap).sort((a, b) => {
     const ia = preferredOrder.findIndex(x => norm(x) === norm(a));
@@ -306,7 +280,7 @@ async function renderProducts(selectedCategory = "") {
     });
   }
 
-  // Build product list for chosen category
+  // Build product list
   const list = document.getElementById("productList");
   if (list) {
     list.innerHTML = "";
@@ -341,7 +315,7 @@ async function renderProducts(selectedCategory = "") {
 }
 
 /***********************
- * Add to cart by product name (opens modal if needed)
+ * Add to cart by product name
  ***********************/
 window.handleAddToCartByName = function(productName) {
   const group = window.groupedProducts?.[productName];
@@ -360,7 +334,6 @@ window.handleAddToCartByName = function(productName) {
  ***********************/
 function showVariantSelector(group) {
   if (!userHasInteracted) return;
-
   const modal = document.getElementById("variantModal");
   const options = document.getElementById("variantOptions");
   const title = document.getElementById("variantTitle");
@@ -402,9 +375,10 @@ function restoreCartFromStorage() {
 
   const savedAt = Number(localStorage.getItem("cartSavedAt") || 0);
   const sessionStart = Number(localStorage.getItem("sessionStart") || 0);
-  const hasActiveSession = !!localStorage.getItem("currentUser") && sessionStart && (Date.now() - sessionStart < 3600000);
+  const hasActiveSession = !!localStorage.getItem("currentUser") &&
+    sessionStart && (Date.now() - sessionStart < 3600000);
 
-  // Expire cart only if no active session (guest or expired)
+  // Expire cart only if no active session
   if (!hasActiveSession && savedAt && Date.now() - savedAt > 3600000) {
     localStorage.removeItem("cart");
     localStorage.removeItem("cartSavedAt");
@@ -421,6 +395,7 @@ function restoreCartFromStorage() {
     console.warn("Failed to parse saved cart:", e);
   }
 }
+
 function saveCartToStorage() {
   localStorage.setItem("cart", JSON.stringify(cart));
   localStorage.setItem("cartSavedAt", Date.now().toString());
@@ -442,9 +417,6 @@ function addToCart(product) {
   showBanner(`${product.name}${product.variant ? ` (${product.variant})` : ""} added to cart`, 2000);
 }
 
-/***********************
- * Safe cart rendering
- ***********************/
 function renderCart() {
   const list = document.querySelector(".cart-list");
   const totalEl = document.getElementById("cart-total");
@@ -506,6 +478,7 @@ function increaseQty(id, variant = "") {
     startSessionTimeout();
   }
 }
+
 function decreaseQty(id, variant = "") {
   const item = cart.find(i => i.id === id && (i.variant || "") === variant);
   if (item) {
@@ -518,6 +491,7 @@ function decreaseQty(id, variant = "") {
     startSessionTimeout();
   }
 }
+
 function removeFromCart(id, variant = "") {
   cart = cart.filter(item => !(item.id === id && (item.variant || "") === variant));
   saveCartToStorage();
@@ -569,6 +543,8 @@ if (checkoutBtn) {
       total: String(total),
       table: tableNumber,
       guestName: currentUser?.displayName || "Guest",
+      memberPhone: currentUser?.phoneNumber || "",
+      memberId: currentUser?.memberId || "", // propagate for loyalty link
       items: JSON.stringify(items)
     }).toString();
 
@@ -588,7 +564,7 @@ function initStaffMessaging() {
     .catch(err => console.error("❌ SW registration failed:", err));
 
   // Auto-fetch token if already granted
-  if (Notification.permission === "granted") {
+  if ("Notification" in window && Notification.permission === "granted") {
     navigator.serviceWorker.ready.then(registration => {
       messaging.getToken({ vapidKey, serviceWorkerRegistration: registration })
         .then(token => console.log("📲 FCM Token:", token))
@@ -600,6 +576,10 @@ function initStaffMessaging() {
   const notifBtn = document.getElementById("enableNotifications");
   if (notifBtn) {
     notifBtn.addEventListener("click", () => {
+      if (!("Notification" in window)) {
+        alert("🔕 Notifications are not supported in this browser.");
+        return;
+      }
       Notification.requestPermission().then(permission => {
         if (permission === "granted") {
           navigator.serviceWorker.ready.then(registration => {
@@ -607,12 +587,9 @@ function initStaffMessaging() {
               .then(token => console.log("📲 FCM Token:", token))
               .catch(err => console.error("❌ Token fetch error:", err));
           });
-          // Also attempt audio unlock on the same gesture
-          AudioChime.unlockByGesture();
-        } else if (Notification.permission === "denied") {
+          AudioChime.unlockByGesture(); // unlock chime on same gesture
+        } else if (permission === "denied") {
           alert("🔕 Notifications are blocked. Please enable them in browser settings.");
-        } else {
-          console.warn("🔕 Notification permission denied");
         }
       });
     });
@@ -622,7 +599,6 @@ function initStaffMessaging() {
   messaging.onMessage(payload => {
     const { title, body } = payload.notification || {};
     if (title && body) alert(`${title}\n\n${body}`);
-    // Also request a chime for foreground push
     AudioChime.requestChime();
   });
 
@@ -670,7 +646,7 @@ function startRepeatingChimes() {
       console.log("🔁 Repeating chime for pending orders:", [...repeatOrderIds]);
       AudioChime.requestChime();
     }
-  }, 7000); // 7 sec as midpoint between 5–10s
+  }, 7000);
 }
 
 function stopRepeatingChimes() {
@@ -681,14 +657,16 @@ function stopRepeatingChimes() {
   repeatOrderIds.clear();
 }
 
-// Place this once (e.g., above listenForOrders)
+/***********************
+ * Order card styling
+ ***********************/
 function styleOrderBox(el, status) {
   const s = (status || "").toLowerCase();
   const palette = {
-    pending:   { bg: "#ffffff", border: "#e5e7eb", text: "#111827" }, // white
-    preparing: { bg: "#fff7ed", border: "#f59e0b", text: "#7c2d12" }, // amber-50
-    served:    { bg: "#ecfdf5", border: "#10b981", text: "#064e3b" }, // green-50
-    cancelled: { bg: "#f3f4f6", border: "#9ca3af", text: "#374151" }, // gray-100
+    pending:   { bg: "#ffffff", border: "#e5e7eb", text: "#111827" },
+    preparing: { bg: "#fff7ed", border: "#f59e0b", text: "#7c2d12" },
+    served:    { bg: "#ecfdf5", border: "#10b981", text: "#064e3b" },
+    cancelled: { bg: "#f3f4f6", border: "#9ca3af", text: "#374151" },
     default:   { bg: "#f9fafb", border: "#e5e7eb", text: "#111827" }
   };
   const c = palette[s] || palette.default;
@@ -700,21 +678,281 @@ function styleOrderBox(el, status) {
   el.style.color = c.text;
 }
 
+/***********************
+ * Loyalty helpers — strict, idempotent
+ ***********************/
+function calculatePoints(total) {
+  const RATE_RP_PER_POINT = 10000;
+  return Math.floor((Number(total) || 0) / RATE_RP_PER_POINT);
+}
+
+async function updateOrderStatusAndMaybeRecordLoyalty(orderId, targetStatus) {
+  const orderRef = db.collection("orders").doc(orderId);
+  const ratesDocRef = db.collection("settings").doc("cashbackRates");
+  const tierSettingsRef = db.collection("settings").doc("tierThresholds");
+
+  await db.runTransaction(async (t) => {
+    // 1️⃣ READS FIRST
+    const orderSnap = await t.get(orderRef);
+    if (!orderSnap.exists) throw new Error("Order not found");
+    const order = orderSnap.data();
+
+    const memberId = order.memberId || null;
+    const memberPhone = order.memberPhone || null;
+    const memberRef = memberId ? db.collection("members").doc(memberId) : null;
+    const memberSnap = memberRef ? await t.get(memberRef) : null;
+
+    let ratesDoc = null;
+    try { ratesDoc = await t.get(ratesDocRef); } catch (_) {}
+    const rates = ratesDoc?.exists ? (ratesDoc.data() || {}) : {};
+
+    let thresholdsDoc = null;
+    try { thresholdsDoc = await t.get(tierSettingsRef); } catch (_) {}
+    const tierSettings = thresholdsDoc?.exists ? (thresholdsDoc.data() || {}) : {};
+
+    const alreadyRecorded = !!order.loyaltyRecorded;
+    const total = Number(order.total) || 0;
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+
+    // 2️⃣ CANCELLED: reverse loyalty effects
+    if (targetStatus === "cancelled" && alreadyRecorded && order.loyaltyTxId && memberRef && memberSnap?.exists) {
+      const member = memberSnap.data();
+      const txList = Array.isArray(member.transactions) ? member.transactions : [];
+
+      const filteredTxs = txList.filter(tx =>
+        !(tx.date?.startsWith(todayStr) && tx.amount === total && tx.note?.includes("POS: Served order"))
+      );
+
+      const cashbackToRemove = txList
+        .filter(tx => tx.date?.startsWith(todayStr) && tx.amount === total && tx.cashback)
+        .reduce((sum, tx) => sum + Number(tx.cashback || 0), 0);
+
+      const spendingToRemove = txList
+        .filter(tx => tx.date?.startsWith(todayStr) && tx.amount === total)
+        .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+
+      const { monthlySinceUpgrade, yearlySinceUpgrade } = recalcSinceUpgrade(filteredTxs, member.upgradeDate);
+
+      // 🔹 Inline tier recalculation
+      const updatedMember = { ...member, transactions: filteredTxs, monthlySinceUpgrade, yearlySinceUpgrade };
+      recalcTier(updatedMember, tierSettings);
+
+      t.update(memberRef, {
+        transactions: filteredTxs,
+        redeemablePoints: Math.max(0, (member.redeemablePoints || 0) - cashbackToRemove),
+        spendingSinceUpgrade: Math.max(0, (member.spendingSinceUpgrade || 0) - spendingToRemove),
+        monthlySinceUpgrade,
+        yearlySinceUpgrade,
+        tier: updatedMember.tier
+      });
+
+      const txRef = db.collection("loyalty_transactions").doc(order.loyaltyTxId);
+      t.delete(txRef);
+
+      t.update(orderRef, {
+        status: targetStatus,
+        loyaltyRecorded: false,
+        loyaltyTxId: null
+      });
+
+      return;
+    }
+
+    // 3️⃣ SERVED: record loyalty
+    if (targetStatus === "served" && !alreadyRecorded && (memberId || memberPhone)) {
+      const member = memberSnap?.data() || {};
+      const tierRaw = (member.tier || "Bronze").toString().trim();
+      const tier = tierRaw.charAt(0).toUpperCase() + tierRaw.slice(1).toLowerCase();
+
+      const isBirthday = !!member.birthdate && (() => {
+        const b = new Date(member.birthdate);
+        return b.getMonth() === now.getMonth() && b.getDate() === now.getDate();
+      })();
+
+      const goldRate = Number(rates.goldCashbackRate ?? 5);
+      const silverRate = Number(rates.silverCashbackRate ?? 5);
+      const birthdayGoldRate = Number(rates.birthdayGoldCashbackRate ?? 30);
+      const goldCap = Number(rates.goldDailyCashbackCap ?? 30000);
+      const silverCap = Number(rates.silverDailyCashbackCap ?? 15000);
+
+      const rate =
+        tier === "Gold" && isBirthday ? birthdayGoldRate :
+        tier === "Gold" ? goldRate :
+        tier === "Silver" ? silverRate : 0;
+
+      const cap = tier === "Gold" ? goldCap : tier === "Silver" ? silverCap : 0;
+
+      const txList = Array.isArray(member.transactions) ? member.transactions : [];
+      const todayCashback = txList
+        .filter(tx => tx.date?.startsWith(todayStr) && tx.cashback)
+        .reduce((sum, tx) => sum + Number(tx.cashback || 0), 0);
+
+      let cashback = Math.floor((total * rate) / 100);
+      if (cap > 0 && todayCashback + cashback > cap) {
+        cashback = Math.max(0, cap - todayCashback);
+      }
+
+      const memberTx = {
+        date: now.toISOString(),
+        amount: total,
+        cashback,
+        note: (cap > 0 && todayCashback + cashback === cap)
+          ? `Cashback capped at Rp${cap.toLocaleString()} today`
+          : "Recorded from POS: Served order"
+      };
+
+      const txRef = db.collection("loyalty_transactions").doc();
+      const loyaltyTx = {
+        txId: txRef.id,
+        orderId: orderRef.id,
+        memberPhone: memberPhone || null,
+        memberId: memberRef ? memberRef.id : null,
+        memberName: order.guestName || null,
+        date: order.date || todayStr,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        total,
+        pointsEarned: Math.floor(total / 10000),
+        source: "staff-served",
+        table: order.table || null
+      };
+      t.set(txRef, loyaltyTx);
+
+      if (memberRef && memberSnap?.exists) {
+        const updatedTxs = txList.concat(memberTx);
+        const newRedeemable = Math.max(0, (member.redeemablePoints || 0) + cashback);
+        const newSpending = Math.max(0, (member.spendingSinceUpgrade || 0) + total);
+
+        const { monthlySinceUpgrade, yearlySinceUpgrade } = recalcSinceUpgrade(updatedTxs, member.upgradeDate);
+
+        // 🔹 Inline tier recalculation
+        const updatedMember = { ...member, transactions: updatedTxs, monthlySinceUpgrade, yearlySinceUpgrade };
+        recalcTier(updatedMember, tierSettings);
+
+        t.update(memberRef, {
+          transactions: updatedTxs,
+          redeemablePoints: newRedeemable,
+          spendingSinceUpgrade: newSpending,
+          monthlySinceUpgrade,
+          yearlySinceUpgrade,
+          tier: updatedMember.tier
+        });
+      }
+
+      t.update(orderRef, {
+        status: targetStatus,
+        loyaltyRecorded: true,
+        loyaltyTxId: txRef.id
+      });
+
+      return;
+    }
+
+    // 4️⃣ DEFAULT: just update status
+    t.update(orderRef, { status: targetStatus });
+  });
+}
+
+// 🔹 Helper to recalc monthly/yearly since upgrade
+function recalcSinceUpgrade(transactions, upgradeDate) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const upgradeDt = upgradeDate ? new Date(upgradeDate) : null;
+
+  let yearlySinceUpgrade = 0;
+  let monthlySinceUpgrade = 0;
+
+  (transactions || []).forEach(tx => {
+    const d = new Date(tx.date);
+    if (d.getFullYear() === currentYear) {
+      if (!upgradeDt || d > upgradeDt) {
+        yearlySinceUpgrade += tx.amount;
+        if (d.getMonth() === currentMonth) monthlySinceUpgrade += tx.amount;
+      }
+    }
+  });
+
+  return { monthlySinceUpgrade, yearlySinceUpgrade };
+}
+
+// 🔹 Inline tier recalculation logic
+function recalcTier(member, t) {
+  const thresholds = t?.thresholds || t || {};
+  const bronzeToSilverMonth = thresholds.bronzeToSilverMonth ?? 500000;
+  const bronzeToSilverYear  = thresholds.bronzeToSilverYear  ?? 1200000;
+  const silverStayYear      = thresholds.silverStayYear      ?? 500000;
+  const silverToGoldMonth   = thresholds.silverToGoldMonth   ?? 1250000;
+  const silverToGoldYear    = thresholds.silverToGoldYear    ?? 4000000;
+  const goldStayYear        = thresholds.goldStayYear        ?? 2000000;
+
+  const currentTier = toProperTier(member.tier);
+  const monthSpend  = member.monthlySinceUpgrade ?? 0;
+  const yearSpend   = member.yearlySinceUpgrade ?? 0;
+
+  // Creation-year check
+  let createdYear = null;
+  if (member.createdAt) {
+    const createdDate = member.createdAt.toDate ? member.createdAt.toDate() : new Date(member.createdAt);
+    if (createdDate instanceof Date && !isNaN(createdDate)) {
+      createdYear = createdDate.getFullYear();
+    }
+  }
+  const thisYear = new Date().getFullYear();
+  const isNewThisYear = createdYear === thisYear;
+
+  let newTier = currentTier;
+
+  if (currentTier === "Bronze") {
+    if (monthSpend >= bronzeToSilverMonth || yearSpend >= bronzeToSilverYear) {
+      newTier = "Silver";
+      member.monthlySinceUpgrade = 0;
+      member.yearlySinceUpgrade = 0;
+    }
+  }
+  else if (currentTier === "Silver") {
+    if (monthSpend >= silverToGoldMonth || yearSpend >= silverToGoldYear) {
+      newTier = "Gold";
+      member.monthlySinceUpgrade = 0;
+      member.yearlySinceUpgrade = 0;
+    }
+    else if (!isNewThisYear && yearSpend < silverStayYear) {
+      newTier = "Bronze";
+    }
+  }
+  else if (currentTier === "Gold") {
+    if (!isNewThisYear && yearSpend < goldStayYear) {
+      newTier = "Silver";
+    }
+  }
+
+  member.tier = newTier;
+  return member;
+}
+
+// 🔹 Helper to normalise tier string
+function toProperTier(tier) {
+  if (!tier) return "Bronze";
+  const str = tier.toString().trim().toLowerCase();
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/***********************
+ * Listen and render orders (staff)
+ ***********************/
 function listenForOrders(selectedDate) {
-  // Stop any existing listener before starting a new one
+  // Stop any existing listener and chime loops before starting new
   if (typeof unsubscribeOrders === "function") {
     unsubscribeOrders();
     unsubscribeOrders = null;
   }
+  stopRepeatingChimes();
 
   const ordersContainer = document.getElementById("orderList");
   if (!ordersContainer) return;
 
-  console.log("📅 Listening for orders on:", selectedDate);
-
-  // Track last known status to detect transitions into pending
   const prevStatuses = new Map();
-  const INCOMING_STATUSES = ["pending"]; // chime strictly for pending
+  const INCOMING_STATUSES = ["pending"];
   let initialProcessed = false;
 
   unsubscribeOrders = db.collection("orders")
@@ -723,19 +961,16 @@ function listenForOrders(selectedDate) {
     .onSnapshot(snapshot => {
       ordersContainer.innerHTML = "";
 
-      // Render orders
       snapshot.forEach(docSnap => {
         const order = docSnap.data();
         const rawStatus = (order.status || "pending").toLowerCase();
 
         const div = document.createElement("div");
         div.className = "order";
-div.dataset.status = rawStatus === "pending" ? "incoming" : rawStatus;
+        div.dataset.status = rawStatus;
         styleOrderBox(div, rawStatus);
 
-        const time = order.timestamp?.toDate().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' }) || "—";
-        const date = order.date || "—";
-
+        // Table + item count
         const tableLine = document.createElement("div");
         const tableStrong = document.createElement("strong");
         tableStrong.textContent = `Table ${order.table}`;
@@ -743,29 +978,25 @@ div.dataset.status = rawStatus === "pending" ? "incoming" : rawStatus;
         tableLine.appendChild(document.createTextNode(` - ${(order.items || []).length} items`));
         div.appendChild(tableLine);
 
+        // Status
         const statusLine = document.createElement("div");
         statusLine.className = "status";
         statusLine.textContent = rawStatus;
         div.appendChild(statusLine);
 
+        // Name
         const nameLine = document.createElement("div");
-        const nameStrong = document.createElement("strong");
-        nameStrong.textContent = "Name:";
-        nameLine.appendChild(nameStrong);
-        nameLine.appendChild(document.createTextNode(` ${order.guestName || "—"}`));
+        nameLine.innerHTML = `<strong>Name:</strong> ${order.guestName || "—"}`;
         div.appendChild(nameLine);
 
+        // Time/date
         const timeLine = document.createElement("div");
-        const timeStrong = document.createElement("strong");
-        timeStrong.textContent = "Time:";
-        timeLine.appendChild(timeStrong);
-        timeLine.appendChild(document.createTextNode(` ${time} | `));
-        const dateStrong = document.createElement("strong");
-        dateStrong.textContent = "Date:";
-        timeLine.appendChild(dateStrong);
-        timeLine.appendChild(document.createTextNode(` ${date}`));
+        const time = order.timestamp?.toDate?.().toLocaleTimeString?.("id-ID", { hour: '2-digit', minute: '2-digit' }) || "—";
+        const date = order.date || "—";
+        timeLine.innerHTML = `<strong>Time:</strong> ${time} | <strong>Date:</strong> ${date}`;
         div.appendChild(timeLine);
 
+        // Items list
         if (order.items?.length) {
           const ul = document.createElement("ul");
           ul.style.marginTop = "6px";
@@ -778,19 +1009,27 @@ div.dataset.status = rawStatus === "pending" ? "incoming" : rawStatus;
           div.appendChild(ul);
         }
 
+        // Status controls — disable whole group during update
         const statusControls = document.createElement("div");
         statusControls.className = "status-controls";
-        ["preparing", "served", "cancelled"].forEach(newStatus => {
+        ["preparing","served","cancelled"].forEach(newStatus => {
           const btn = document.createElement("button");
           btn.textContent = newStatus;
           btn.className = "btn minimal";
           btn.addEventListener("click", async () => {
+            if (statusControls.dataset.busy === "1") return;
+            statusControls.dataset.busy = "1";
+            const buttons = statusControls.querySelectorAll("button");
+            const originalTexts = [];
+            buttons.forEach(b => { originalTexts.push(b.textContent); b.disabled = true; b.textContent = "…"; });
             try {
-              await db.collection("orders").doc(docSnap.id).update({ status: newStatus });
-              console.log(`✅ Order ${docSnap.id} updated to ${newStatus}`);
+              await updateOrderStatusAndMaybeRecordLoyalty(docSnap.id, newStatus);
             } catch (err) {
-              console.error("❌ Failed to update status:", err);
+              console.error("❌ Status update error:", err);
               alert("Failed to update order status.");
+            } finally {
+              statusControls.dataset.busy = "0";
+              buttons.forEach((b,i) => { b.disabled = false; b.textContent = originalTexts[i]; });
             }
           });
           statusControls.appendChild(btn);
@@ -800,18 +1039,7 @@ div.dataset.status = rawStatus === "pending" ? "incoming" : rawStatus;
         ordersContainer.appendChild(div);
       });
 
-      // Compute and log changes (once)
-      const changes = snapshot.docChanges();
-      if (changes.length) {
-        console.groupCollapsed(`Δ ${changes.length} change(s)`);
-        changes.forEach(ch => {
-          const s = (ch.doc.data().status || "").toLowerCase();
-          console.log(ch.type, ch.doc.id, "status:", s);
-        });
-        console.groupEnd();
-      }
-
-      // Maintain the "pending" set for repeating chimes (every ~7s elsewhere)
+      // Maintain repeat set for chimes
       repeatOrderIds.clear();
       snapshot.forEach(docSnap => {
         const s = (docSnap.data().status || "").toLowerCase();
@@ -819,6 +1047,9 @@ div.dataset.status = rawStatus === "pending" ? "incoming" : rawStatus;
       });
       if (repeatOrderIds.size > 0) startRepeatingChimes();
       else stopRepeatingChimes();
+
+      // Changes for chime decisions and autocorrect
+      const changes = snapshot.docChanges();
 
       // Auto-correct: if a brand-new order arrives already "preparing", flip it to "pending"
       if (initialProcessed) {
@@ -828,7 +1059,7 @@ div.dataset.status = rawStatus === "pending" ? "incoming" : rawStatus;
           if (now === "preparing") {
             try {
               await db.collection("orders").doc(change.doc.id).update({ status: "pending" });
-              console.log(`↩️ Corrected new order ${change.doc.id} from "preparing" to "pending"`);
+              console.log(`↩️ Auto-corrected new order ${change.doc.id} from "preparing" to "pending"`);
             } catch (err) {
               console.warn("Failed to correct status to pending:", err);
             }
@@ -840,18 +1071,17 @@ div.dataset.status = rawStatus === "pending" ? "incoming" : rawStatus;
       let shouldChime = false;
 
       if (!initialProcessed) {
-        // First snapshot: chime if there is any pending order already present
+        // First snapshot: chime if any pending already present
         const hasPending = snapshot.docs.some(d =>
           INCOMING_STATUSES.includes((d.data().status || "").toLowerCase())
         );
         shouldChime = hasPending;
         initialProcessed = true;
       } else {
-        // Subsequent snapshots: chime for new docs that are pending or docs that became pending
+        // Subsequent snapshots: chime for new pending or became-pending
         changes.forEach(change => {
           const now = (change.doc.data().status || "").toLowerCase();
           if (!INCOMING_STATUSES.includes(now)) return;
-
           if (change.type === "added") {
             shouldChime = true;
           } else if (change.type === "modified") {
@@ -861,7 +1091,6 @@ div.dataset.status = rawStatus === "pending" ? "incoming" : rawStatus;
         });
       }
 
-      console.log("New pending order chime?", shouldChime);
       if (shouldChime) {
         AudioChime.requestChime();
       }
@@ -871,6 +1100,7 @@ div.dataset.status = rawStatus === "pending" ? "incoming" : rawStatus;
         prevStatuses.set(docSnap.id, (docSnap.data().status || "").toLowerCase());
       });
 
+      // Apply current filter
       filterOrders(currentFilter);
     });
 }
@@ -879,7 +1109,6 @@ div.dataset.status = rawStatus === "pending" ? "incoming" : rawStatus;
  * Staff DOM bootstrap
  ***********************/
 function initStaffUI() {
-  // Attempt to prime audio, then fall back to gesture unlock
   AudioChime.primeMutedAutoplay();
   AudioChime.attachGestureUnlock();
 
@@ -895,7 +1124,6 @@ function initStaffUI() {
     });
   }
 
-  // Optional: show a gentle nudge if audio still locked after 2s
   setTimeout(() => {
     if (!AudioChime.isUnlocked()) {
       showBanner("🔔 Tap anywhere to enable sound alerts", 4000);
@@ -912,7 +1140,6 @@ function initStaff() {
  * Customer DOM bootstrap
  ***********************/
 function initCustomer() {
-  // Ensure banner exists
   if (!document.getElementById("banner")) {
     const banner = document.createElement("div");
     banner.id = "banner";
@@ -950,19 +1177,23 @@ function initCustomer() {
     signInBtn.addEventListener("click", async () => {
       const input = prompt("Enter your phone number (e.g. 081234567890):");
       if (!input) return;
+
       const phone = input
-        .replace(/[^\d+]/g, "")   // keep digits and '+'
-        .replace(/^\+?62/, "0")   // +62… or 62… -> 0…
-        .replace(/^0+/, "0");     // collapse leading zeros
+        .replace(/[^\d+]/g, "")
+        .replace(/^\+?62/, "0")
+        .replace(/^0+/, "0");
+
       try {
         const snapshot = await db.collection("members").where("phone", "==", phone).limit(1).get();
         if (snapshot.empty) {
           showBanner("Phone number not found. Please check and try again.", 4000);
           return;
         }
-        const member = snapshot.docs[0].data();
+        const memberDoc = snapshot.docs[0];
+        const member = memberDoc.data();
         currentUser = {
           phoneNumber: phone,
+          memberId: memberDoc.id,
           tier: member.tier,
           discountRate: member.discountRate ?? getDiscountByTier(member.tier),
           taxRate: member.taxRate ?? 0.10,
@@ -981,7 +1212,7 @@ function initCustomer() {
     });
   }
 
-  // Bind modal close
+  // Modal close binding
   const modal = document.getElementById("variantModal");
   function bindModalCloseHandlers() {
     setTimeout(() => {
@@ -999,7 +1230,7 @@ function initCustomer() {
   }
   bindModalCloseHandlers();
 
-  // Product list: attach delegation for add-to-cart
+  // Product list delegation
   const productList = document.getElementById("productList");
   if (productList) {
     productList.addEventListener("click", e => {
@@ -1012,7 +1243,7 @@ function initCustomer() {
     renderProducts();
   }
 
-  // Cart list: attach delegation for qty controls (scoped)
+  // Cart controls
   const cartList = document.querySelector(".cart-list");
   if (cartList) {
     cartList.addEventListener("click", e => {
@@ -1026,7 +1257,6 @@ function initCustomer() {
     });
   }
 
-  // Initial cart render
   renderCart();
 }
 
@@ -1034,11 +1264,9 @@ function initCustomer() {
  * Unified DOMContentLoaded bootstrap
  ***********************/
 document.addEventListener("DOMContentLoaded", () => {
-  // Always hide variant modal on load if present
   const modal = document.getElementById("variantModal");
   if (modal) modal.classList.add("hidden");
 
-  // Ensure banner exists early
   if (!document.getElementById("banner")) {
     const banner = document.createElement("div");
     banner.id = "banner";
@@ -1046,7 +1274,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(banner);
   }
 
-  // Route by page mode
   if (document.body.classList.contains("staff")) {
     initStaff();
   } else {
