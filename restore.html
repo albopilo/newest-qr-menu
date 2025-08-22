@@ -1,0 +1,35 @@
+<!-- restore.html -->
+<input type="file" id="restoreFile" accept=".json" />
+<button id="restoreBtn">Restore Database</button>
+<div id="restoreStatus"></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="common.js"></script>
+<script src="dashboard-restore-settings.js"></script>
+
+<script>
+document.getElementById("restoreBtn").addEventListener("click", async () => {
+  const fileInput = document.getElementById("restoreFile");
+  const status = document.getElementById("restoreStatus");
+  if (!fileInput.files[0]) {
+    status.textContent = "Please select a backup file.";
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const members = JSON.parse(e.target.result);
+      let count = 0;
+      for (const member of members) {
+        await db.collection("members").doc(member.id).set(member);
+        count++;
+      }
+      status.textContent = `✅ Restored ${count} members to database.`;
+    } catch (err) {
+      status.textContent = "❌ Failed to restore: " + err;
+    }
+  };
+  reader.readAsText(fileInput.files[0]);
+});
+</script>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>13e Café Loyalty – Member Details</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- 🔥 Firebase SDKs (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
+
+  <!-- 📤 EmailJS -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script>
+    (function(){
+      emailjs.init("BbD0R8hL8K8Y_KwSA"); // replace with your EmailJS user ID
+    })();
+  </script>
+
+  <!-- 🔍 OCR -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script></head>
+<body>
+  <h1>Member Details</h1>
+<div id="memberDetails">
+  <div class="skeleton">
+    <div class="skeleton-name"></div>
+    <div class="skeleton-tier"></div>
+    <div class="skeleton-perks"></div>
+  </div>
+</div>
+
+
+  <!-- ⚡ Scripts -->
+  <script src="common.js"></script>
+  <script src="index-details.js"></script>
+
+  <!-- 🔐 Auth bootstrap -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      firebase.auth().onAuthStateChanged(user => {
+        if (user) {
+          console.log("✅ Using existing sign-in:", user.email || user.uid);
+        } else {
+          const savedMode = localStorage.getItem("mode");
+          if (savedMode === "reader") {
+            firebase.auth().signInAnonymously()
+              .then(() => console.log("✅ Signed in anonymously for Reader mode:", firebase.auth().currentUser.uid))
+              .catch(err => console.error("❌ Anonymous auth error:", err));
+          } else {
+            alert("⚠️ Please log in from index.html first.");
+            window.location.href = "index.html";
+          }
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>
