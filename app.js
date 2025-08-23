@@ -206,34 +206,54 @@ function buildVariantsFromDoc(p) {
 }
 
 async function fetchGroupedProducts() {
-  const raw = (await fetchProductsRaw()).filter(p => Number(p.pos_hidden ?? 0) === 0);
+  const raw = await fetchProductsRaw();
   const grouped = {};
+
   for (const p of raw) {
+    const isHidden = Number(p.pos_hidden ?? 0) !== 0; // handles 0, "0", 1, "1"
+    const category = (p.category || "").trim();
     const nameKey = (p.name || "").trim() || "Unnamed";
+
+    // Skip hidden or uncategorized products, but log them for auditing
+    if (isHidden || !category) {
+      console.warn("⏭ Skipped product (hidden or missing category):", {
+        id: p.id,
+        name: nameKey,
+        category: category || "(none)",
+        pos_hidden: p.pos_hidden
+      });
+      continue;
+    }
+
+    // Initialize group by product name
     if (!grouped[nameKey]) {
       grouped[nameKey] = {
         name: nameKey,
-        category: p.category?.trim() || "Uncategorized",
+        category: category, // guaranteed non-empty here
         basePrice: p.pos_sell_price ?? p.price ?? 0,
         variants: [],
         variant_label: p.variant_label || null
       };
     }
+
+    // Build variants and update basePrice to the minimum
     const variants = buildVariantsFromDoc(p);
     grouped[nameKey].variants.push(...variants);
-    const minPrice = Math.min(grouped[nameKey].basePrice, ...variants.map(v => v.price));
+    const minPrice = Math.min(grouped[nameKey].basePrice, ...variants.map(v => Number(v.price) || 0));
     grouped[nameKey].basePrice = isFinite(minPrice) ? minPrice : grouped[nameKey].basePrice;
   }
-  // Deduplicate and sort variants
+
+  // Deduplicate and sort variants within each group
   Object.values(grouped).forEach(group => {
     const unique = new Map();
     group.variants.forEach(v => {
       const keyVariant = (v.variant ?? "").trim().toLowerCase();
       const k = `${keyVariant}::${Number(v.price) || 0}`;
-      if (!unique.has(k)) unique.set(k, { ...v, variant: v.variant?.trim() || v.variant });
+      if (!unique.has(k)) unique.set(k, { ...v, variant: v.variant?.trim() || v.variant || null });
     });
-    group.variants = Array.from(unique.values()).sort((a, b) => a.price - b.price);
+    group.variants = Array.from(unique.values()).sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
   });
+
   window.groupedProducts = grouped;
   return grouped;
 }
@@ -254,7 +274,7 @@ async function renderProducts(selectedCategory = "") {
 
   // Sort with case-insensitive match to preferred order
   const preferredOrder = [
-    'Snacks','Western','Ricebowl','Nasi','Nasi Goreng',
+    'Special Today', 'Snacks','Western','Ricebowl','Nasi','Nasi Goreng',
     'Mie','Matcha','Coffee','Non coffee','Tea & Juices'
   ];
   const norm = s => s.toLowerCase();
