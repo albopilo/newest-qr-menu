@@ -25,6 +25,9 @@
   let currentEditId = null;          // null = create new
   let currentEditData = null;        // keep the doc snapshot data for edit context
   let filteredText = "";
+  let unsubscribePromos = null;
+let currentPromoId = null;
+let currentPromoData = null;
 
   /***********************
    * Banner helper
@@ -41,15 +44,17 @@
   /***********************
    * Cache invalidation
    ***********************/
-  function invalidateMenuCache() {
-    try {
-      localStorage.removeItem("productCacheV2");
-      localStorage.removeItem("productCacheTimeV2");
-      showBanner("Menu cache invalidated. Customers will fetch fresh data on next load.", 3200);
-    } catch (e) {
-      console.warn("Cache invalidate failed:", e);
-    }
+function invalidateMenuCache() {
+  try {
+    localStorage.removeItem("productCacheV2");
+    localStorage.removeItem("productCacheTimeV2");
+    localStorage.removeItem("promoCacheV1");       // 🔹 clear promo cache
+    localStorage.removeItem("promoCacheTimeV1");   // 🔹 clear promo cache timestamp
+    showBanner("Menu & promo cache invalidated. Customers will fetch fresh data on next load.", 3200);
+  } catch (e) {
+    console.warn("Cache invalidate failed:", e);
   }
+}
 
   /***********************
    * Admin gate using /admins/{uid}
@@ -176,23 +181,121 @@
     }
   }
 
+  function renderPromos(snapshot) {
+  const list = document.getElementById("promoList");
+  const status = document.getElementById("promoStatus");
+  if (!list) return;
+
+  list.innerHTML = "";
+  let count = 0;
+
+  snapshot.forEach(doc => {
+    const p = doc.data();
+    const id = doc.id;
+    count++;
+
+    const row = el("div", { class: "grid row", dataset: { id } }, [
+      el("div", {}, [document.createTextNode(p.type || "—")]),
+      el("div", {}, [document.createTextNode(p.active ? "Yes" : "No")]),
+      el("div", {}, [document.createTextNode((p.buy_product_ids || []).join(", "))]),
+      el("div", {}, [document.createTextNode(p.free_product_id || "—")]),
+      el("div", {}, [document.createTextNode(p.free_qty || 0)]),
+      el("div", {}, [
+        (() => {
+          const editBtn = el("button", { class: "btn minimal" }, [document.createTextNode("Edit")]);
+          editBtn.addEventListener("click", () => openPromoModal(id, p));
+          return editBtn;
+        })(),
+        (() => {
+          const delBtn = el("button", { class: "btn danger", style: "margin-left:6px" }, [document.createTextNode("Delete")]);
+          delBtn.addEventListener("click", () => deletePromo(id));
+          return delBtn;
+        })()
+      ])
+    ]);
+
+    list.appendChild(row);
+  });
+
+  if (status) {
+    status.textContent = count === 0 ? "No promos found." : `${count} program${count > 1 ? "s" : ""} shown`;
+  }
+}
+
   /***********************
    * Live query
    ***********************/
-  function listenProducts() {
-    if (typeof unsubscribeProducts === "function") {
-      unsubscribeProducts();
-      unsubscribeProducts = null;
-    }
-    const listRef = db.collection("products").orderBy("name");
-    unsubscribeProducts = listRef.onSnapshot(
-      snap => renderProducts(snap),
-      err => {
-        console.error("Products listen error:", err);
-        showBanner("Failed to load products.", 3500);
-      }
-    );
+function listenProducts() {
+  if (typeof unsubscribeProducts === "function") {
+    unsubscribeProducts();
+    unsubscribeProducts = null;
   }
+  const listRef = db.collection("products").orderBy("name");
+  unsubscribeProducts = listRef.onSnapshot(
+    snap => {
+      renderProducts(snap);
+      populateBuyProductSelect(snap);   // pass the snapshot here
+      populateFreeProductSelect(snap);  // pass the snapshot here
+    },
+    err => {
+      console.error("Products listen error:", err);
+      showBanner("Failed to load products.", 3500);
+    }
+  );
+}
+
+function populateBuyProductSelect(productsSnap) {
+  const sel = document.getElementById("fieldBuyProductIds");
+  if (!sel) return;
+
+  // Preserve current selections if the modal is open
+  const keepSelected = new Set(Array.from(sel.selectedOptions).map(o => o.value));
+
+  sel.innerHTML = "";
+  productsSnap.forEach(doc => {
+    const p = doc.data();
+    const opt = document.createElement("option");
+    opt.value = doc.id;
+    opt.textContent = `${p.name}${p.variant_names ? ` (${p.variant_names})` : ""}`;
+    // Keep currently selected items selected during live refresh
+    if (keepSelected.has(doc.id)) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function populateFreeProductSelect(productsSnap) {
+  const sel = document.getElementById("fieldFreeProductId");
+  if (!sel) return;
+
+  const currentValue = sel.value; // try to preserve if user selected something
+
+  sel.innerHTML = "";
+  productsSnap.forEach(doc => {
+    const p = doc.data();
+    const opt = document.createElement("option");
+    opt.value = doc.id;
+    opt.textContent = `${p.name}${p.variant_names ? ` (${p.variant_names})` : ""}`;
+    sel.appendChild(opt);
+  });
+
+  if (currentValue) sel.value = currentValue; // restore if still present
+}
+
+
+  function listenPromos() {
+  if (typeof unsubscribePromos === "function") {
+    unsubscribePromos();
+    unsubscribePromos = null;
+  }
+  const listRef = db.collection("marketing_programs").orderBy("type");
+  unsubscribePromos = listRef.onSnapshot(
+    snap => renderPromos(snap),
+    err => {
+      console.error("Promos listen error:", err);
+      showBanner("Failed to load marketing programs.", 3500);
+    }
+  );
+}
 
   /***********************
    * Modal helpers
@@ -237,6 +340,89 @@
 
     populatePhotos(p);
   }
+
+function populatePromoForm(p = null) {
+  document.getElementById("promoModalTitle").textContent = p ? "Edit Program" : "New Program";
+  document.getElementById("fieldPromoType").value = p?.type || "buy_x_get_y";
+  document.getElementById("fieldPromoActive").checked = !!p?.active;
+  document.getElementById("fieldFreeQty").value = p?.free_qty || 1;
+
+  // Preselect free product
+  const freeSel = document.getElementById("fieldFreeProductId");
+  if (freeSel) freeSel.value = p?.free_product_id || "";
+
+  // Preselect buy products in <select multiple>
+  const buySel = document.getElementById("fieldBuyProductIds");
+  if (buySel) {
+    const ids = p?.buy_product_ids || [];
+    Array.from(buySel.options).forEach(opt => {
+      opt.selected = ids.includes(opt.value);
+    });
+  }
+
+  // Optional variant lock (if the field exists)
+  const freeVariantEl = document.getElementById("fieldFreeVariant");
+  if (freeVariantEl) freeVariantEl.value = p?.free_variant || "";
+}
+
+async function savePromoForm() {
+  const type = document.getElementById("fieldPromoType").value.trim();
+  const active = document.getElementById("fieldPromoActive").checked;
+  const buyIds = Array.from(document.getElementById("fieldBuyProductIds").selectedOptions)
+  .map(opt => opt.value);
+  const freeId = document.getElementById("fieldFreeProductId").value.trim();
+  const freeQty = Number(document.getElementById("fieldFreeQty").value);
+  
+
+  if (!type || buyIds.length === 0 || !freeId) {
+    showBanner("Please fill all required fields.", 3000);
+    return;
+  }
+  if (!Number.isInteger(freeQty) || freeQty <= 0) {
+    showBanner("Free quantity must be a positive integer.", 3000);
+    return;
+  }
+
+const freeVariantEl = document.getElementById("fieldFreeVariant");
+const freeVariant = (freeVariantEl?.value || "").trim();
+const payload = { type, active, buy_product_ids: buyIds, free_product_id: freeId, free_qty: freeQty };
+if (freeVariant) payload.free_variant = freeVariant;
+
+  try {
+    if (currentPromoId) {
+      await db.collection("marketing_programs").doc(currentPromoId).set(payload, { merge: true });
+      showBanner("Program updated.", 2200);
+    } else {
+      await db.collection("marketing_programs").add(payload);
+      showBanner("Program created.", 2200);
+    }
+    invalidateMenuCache(); // optional: clear promo cache too
+    closeModal("promoModal");
+  } catch (e) {
+    console.error("Save promo failed:", e);
+    showBanner("Failed to save program.", 3200);
+  }
+}
+
+async function deletePromo(id) {
+  const ok = confirm("Delete this marketing program?");
+  if (!ok) return;
+  try {
+    await db.collection("marketing_programs").doc(id).delete();
+    invalidateMenuCache();
+    showBanner("Program deleted.", 2200);
+  } catch (e) {
+    console.error("Delete promo failed:", e);
+    showBanner("Failed to delete program.", 3200);
+  }
+}
+
+function openPromoModal(id, data) {
+  currentPromoId = id || null;
+  currentPromoData = data || null;
+  populatePromoForm(currentPromoData);
+  openModal("promoModal");
+}
 
   function collectPhotosInto(payload) {
     for (let i = 1; i <= 10; i++) {
@@ -464,6 +650,15 @@
         closeModal("bulkModal");
       }
     });
+
+    document.getElementById("addPromoBtn")?.addEventListener("click", () => {
+  currentPromoId = null;
+  currentPromoData = null;
+  populatePromoForm(null);
+  openModal("promoModal");
+});
+document.getElementById("savePromoBtn")?.addEventListener("click", savePromoForm);
+document.getElementById("cancelPromoBtn")?.addEventListener("click", () => closeModal("promoModal"));
   }
 
   /***********************
@@ -484,6 +679,7 @@
       if (!ok) return;
       toggleSections(true);
       listenProducts();
+      listenPromos();
     });
   }
 

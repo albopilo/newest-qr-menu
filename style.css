@@ -344,17 +344,116 @@ body.staff .icon-btn {
 /* === Banner Notifications === */
 .banner {
   position: fixed;
-  top: 0; left: 0; right: 0;
+  top: 0; /* change to 'auto' and set bottom: 16px; for bottom placement */
+  left: 0;
+  right: 0;
   background: #333;
   color: #fff;
   text-align: center;
   padding: 10px 14px;
   font-size: 0.95em;
   z-index: 2000;
-  transition: opacity 0.3s;
+  opacity: 1;
+  transition: opacity 0.3s ease;
 }
 
 .banner.hidden {
-  display: none;
   opacity: 0;
+  pointer-events: none; /* allows clicks through while fading */
+}
+
+/* === Cart Highlight Animation === */
+.cart-item.highlight {
+  animation: flash-bg 1.5s ease;
+}
+
+@keyframes flash-bg {
+  0% {
+    background-color: #fff3cd;
+    box-shadow: 0 0 0 2px #ffe58f inset;
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+/* === Freebie Variant Modal Styling === */
+#variantModal.freebie .modal-content {
+  border: 2px solid #28a745;
+  box-shadow: 0 0 12px rgba(40, 167, 69, 0.4);
+}
+
+#variantModal.freebie #variantTitle {
+  color: #28a745;
+}
+
+#variantModal.freebie p {
+  color: #28a745;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+/* === Responsive Adjustments === */
+@media (max-width: 600px) {
+  /* Header: stack title and buttons */
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.75em;
+    gap: 0.5em;
+  }
+
+  header h2 {
+    font-size: 1.1rem;
+  }
+
+  /* Make all buttons full-width for easier tapping */
+  button {
+    width: 100%;
+    font-size: 0.95em;
+    padding: 10px 14px;
+    min-height: 44px; /* touch target size */
+  }
+
+  /* Category tabs: tighter padding and scrollable */
+  #categoryTabsContainer {
+    padding: 6px;
+  }
+  #categoryTabs button {
+    font-size: 0.9em;
+    padding: 6px 12px;
+  }
+
+  /* Product list: prevent horizontal overflow */
+  #productList {
+    padding: 0 8px;
+  }
+
+  /* Cart body: allow more height on mobile */
+  #cart-body {
+    max-height: 200px;
+  }
+
+  /* Checkout button: full width, static position */
+  #checkoutBtn {
+    position: static;
+    width: 100%;
+    margin: 12px 0;
+    font-size: 1rem;
+    padding: 12px;
+  }
+
+  /* Variant modal: fit small screens */
+  #variantModal .modal-content {
+    width: 100%;
+    max-width: 320px;
+    padding: 16px;
+  }
+
+  /* Banner: slightly smaller text */
+  .banner {
+    font-size: 0.9em;
+    padding: 8px;
+  }
 }

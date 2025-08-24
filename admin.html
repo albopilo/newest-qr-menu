@@ -5,8 +5,8 @@
   <title>13e Café — Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="style.css">
-
   <style>
+
     body.admin { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: #f9fafb; color: #111827; margin: 0; }
     .container { max-width: 1100px; margin: 0 auto; padding: 16px; }
     .hidden { display: none !important; }
@@ -42,6 +42,7 @@
 
     <!-- Login -->
     <section id="loginSection">
+
       <div class="section">
         <label class="small">Administrator email</label>
         <input type="email" id="adminEmail" placeholder="email@yourdomain.com" autocomplete="username">
@@ -55,8 +56,8 @@
       </div>
       <p class="muted">Access restricted. Only accounts listed in Firestore collection “admins” can enter.</p>
     </section>
-
-    <!-- Admin panel -->
+    
+      <!-- Admin panel -->
     <section id="adminPanel" class="hidden">
       <div class="toolbar">
         <button id="addProductBtn" class="btn primary">Add product</button>
@@ -77,11 +78,29 @@
       </div>
       <div id="productList"></div>
       <p id="listStatus" class="muted" style="margin-top: 10px;"></p>
+
+      <!-- 🔹 Marketing Programs Section -->
+      <h2 style="margin-top:32px;">Marketing Programs</h2>
+      <div class="toolbar">
+        <button id="addPromoBtn" class="btn primary">Add Program</button>
+        <span class="spacer"></span>
+        <p id="promoStatus" class="muted"></p>
+      </div>
+      <div class="grid header" style="margin-bottom: 8px;">
+        <div>Type</div>
+        <div>Active</div>
+        <div>Buy Product IDs</div>
+        <div>Free Product ID</div>
+        <div>Free Qty</div>
+        <div>Actions</div>
+      </div>
+      <div id="promoList"></div>
     </section>
   </div>
 
-  <!-- Add/Edit modal -->
+  <!-- Add/Edit product modal -->
   <div id="adminModal" class="modal hidden" role="dialog" aria-modal="true">
+
     <div class="modal-card">
       <h3 id="modalTitle">New product</h3>
 
@@ -197,6 +216,52 @@ Large | 25000"></textarea>
       </div>
     </div>
   </div>
+
+    <!-- 🔹 Promo modal -->
+  <div id="promoModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3 id="promoModalTitle">New Program</h3>
+
+      <div class="section">
+        <label class="small">Type</label>
+        <select id="fieldPromoType">
+          <option value="buy_x_get_y">Buy X Get Y</option>
+        </select>
+      </div>
+
+      <div class="section">
+        <label class="small">Active</label>
+        <input type="checkbox" id="fieldPromoActive">
+      </div>
+
+      <div class="section">
+  <label class="small">Buy Products</label>
+  <select id="fieldBuyProductIds" multiple size="6"></select>
+</div>
+
+      <div class="section">
+  <label class="small">Free Product</label>
+  <select id="fieldFreeProductId"></select>
+</div>
+
+<div class="section">
+  <label class="small">Free Product Variant (optional)</label>
+  <input type="text" id="fieldFreeVariant" placeholder="Exact variant name">
+</div>
+
+      <div class="section">
+        <label class="small">Free Quantity</label>
+        <input type="number" id="fieldFreeQty" min="1" step="1" placeholder="e.g., 1">
+        <p class="muted">Must be a positive integer. Required.</p>
+      </div>
+
+      <div class="modal-actions">
+        <button id="savePromoBtn" class="btn primary">Save</button>
+        <button id="cancelPromoBtn" class="btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
 
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>

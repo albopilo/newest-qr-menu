@@ -28,6 +28,17 @@ let currentUser = null;
 let cart = [];
 let sessionTimer = null;
 let unsubscribeOrders = null;
+let activePromos = [];
+
+async function fetchActivePromos() {
+  const snapshot = await db.collection("marketing_programs")
+    .where("type", "==", "buy_x_get_y")
+    .where("active", "==", true)
+    .get();
+
+  activePromos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  console.log("📢 Active promos loaded:", activePromos);
+}
 
 /***********************
  * Banner helper
@@ -334,20 +345,237 @@ async function renderProducts(selectedCategory = "") {
   }
 }
 
+function highlightCartItemByName(name) {
+  const cartList = document.querySelector(".cart-list");
+  if (!cartList) return;
+  const itemEl = Array.from(cartList.querySelectorAll(".cart-item-name"))
+    .find(el => el.dataset.productName === name);
+  if (itemEl) {
+    const li = itemEl.closest("li");
+    li.classList.add("highlight");
+    setTimeout(() => li.classList.remove("highlight"), 1500);
+  }
+}
+
 /***********************
  * Add to cart by product name
  ***********************/
 window.handleAddToCartByName = function(productName) {
   const group = window.groupedProducts?.[productName];
   if (!group) return;
+
   const hasVariants = group.variants.length > 1 || !!group.variants[0]?.variant;
+
+  // Choose variant for buy item before adding
+  const addBuyItem = (variantObj, promoLinkId = null) => {
+    addToCart({
+      id: variantObj.id,
+      name: group.name,
+      price: variantObj.price,
+      variant: variantObj.variant || null,
+      promoLinkId
+    });
+  };
+
+  const chosenVariant = group.variants[0];
+
+  // Check promos first so we can generate a shared link ID
+  const triggeredPromos = activePromos.filter(promo =>
+    promo.buy_product_ids.includes(chosenVariant.id)
+  );
+  const promoLinkId = triggeredPromos.length ? `${triggeredPromos[0].id}-${Date.now()}` : null;
+
   if (hasVariants) {
-    showVariantSelector(group);
+    // Show variant selector for buy item
+    const modal = document.getElementById("variantModal");
+    const options = document.getElementById("variantOptions");
+    const title = document.getElementById("variantTitle");
+    if (!modal || !options) return;
+    options.innerHTML = "";
+    if (title) {
+      title.textContent = group.variant_label
+        ? `Choose ${group.variant_label} for ${group.name}`
+        : `Choose option for ${group.name}`;
+    }
+    group.variants.forEach(v => {
+      const btn = document.createElement("button");
+      btn.textContent = (v.variant && v.variant.trim())
+        ? `${v.variant} — Rp${Number(v.price).toLocaleString()}`
+        : `${group.name} — Rp${Number(v.price).toLocaleString()}`;
+      btn.addEventListener("click", () => {
+        addBuyItem(v, promoLinkId);
+        closeModal();
+        // Trigger promos after buy item is confirmed
+        triggeredPromos.forEach(promo => {
+          const freeGroup = Object.values(window.groupedProducts)
+            .find(g => g.variants.some(vv => vv.id === promo.free_product_id));
+          if (freeGroup) {
+            const hasFreeVariants = freeGroup.variants.length > 1 || !!freeGroup.variants[0]?.variant;
+            const qtyToAdd = Number(promo.free_qty) > 0 ? Number(promo.free_qty) : 1;
+            for (let i = 0; i < qtyToAdd; i++) {
+              if (hasFreeVariants) {
+                showVariantSelectorForPendingFree(freeGroup, promoLinkId);
+              } else {
+                addToCart({
+                  id: freeGroup.variants[0].id,
+                  name: freeGroup.name,
+                  price: 0,
+                  variant: freeGroup.variants[0]?.variant || null,
+                  isPromoFree: true,
+                  promoLinkId
+                });
+                highlightCartItemByName(freeGroup.name);
+              }
+            }
+          }
+        });
+      });
+      options.appendChild(btn);
+    });
+    modal.classList.remove("hidden");
   } else {
-    const v = group.variants[0];
-    addToCart({ id: v.id, name: group.name, price: v.price, variant: v.variant || null });
+    // No variants for buy item
+    addBuyItem(chosenVariant, promoLinkId);
+    triggeredPromos.forEach(promo => {
+      const freeGroup = Object.values(window.groupedProducts)
+        .find(g => g.variants.some(vv => vv.id === promo.free_product_id));
+      if (freeGroup) {
+        const hasFreeVariants = freeGroup.variants.length > 1 || !!freeGroup.variants[0]?.variant;
+        const qtyToAdd = Number(promo.free_qty) > 0 ? Number(promo.free_qty) : 1;
+        for (let i = 0; i < qtyToAdd; i++) {
+          if (hasFreeVariants) {
+            showVariantSelectorForPendingFree(freeGroup, promoLinkId);
+          } else {
+            addToCart({
+              id: freeGroup.variants[0].id,
+              name: freeGroup.name,
+              price: 0,
+              variant: freeGroup.variants[0]?.variant || null,
+              isPromoFree: true,
+              promoLinkId
+            });
+            highlightCartItemByName(freeGroup.name);
+          }
+        }
+      }
+    });
   }
 };
+
+function showVariantSelectorForPendingFree(group, promoLinkId) {
+  if (!userHasInteracted) return;
+  const modal = document.getElementById("variantModal");
+  const options = document.getElementById("variantOptions");
+  const title = document.getElementById("variantTitle");
+  if (!modal || !options) return;
+
+  // Mark modal for freebie styling
+  modal.classList.add("freebie");
+
+  // Clear old content
+  options.innerHTML = "";
+  if (title) {
+    title.textContent = `🎁 Choose your FREE ${group.variant_label || "option"} for ${group.name}`;
+    // remove any old note
+    const oldNote = options.parentNode.querySelector(".freebie-note");
+    if (oldNote) oldNote.remove();
+    const note = document.createElement("p");
+    note.className = "freebie-note";
+    note.textContent = "This item is included for free with your order.";
+    note.style.color = "#28a745";
+    note.style.fontWeight = "500";
+    note.style.marginBottom = "8px";
+    options.parentNode.insertBefore(note, options);
+  }
+
+  group.variants.forEach(v => {
+    const btn = document.createElement("button");
+    btn.textContent = (v.variant && v.variant.trim())
+      ? `${v.variant} — Rp0`
+      : `${group.name} — Rp0`;
+    btn.addEventListener("click", () => {
+      addToCart({
+        id: v.id,
+        name: group.name,
+        price: 0,
+        variant: v.variant || null,
+        isPromoFree: true,
+        promoLinkId
+      });
+      highlightCartItemByName(group.name);
+      closeModal();
+    });
+    options.appendChild(btn);
+  });
+
+  modal.classList.remove("hidden");
+}
+
+function showVariantSelectorFor(cartIndex, group, forcePriceZero = false) {
+  if (!userHasInteracted) return;
+  const modal = document.getElementById("variantModal");
+  const options = document.getElementById("variantOptions");
+  const title = document.getElementById("variantTitle");
+  if (!modal || !options) return;
+
+  // Toggle freebie styling
+  if (forcePriceZero) {
+    modal.classList.add("freebie");
+  } else {
+    modal.classList.remove("freebie");
+  }
+
+  options.innerHTML = "";
+  if (title) {
+    if (forcePriceZero) {
+  modal.classList.add("freebie");
+  title.textContent = `🎁 Choose your FREE ${group.variant_label || "option"} for ${group.name}`;
+  const oldNote = options.parentNode.querySelector(".freebie-note");
+  if (oldNote) oldNote.remove();
+  const note = document.createElement("p");
+  note.className = "freebie-note";
+  note.textContent = "This item is included for free with your order.";
+  note.style.color = "#28a745";
+  note.style.fontWeight = "500";
+  note.style.marginBottom = "8px";
+  options.parentNode.insertBefore(note, options);
+} else {
+  modal.classList.remove("freebie");
+  title.textContent = group.variant_label
+    ? `Choose ${group.variant_label} for ${group.name}`
+    : `Choose option for ${group.name}`;
+}
+  }
+
+  group.variants.forEach(v => {
+    const btn = document.createElement("button");
+    const priceText = forcePriceZero ? "Rp0" : `Rp${Number(v.price).toLocaleString()}`;
+    btn.textContent = (v.variant && v.variant.trim())
+      ? `${v.variant} — ${priceText}`
+      : `${group.name} — ${priceText}`;
+
+    btn.addEventListener("click", () => {
+      const idx = Number(cartIndex);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= cart.length) {
+        closeModal();
+        return;
+      }
+      cart[idx].id = v.id;
+      cart[idx].name = group.name;
+      cart[idx].variant = v.variant || null;
+      cart[idx].price = forcePriceZero ? 0 : Number(v.price) || 0;
+
+      saveCartToStorage();
+      renderCart();
+      startSessionTimeout();
+      closeModal();
+    });
+
+    options.appendChild(btn);
+  });
+
+  modal.classList.remove("hidden");
+}
 
 /***********************
  * Variant selector modal
@@ -358,6 +586,9 @@ function showVariantSelector(group) {
   const options = document.getElementById("variantOptions");
   const title = document.getElementById("variantTitle");
   if (!modal || !options) return;
+
+  // Ensure no freebie styling
+  modal.classList.remove("freebie");
 
   options.innerHTML = "";
   if (title) {
@@ -426,10 +657,23 @@ function saveCartToStorage() {
  ***********************/
 function addToCart(product) {
   if (!product) return;
-  const key = product.variant || "default";
-  const existing = cart.find(c => c.id === product.id && (c.variant || "default") === key);
-  if (existing) existing.qty++;
-  else cart.push({ ...product, qty: 1 });
+
+  // ✅ Keep promo-free items as distinct lines
+  if (product.isPromoFree) {
+    cart.push({ ...product, qty: 1 });
+  } else {
+    const key = product.variant || "default";
+    const existing = cart.find(c =>
+      c.id === product.id &&
+      (c.variant || "default") === key &&
+      !c.isPromoFree // only merge with other paid items
+    );
+    if (existing) {
+      existing.qty++;
+    } else {
+      cart.push({ ...product, qty: 1 });
+    }
+  }
 
   saveCartToStorage();
   renderCart();
@@ -444,23 +688,31 @@ function renderCart() {
   list.innerHTML = "";
   let total = 0;
 
-  cart.forEach(item => {
-    total += item.price * item.qty;
+cart.forEach((item, idx) => {
+  total += item.price * item.qty;
 
-    const li = document.createElement("li");
-    li.className = "cart-item";
+  const li = document.createElement("li");
+  li.className = "cart-item";
 
-    const nameSpan = document.createElement("span");
-    nameSpan.textContent = item.name + (item.variant ? ` — ${item.variant}` : "");
-    li.appendChild(nameSpan);
+  const nameSpan = document.createElement("span");
+  nameSpan.className = "cart-item-name";
+  nameSpan.dataset.productName = item.name;
+  nameSpan.dataset.index = String(idx);          // <-- index for in-place update
+  nameSpan.dataset.promoFree = item.isPromoFree ? "1" : "0";
+  nameSpan.textContent = item.name + (item.variant ? ` — ${item.variant}` : "");
+  if (item.isPromoFree) {
+    nameSpan.style.cursor = "pointer";
+    nameSpan.title = "Click to choose free item variant";
+  }
+  li.appendChild(nameSpan);
 
     const qtyWrap = document.createElement("div");
     qtyWrap.className = "qty-adjuster";
 
     const decBtn = document.createElement("button");
     decBtn.className = "icon-btn dec";
-    decBtn.dataset.id = item.id;
-    decBtn.dataset.variant = item.variant || "";
+decBtn.dataset.index = String(idx);
+
     decBtn.textContent = "−";
     qtyWrap.appendChild(decBtn);
 
@@ -471,8 +723,8 @@ function renderCart() {
 
     const incBtn = document.createElement("button");
     incBtn.className = "icon-btn inc";
-    incBtn.dataset.id = item.id;
-    incBtn.dataset.variant = item.variant || "";
+    incBtn.dataset.index = String(idx);
+
     incBtn.textContent = "+";
     qtyWrap.appendChild(incBtn);
 
@@ -489,31 +741,42 @@ function renderCart() {
   if (totalEl) totalEl.textContent = `Rp${total.toLocaleString()}`;
 }
 
-function increaseQty(id, variant = "") {
-  const item = cart.find(i => i.id === id && (i.variant || "") === variant);
-  if (item) {
-    item.qty += 1;
-    saveCartToStorage();
-    renderCart();
-    startSessionTimeout();
-  }
+function increaseQtyByIndex(index) {
+  const i = Number(index);
+  if (!Number.isInteger(i) || i < 0 || i >= cart.length) return;
+  cart[i].qty += 1;
+  saveCartToStorage();
+  renderCart();
+  startSessionTimeout();
 }
 
-function decreaseQty(id, variant = "") {
-  const item = cart.find(i => i.id === id && (i.variant || "") === variant);
-  if (item) {
-    item.qty -= 1;
-    if (item.qty <= 0) {
-      cart = cart.filter(i => !(i.id === id && (i.variant || "") === variant));
+function removeLinkedFreebies(promoLinkId) {
+  if (!promoLinkId) return;
+  cart = cart.filter(item => item.promoLinkId !== promoLinkId || item.isPromoFree === false);
+}
+
+function decreaseQtyByIndex(index) {
+  const i = Number(index);
+  if (!Number.isInteger(i) || i < 0 || i >= cart.length) return;
+  const removedItem = cart[i];
+  cart[i].qty -= 1;
+  if (cart[i].qty <= 0) {
+    cart.splice(i, 1);
+    if (!removedItem.isPromoFree && removedItem.promoLinkId) {
+      removeLinkedFreebies(removedItem.promoLinkId);
     }
-    saveCartToStorage();
-    renderCart();
-    startSessionTimeout();
   }
+  saveCartToStorage();
+  renderCart();
+  startSessionTimeout();
 }
 
 function removeFromCart(id, variant = "") {
+  const removedItem = cart.find(item => item.id === id && (item.variant || "") === variant);
   cart = cart.filter(item => !(item.id === id && (item.variant || "") === variant));
+  if (removedItem && !removedItem.isPromoFree && removedItem.promoLinkId) {
+    removeLinkedFreebies(removedItem.promoLinkId);
+  }
   saveCartToStorage();
   renderCart();
 }
@@ -1156,10 +1419,11 @@ function initStaff() {
   initStaffUI();
 }
 
+
 /***********************
  * Customer DOM bootstrap
  ***********************/
-function initCustomer() {
+async function initCustomer() {
   if (!document.getElementById("banner")) {
     const banner = document.createElement("div");
     banner.id = "banner";
@@ -1250,32 +1514,50 @@ function initCustomer() {
   }
   bindModalCloseHandlers();
 
-  // Product list delegation
-  const productList = document.getElementById("productList");
-  if (productList) {
-    productList.addEventListener("click", e => {
-      const t = e.target;
-      if (t.classList && t.classList.contains("add-to-cart")) {
-        const productName = t.dataset.productName;
-        if (productName) window.handleAddToCartByName(productName);
-      }
-    });
-    renderProducts();
-  }
 
-  // Cart controls
-  const cartList = document.querySelector(".cart-list");
-  if (cartList) {
-    cartList.addEventListener("click", e => {
-      const t = e.target;
-      if (!t.classList) return;
-      if (t.classList.contains("inc")) {
-        increaseQty(t.dataset.id, t.dataset.variant || "");
-      } else if (t.classList.contains("dec")) {
-        decreaseQty(t.dataset.id, t.dataset.variant || "");
-      }
-    });
-  }
+
+  // Product list delegation
+const productList = document.getElementById("productList");
+if (productList) {
+  await fetchActivePromos();                 // ✅ promos first
+  await renderProducts();                    // render tabs and list
+  productList.addEventListener("click", e => {
+    const t = e.target;
+    if (t.classList?.contains("add-to-cart")) {
+      const productName = t.dataset.productName;
+      if (productName) window.handleAddToCartByName(productName);
+    }
+  });
+}
+
+// Cart controls
+const cartList = document.querySelector(".cart-list");
+if (cartList) {
+  cartList.addEventListener("click", e => {
+    const t = e.target;
+    if (!t.classList) return;
+
+    // Quantity handlers (existing)
+    if (t.classList.contains("inc")) {
+  increaseQtyByIndex(t.dataset.index);
+  return;
+}
+if (t.classList.contains("dec")) {
+  decreaseQtyByIndex(t.dataset.index);
+  return;
+}
+
+    // New: click on free item name to choose variant
+    if (t.classList.contains("cart-item-name")) {
+  const idx = Number(t.dataset.index);
+  const item = cart[idx];
+  if (!item) return;
+  const group = window.groupedProducts?.[item.name];
+  if (!group) return;
+  showVariantSelectorFor(idx, group, item.isPromoFree);
+}
+  });
+}
 
   renderCart();
 }
@@ -1283,7 +1565,7 @@ function initCustomer() {
 /***********************
  * Unified DOMContentLoaded bootstrap
  ***********************/
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const modal = document.getElementById("variantModal");
   if (modal) modal.classList.add("hidden");
 
@@ -1297,6 +1579,6 @@ document.addEventListener("DOMContentLoaded", () => {
   if (document.body.classList.contains("staff")) {
     initStaff();
   } else {
-    initCustomer();
+    await initCustomer();
   }
 });
