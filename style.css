@@ -85,27 +85,26 @@ button:disabled {
 #categoryTabsContainer {
   overflow-x: auto;
   white-space: nowrap;
-  padding: 8px;
-  -webkit-overflow-scrolling: touch;
-  background: #fff;
-  border-bottom: 1px solid #eee;
+   -webkit-overflow-scrolling: touch;
+    padding: 6px;
+    background: #fff;
+    border-bottom: 1px solid #eee;
+
 }
 
 #categoryTabs {
   display: inline-block;
 }
 
-#categoryTabs button {
-  display: inline-block;
-  margin-right: 8px;
-  padding: 8px 14px;
-  border: none;
-  background-color: #eee;
-  border-radius: 20px;
-  cursor: pointer;
-  white-space: nowrap;
-  color: #333;
-  font-size: 0.95em;
+  #categoryTabs button {
+    display: inline-block;
+    font-size: 0.85em;         /* slightly smaller text */
+    padding: 6px 10px;         /* tighter pills */
+    margin-right: 6px;         /* smaller gap between tabs */
+    border-radius: 20px;
+    white-space: nowrap;       /* keep label on one line */
+    width: auto;               /* prevent full-width buttons */
+
 }
 
 #categoryTabs button.active {
