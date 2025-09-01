@@ -81,7 +81,7 @@ button:disabled {
   border-color: #bbb;
 }
 
-/* === Category Tabs === */
+/* === Category Tabs (desktop/base) === */
 #categoryTabsContainer {
   overflow-x: auto;
   white-space: nowrap;
@@ -126,6 +126,7 @@ button:disabled {
   padding: 0.75em 0;
   border-bottom: 1px solid #f0f0f0;
 }
+
 /* === Cart Styles Continued === */
 #toggleCartBtn {
   background: #333;
@@ -281,37 +282,6 @@ body.staff .icon-btn {
   font-size: 16px;
 }
 
-/* === Responsive Adjustments === */
-@media (max-width: 600px) {
-  header {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 0.75em;
-    gap: 0.5em;
-  }
-
-  button {
-    width: 100%;
-    font-size: 0.95em;
-    padding: 8px 12px;
-  }
-
-  #categoryTabsContainer {
-    padding: 6px;
-  }
-
-  #cart-body {
-    max-height: 150px;
-  }
-
-  #checkoutBtn {
-    right: 8px;
-    bottom: 8px;
-    padding: 8px 12px;
-    font-size: 0.9em;
-  }
-}
-
 /* === Variant Modal === */
 #variantModal {
   position: fixed;
@@ -384,6 +354,8 @@ body.staff .icon-btn {
   box-shadow: 0 0 12px rgba(40, 167, 69, 0.4);
 }
 
+/* Make title green whether it's an h3 or #variantTitle */
+#variantModal.freebie h3,
 #variantModal.freebie #variantTitle {
   color: #28a745;
 }
@@ -394,9 +366,7 @@ body.staff .icon-btn {
   margin-bottom: 8px;
 }
 
-/* === Responsive Adjustments === */
 @media (max-width: 600px) {
-  /* Header: stack title and buttons */
   header {
     flex-direction: column;
     align-items: flex-start;
@@ -408,34 +378,51 @@ body.staff .icon-btn {
     font-size: 1.1rem;
   }
 
-  /* Make all buttons full-width for easier tapping */
+  /* Global buttons for mobile */
   button {
     width: 100%;
     font-size: 0.95em;
     padding: 10px 14px;
-    min-height: 44px; /* touch target size */
+    min-height: 44px;
   }
 
-  /* Category tabs: tighter padding and scrollable */
+  /* Sticky + wrapping category tabs */
   #categoryTabsContainer {
+    position: sticky;
+    top: 0;
+    z-index: 800;
+    background: #fff;
+    border-bottom: 1px solid #eee;
+
     padding: 6px;
-  }
-  #categoryTabs button {
-    font-size: 0.9em;
-    padding: 6px 12px;
+    white-space: normal;
+    overflow-x: visible;
   }
 
-  /* Product list: prevent horizontal overflow */
+  #categoryTabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* Override global button width inside chips */
+  #categoryTabs button {
+    width: auto;
+    font-size: 0.85em;
+    padding: 6px 10px;
+    margin: 0;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
   #productList {
     padding: 0 8px;
   }
 
-  /* Cart body: allow more height on mobile */
   #cart-body {
     max-height: 200px;
   }
 
-  /* Checkout button: full width, static position */
   #checkoutBtn {
     position: static;
     width: 100%;
@@ -444,16 +431,22 @@ body.staff .icon-btn {
     padding: 12px;
   }
 
-  /* Variant modal: fit small screens */
   #variantModal .modal-content {
     width: 100%;
     max-width: 320px;
     padding: 16px;
   }
 
-  /* Banner: slightly smaller text */
   .banner {
     font-size: 0.9em;
     padding: 8px;
+  }
+}
+
+/* Optional: ultra-narrow devices */
+@media (max-width: 360px) {
+  #categoryTabs button {
+    font-size: 0.8em;
+    padding: 5px 8px;
   }
 }
