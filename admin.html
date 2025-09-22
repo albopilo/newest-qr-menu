@@ -41,21 +41,31 @@
     <h2>Admin — Product Management</h2>
 
     <!-- Login -->
-    <section id="loginSection">
+    <!-- Login -->
+<section id="loginSection">
+  <form id="loginForm">
+    <div class="section">
+      <label class="small">Administrator email</label>
+      <input type="email" id="adminEmail" placeholder="email@yourdomain.com"
+             autocomplete="username" required>
+    </div>
 
-      <div class="section">
-        <label class="small">Administrator email</label>
-        <input type="email" id="adminEmail" placeholder="email@yourdomain.com" autocomplete="username">
-      </div>
-      <div class="section">
-        <label class="small">Password</label>
-        <input type="password" id="adminPass" placeholder="Password" autocomplete="current-password">
-      </div>
-      <div class="toolbar">
-        <button id="loginBtn" class="btn primary">Login</button>
-      </div>
-      <p class="muted">Access restricted. Only accounts listed in Firestore collection “admins” can enter.</p>
-    </section>
+    <div class="section">
+      <label class="small">Password</label>
+      <input type="password" id="adminPass" placeholder="Password"
+             autocomplete="current-password" required>
+    </div>
+
+    <div class="toolbar">
+      <button type="submit" id="loginBtn" class="btn primary">Login</button>
+    </div>
+  </form>
+
+  <p class="muted">
+    Access restricted. Only accounts listed in Firestore collection “admins” can enter.
+  </p>
+</section>
+
     
       <!-- Admin panel -->
     <section id="adminPanel" class="hidden">

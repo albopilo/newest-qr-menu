@@ -556,27 +556,36 @@ function openPromoModal(id, data) {
   /***********************
    * Wire up UI
    ***********************/
-  function bindUI() {
-    // Login
-    document.getElementById("loginBtn")?.addEventListener("click", async () => {
-      const email = (document.getElementById("adminEmail").value || "").trim();
-      const pass = (document.getElementById("adminPass").value || "").trim();
-      if (!email || !pass) {
-        showBanner("Email and password are required.", 3000);
-        return;
-      }
-      try {
-        const cred = await auth.signInWithEmailAndPassword(email, pass);
-        const ok = await requireAdmin(cred.user);
-        if (!ok) return;
-        toggleSections(true);
-        listenProducts();
-        showBanner("Welcome back.", 2000);
-      } catch (e) {
-        console.error("Login error:", e);
-        showBanner("Login failed.", 3200);
-      }
-    });
+ function bindUI() {
+ const loginForm = document.getElementById("loginForm");
+if (loginForm) {
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault(); // prevent full page reload
+
+    const email = document.getElementById("adminEmail").value.trim();
+    const pass = document.getElementById("adminPass").value.trim();
+
+    if (!email || !pass) {
+      showBanner("Email and password required.", 3000);
+      return;
+    }
+
+    try {
+      const cred = await auth.signInWithEmailAndPassword(email, pass);
+      const ok = await requireAdmin(cred.user);
+      if (!ok) return;
+      toggleSections(true);
+      listenProducts();
+      listenPromos();
+      showBanner("Welcome back.", 2000);
+    } catch (err) {
+      console.error("Login failed", err);
+      showBanner("Login failed.", 3200);
+    }
+  });
+}
+
+
 
     // Logout
     document.getElementById("logoutBtn")?.addEventListener("click", async () => {
