@@ -1192,6 +1192,96 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     }, 400);
   });
 
- // expose debug hooks (optional)
-  window.__adminImportHandler = handleFileImport;
+  /* ------------------------
+     Core import routine
+     ------------------------ */
+  async function importObjects(objs) {
+    if (!Array.isArray(objs) || objs.length === 0) {
+      showBannerLocal("No rows found to import.");
+      return;
+    }
+
+    const db = firebase.firestore();
+    let batch = db.batch();
+    let opCount = 0;
+    let batchCount = 0;
+
+    try {
+      for (let i = 0; i < objs.length; i++) {
+        const row = objs[i];
+        const payload = buildPayloadFromRow(row);
+        if (!payload.name || !payload.price) {
+          console.warn("Skipping row (missing name/price):", row);
+          continue;
+        }
+
+        const rawId = (row.id || row.ID || "").toString().trim();
+        let ref;
+        if (rawId) {
+          // overwrite if ID provided
+          ref = db.collection("products").doc(rawId);
+        } else {
+          // new unique doc
+          ref = db.collection("products").doc();
+        }
+
+        batch.set(ref, payload, { merge: false });
+        opCount++;
+
+        if (opCount % BATCH_LIMIT === 0) {
+          await batch.commit();
+          batchCount++;
+          console.log(`Committed batch ${batchCount} (${opCount} items)`);
+          batch = db.batch();
+        }
+      }
+
+      if (opCount % BATCH_LIMIT !== 0) {
+        await batch.commit();
+        batchCount++;
+        console.log(`Committed final batch (${opCount} total)`);
+      }
+
+      showBannerLocal(`Imported ${opCount} product(s) successfully.`);
+      // invalidate menu cache so customers refresh
+      if (typeof invalidateMenuCache === "function") {
+        invalidateMenuCache();
+      }
+    } catch (e) {
+      console.error("Import failed:", e);
+      showBannerLocal("Import failed. See console.");
+    }
+  }
+
+  async function handleFileImport(file) {
+    try {
+      const ext = file.name.split(".").pop().toLowerCase();
+      let objs = [];
+      if (ext === "csv") {
+        const text = await file.text();
+        objs = csvToObjects(text);
+      } else if (ext === "xls" || ext === "xlsx") {
+        const ab = await file.arrayBuffer();
+        objs = parseXlsxArrayBufferToObjects(ab);
+      } else {
+        throw new Error("Unsupported file type: " + ext);
+      }
+
+      console.log("Parsed", objs.length, "rows from", file.name);
+      await importObjects(objs);
+    } catch (e) {
+      console.error("handleFileImport failed:", e);
+      showBannerLocal("Import failed.");
+    }
+  }
+
+  /* ------------------------
+     Bootstrapping export/import UI
+     ------------------------ */
+  function initExportImport() {
+    injectExportButton();
+    injectImportUI();
+  }
+
+  document.addEventListener("DOMContentLoaded", initExportImport);
 })();
