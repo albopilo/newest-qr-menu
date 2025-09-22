@@ -1,6 +1,4 @@
 // admin.js — Part 1/2
-<script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
-
 (() => {
   "use strict";
 
