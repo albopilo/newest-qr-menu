@@ -1,6 +1,10 @@
 // admin.js — Part 1/2
+<script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+
 (() => {
   "use strict";
+
+  
 
   /***********************
    * Firebase initialization
@@ -694,7 +698,32 @@ document.getElementById("cancelPromoBtn")?.addEventListener("click", () => close
   "use strict";
 
   const EXPORT_BTN_ID = "__exportBtnInjected";
+  const IMPORT_BTN_ID = "__importBtnInjected";
+  const TEMPLATE_BTN_ID = "__templateBtnInjected";
+  const FILE_INPUT_ID = "__importFileInput";
+  const BATCH_LIMIT = 500; // Firestore batch write limit
 
+  function showBannerLocal(msg, ms = 3000) {
+    const b = document.getElementById("banner");
+    if (!b) return;
+    b.textContent = msg;
+    b.classList.remove("hidden");
+    clearTimeout(b.__hideTimer);
+    b.__hideTimer = setTimeout(() => b.classList.add("hidden"), ms);
+  }
+
+  function parsePriceLocal(input) {
+    if (typeof input === "number") return input;
+    if (!input) return 0;
+    const cleaned = String(input).replace(/[^\d.-]/g, "");
+    const num = Number(cleaned);
+    return isNaN(num) ? 0 : Math.round(num);
+  }
+
+
+  /* ------------------------
+     EXPORT (your original code, kept mostly identical)
+     ------------------------ */
   async function exportProducts() {
     try {
       const db = firebase.firestore();
@@ -711,12 +740,7 @@ document.getElementById("cancelPromoBtn")?.addEventListener("click", () => close
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error("Export failed:", e);
-      const banner = document.getElementById("banner");
-      if (banner) {
-        banner.textContent = "Export failed.";
-        banner.classList.remove("hidden");
-        setTimeout(() => banner.classList.add("hidden"), 3000);
-      }
+      showBannerLocal("Export failed.");
     }
   }
 
@@ -731,7 +755,6 @@ document.getElementById("cancelPromoBtn")?.addEventListener("click", () => close
     btn.addEventListener("click", exportProducts);
 
     const logoutBtn = document.getElementById("logoutBtn");
-    // Robust insertion: only insertBefore if logoutBtn is a child of toolbar
     if (logoutBtn && logoutBtn.parentNode === toolbar) {
       toolbar.insertBefore(btn, logoutBtn);
     } else {
@@ -739,10 +762,345 @@ document.getElementById("cancelPromoBtn")?.addEventListener("click", () => close
     }
   }
 
+   /* ------------------------
+     IMPORT UI injection and helpers
+     ------------------------ */
+
+  function injectImportUI() {
+    if (document.getElementById(IMPORT_BTN_ID)) return;
+    const toolbar = document.querySelector(".toolbar");
+    if (!toolbar) return;
+
+    // Import button
+    const importBtn = document.createElement("button");
+    importBtn.id = IMPORT_BTN_ID;
+    importBtn.className = "btn";
+    importBtn.textContent = "Import CSV/XLSX";
+
+    // Template button (small minimal button)
+    const tplBtn = document.createElement("button");
+    tplBtn.id = TEMPLATE_BTN_ID;
+    tplBtn.className = "btn minimal";
+    tplBtn.style.marginLeft = "6px";
+    tplBtn.textContent = "Download Template";
+    tplBtn.addEventListener("click", downloadTemplate);
+
+    // hidden file input
+    const fileInput = document.createElement("input");
+    fileInput.id = FILE_INPUT_ID;
+    fileInput.type = "file";
+    fileInput.accept = ".csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    fileInput.style.display = "none";
+    fileInput.addEventListener("change", (e) => {
+      const f = e.target.files[0];
+      if (f) handleFileImport(f);
+      // reset so same file can be picked again
+      fileInput.value = "";
+    });
+
+    importBtn.addEventListener("click", () => fileInput.click());
+
+    const logoutBtn = document.getElementById("logoutBtn");
+    if (logoutBtn && logoutBtn.parentNode === toolbar) {
+      toolbar.insertBefore(importBtn, logoutBtn);
+      toolbar.insertBefore(tplBtn, logoutBtn);
+    } else {
+      toolbar.appendChild(importBtn);
+      toolbar.appendChild(tplBtn);
+    }
+
+    document.body.appendChild(fileInput);
+  }
+
+  function downloadTemplate() {
+    // Simple CSV header -> user can edit
+    const headers = [
+      "id (optional)",
+      "name",
+      "category",
+      "variant_names",
+      "variant_label",
+      "price",
+      "pos_hidden",
+      "photo_1",
+      "photo_2",
+      "photo_3"
+    ];
+    const sampleRow = [
+      "", // id
+      "Coffee Latte",
+      "Beverages",
+      "Large|Medium|Small",
+      "Size",
+      "15000",
+      "0",
+      "https://example.com/photo1.jpg",
+      "",
+      ""
+    ];
+    const csv = `${headers.join(",")}\n${sampleRow.join(",")}\n`;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `products-import-template.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  }
+
+  /* ------------------------
+     CSV parsing helpers (simple RFC-4180-ish)
+     ------------------------ */
+  function csvToObjects(text) {
+    // split into rows and parse respecting quotes
+    const rows = [];
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const fields = [];
+      let cur = "";
+      let inQuotes = false;
+      for (let j = 0; j < line.length; j++) {
+        const ch = line[j];
+        if (ch === '"') {
+          if (inQuotes && line[j + 1] === '"') {
+            cur += '"';
+            j++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === "," && !inQuotes) {
+          fields.push(cur);
+          cur = "";
+        } else {
+          cur += ch;
+        }
+      }
+      fields.push(cur);
+      rows.push(fields);
+    }
+
+    if (rows.length === 0) return [];
+
+    // Assume first row is header if any header-like cells present
+    const rawHeader = rows[0].map(h => (h || "").trim());
+    const isHeader = rawHeader.some(h => /name|price|category|variant/i.test(h));
+    if (!isHeader) {
+      // no header: create automatic headers as col1,col2...
+      const maxCols = Math.max(...rows.map(r => r.length));
+      const headers = [];
+      for (let i = 0; i < maxCols; i++) headers.push(`col${i + 1}`);
+      // convert rows to objects with those headers
+      return rows.map(r => {
+        const obj = {};
+        headers.forEach((h, idx) => { obj[h] = r[idx] ?? ""; });
+        return obj;
+      });
+    }
+
+    // Map header -> rows
+    const headers = rawHeader;
+    const objs = [];
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      const o = {};
+      for (let j = 0; j < headers.length; j++) {
+        const key = headers[j] || `col${j + 1}`;
+        o[key] = r[j] ?? "";
+      }
+      // skip empty rows
+      if (Object.values(o).every(v => String(v).trim() === "")) continue;
+      objs.push(o);
+    }
+    return objs;
+  }
+
+  /* ------------------------
+     Excel parsing using SheetJS if available
+     ------------------------ */
+  function parseXlsxArrayBufferToObjects(ab) {
+    if (typeof XLSX === "undefined") {
+      throw new Error("XLSX (SheetJS) is not available. Please include https://unpkg.com/xlsx/dist/xlsx.full.min.js");
+    }
+    const data = new Uint8Array(ab);
+    // read workbook
+    const wb = XLSX.read(data, { type: "array" });
+    const first = wb.SheetNames[0];
+    const sheet = wb.Sheets[first];
+    // defval ensures empty cells become empty string rather than undefined
+    const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    return json; // array of objects (if headers present) or array of arrays if options changed
+  }
+
+  /* ------------------------
+     Normalize/canonicalize header names
+     ------------------------ */
+  function normalizeKey(k) {
+    return String(k || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s\-_\.]+/g, "");
+  }
+
+  function findFirst(row, candidates) {
+    for (let i = 0; i < candidates.length; i++) {
+      const key = candidates[i];
+      // check direct exact match
+      for (const rk of Object.keys(row)) {
+        if (normalizeKey(rk) === normalizeKey(key)) return row[rk];
+      }
+    }
+    // if not found by exact normalized name, try substring match
+    for (const rk of Object.keys(row)) {
+      const nk = normalizeKey(rk);
+      for (const c of candidates) {
+        if (nk.includes(normalizeKey(c))) return row[rk];
+      }
+    }
+    return undefined;
+  }
+
+  function buildPayloadFromRow(row) {
+    // candidate header keys
+    const name = (findFirst(row, ["name", "product_name", "title"]) || "").toString().trim();
+    const category = (findFirst(row, ["category", "cat", "type", "kategori"]) || "").toString().trim() || "Uncategorized";
+    const variant_names = (findFirst(row, ["variant_names", "variant", "variants", "variantname"]) || "").toString().trim();
+    const variant_label = (findFirst(row, ["variant_label", "variantlabel", "label"]) || "").toString().trim();
+    const priceRaw = findFirst(row, ["price", "pos_sell_price", "posprice", "sellprice", "market_price"]) || "";
+    const price = parsePriceLocal(priceRaw);
+    const pos_hidden = Number(findFirst(row, ["pos_hidden", "hidden", "poshidden"]) || 0);
+
+    const payload = {
+      name: name || "",
+      category,
+      variant_label: variant_label || "",
+      variant_names: variant_names || "",
+      pos_sell_price: price,
+      price: price,
+      pos_hidden: Number.isFinite(pos_hidden) ? pos_hidden : 0
+    };
+
+    // photos: try locate photo_1..photo_10
+    for (let i = 1; i <= 10; i++) {
+      const candidates = [`photo_${i}`, `photo${i}`, `image${i}`, `img${i}`, `photo ${i}`];
+      const v = findFirst(row, candidates);
+      if (v !== undefined && String(v).trim() !== "") {
+        payload[`photo_${i}`] = String(v).trim();
+      }
+    }
+
+    // any other fields that are blank/included can optionally be added, but above are the main ones.
+    return payload;
+  }
+
+  /* ------------------------
+     Core import routine: accepts array of row-objects (header keys => values)
+     ------------------------ */
+  async function importRowsIntoFirestore(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      showBannerLocal("No rows found to import.", 3000);
+      return;
+    }
+
+    const db = firebase.firestore();
+    let batch = db.batch();
+    let ops = 0;
+    let created = 0;
+    let updated = 0;
+    let processed = 0;
+
+    try {
+      for (const row of rows) {
+        processed++;
+        // find id if available (support multiple id field names)
+        const idVal = findFirst(row, ["id", "product_id", "docid", "doc_id"]) || "";
+        const id = String(idVal || "").trim();
+
+        const payload = buildPayloadFromRow(row);
+
+        // require name and positive price for creation (same validation as single-product form)
+        if (!payload.name || (payload.price <= 0 && !id)) {
+          // skip rows that are clearly invalid for a new document (if id present user may be updating partial fields)
+          // If id present we still allow update even if price is 0/empty
+          if (!id) {
+            console.warn("Skipping row because missing name or positive price:", row);
+            continue;
+          }
+        }
+
+        const docRef = id ? db.collection("products").doc(id) : db.collection("products").doc();
+
+        // Use merge so provided fields don't wipe other fields unless intended
+        batch.set(docRef, payload, { merge: true });
+
+        if (id) updated++; else created++;
+        ops++;
+
+        // commit when reaching BATCH_LIMIT
+        if (ops >= BATCH_LIMIT) {
+          await batch.commit();
+          batch = db.batch();
+          ops = 0;
+          showBannerLocal(`Imported ${processed} / ${rows.length} rows...`, 1500);
+        }
+      }
+
+      // commit remaining
+      if (ops > 0) {
+        await batch.commit();
+      }
+
+      showBannerLocal(`Import complete. Created: ${created}, Updated: ${updated}.`, 5000);
+    } catch (e) {
+      console.error("Import failed:", e);
+      showBannerLocal("Import failed. See console for details.", 6000);
+    }
+  }
+
+  /* ------------------------
+     File handler: routes file to CSV or XLSX parsers
+     ------------------------ */
+  async function handleFileImport(file) {
+    const name = (file && file.name) ? file.name.toLowerCase() : "";
+    showBannerLocal(`Reading ${file.name}...`, 2000);
+
+    try {
+      if (name.endsWith(".csv")) {
+        const txt = await file.text();
+        const objs = csvToObjects(txt);
+        await importRowsIntoFirestore(objs);
+      } else if (name.endsWith(".xls") || name.endsWith(".xlsx")) {
+        if (typeof XLSX === "undefined") {
+          showBannerLocal("XLSX library not found. Include SheetJS (xlsx) to import Excel files.", 6000);
+          console.warn("Include SheetJS: <script src='https://unpkg.com/xlsx/dist/xlsx.full.min.js'></script>");
+          return;
+        }
+        // read as arrayBuffer
+        const ab = await file.arrayBuffer();
+        const objs = parseXlsxArrayBufferToObjects(ab);
+        // objs from sheet_to_json will be array of objects (if headers present)
+        await importRowsIntoFirestore(objs);
+      } else {
+        showBannerLocal("Unsupported file type. Use .csv or .xlsx.", 4000);
+      }
+    } catch (err) {
+      console.error("File import error:", err);
+      showBannerLocal("Failed to parse/import file. See console for details.", 6000);
+    }
+  }
+
+   /* ------------------------
+     Bootstrapping UI injection on DOMContentLoaded
+     ------------------------ */
   document.addEventListener("DOMContentLoaded", () => {
     // Slight delay to ensure toolbar and logoutBtn are present
-    setTimeout(injectExportButton, 400);
+    setTimeout(() => {
+      injectExportButton();
+      injectImportUI();
+    }, 400);
   });
 
-  // Placeholder for future enhancements (audit logs, import, etc.)
+ // expose debug hooks (optional)
+  window.__adminImportHandler = handleFileImport;
 })();
