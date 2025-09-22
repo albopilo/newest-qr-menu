@@ -1097,6 +1097,47 @@ document.getElementById("cancelPromoBtn")?.addEventListener("click", () => close
     }
   }
 
+  // Add a hidden file input dynamically
+const importInput = document.createElement("input");
+importInput.type = "file";
+importInput.accept = ".xlsx,.xls";
+importInput.style.display = "none";
+document.body.appendChild(importInput);
+
+document.getElementById("importBtn").addEventListener("click", () => {
+  importInput.click();
+});
+
+importInput.addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const data = new Uint8Array(evt.target.result);
+    const workbook = XLSX.read(data, { type: "array" });
+    const sheetName = workbook.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    console.log("Imported rows:", rows);
+
+    // 🔹 Example: iterate rows and add them to Firestore
+    rows.forEach(async (row) => {
+      await db.collection("products").add({
+        name: row.Name || "",
+        variant: row.Variant || "",
+        category: row.Category || "",
+        pos_sell_price: row.Price || 0,
+        hidden: row.Hidden || 0,
+      });
+    });
+
+    alert("Products imported!");
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+
     // 🔹 Re-inject toolbar buttons once admin panel is revealed
   const observer = new MutationObserver(() => {
     const adminPanel = document.getElementById("adminPanel");
