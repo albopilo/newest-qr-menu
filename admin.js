@@ -849,72 +849,87 @@
     return input;
   }
 
-  function injectExportButtonInto(toolbar) {
-    if (document.getElementById(EXPORT_BTN_ID)) return;
-    const btn = document.createElement("button");
-    btn.id = EXPORT_BTN_ID;
-    btn.className = "btn";
-    btn.textContent = "Export JSON";
-    btn.addEventListener("click", exportProducts);
-    const logoutBtn = document.getElementById("logoutBtn");
-    if (logoutBtn && logoutBtn.parentNode === toolbar) toolbar.insertBefore(btn, logoutBtn);
-    else toolbar.appendChild(btn);
+  /***********************
+ * UI injection helpers - robust
+ ***********************/
+function injectExportButton(toolbar) {
+  if (document.getElementById(EXPORT_BTN_ID)) {
+    console.log("ℹ️ Export button already exists, skipping inject");
+    return;
   }
 
-  function injectImportUIInto(toolbar) {
-    if (document.getElementById(IMPORT_BTN_ID)) return;
-    const importBtn = document.createElement("button");
-    importBtn.id = IMPORT_BTN_ID;
-    importBtn.className = "btn";
-    importBtn.textContent = "Import CSV/XLSX";
+  const btn = document.createElement("button");
+  btn.id = EXPORT_BTN_ID;
+  btn.textContent = "Export JSON";
+  btn.className = "btn";
+  btn.addEventListener("click", () => {
+    console.log("✅ Export button clicked");
+    exportProducts();
+  });
+  toolbar.appendChild(btn);
 
-    const tplBtn = document.createElement("button");
-    tplBtn.id = TEMPLATE_BTN_ID;
-    tplBtn.className = "btn minimal";
-    tplBtn.style.marginLeft = "6px";
-    tplBtn.textContent = "Download Template";
-    tplBtn.addEventListener("click", downloadTemplate);
+  console.log("✅ Export button injected into toolbar");
+}
 
-    const fileInput = createOrGetFileInput();
-    importBtn.addEventListener("click", () => fileInput.click());
+function injectImportUIInto(toolbar) {
+  if (document.getElementById(IMPORT_BTN_ID)) return;
 
-    const logoutBtn = document.getElementById("logoutBtn");
-    if (logoutBtn && logoutBtn.parentNode === toolbar) {
-      toolbar.insertBefore(importBtn, logoutBtn);
-      toolbar.insertBefore(tplBtn, logoutBtn);
-    } else {
-      toolbar.appendChild(importBtn);
-      toolbar.appendChild(tplBtn);
+  const importBtn = document.createElement("button");
+  importBtn.id = IMPORT_BTN_ID;
+  importBtn.className = "btn";
+  importBtn.textContent = "Import CSV/XLSX";
+
+  const tplBtn = document.createElement("button");
+  tplBtn.id = TEMPLATE_BTN_ID;
+  tplBtn.className = "btn minimal";
+  tplBtn.style.marginLeft = "6px";
+  tplBtn.textContent = "Download Template";
+  tplBtn.addEventListener("click", downloadTemplate);
+
+  const fileInput = createOrGetFileInput();
+  importBtn.addEventListener("click", () => fileInput.click());
+
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn && logoutBtn.parentNode === toolbar) {
+    toolbar.insertBefore(importBtn, logoutBtn);
+    toolbar.insertBefore(tplBtn, logoutBtn);
+  } else {
+    toolbar.appendChild(importBtn);
+    toolbar.appendChild(tplBtn);
+  }
+
+  console.log("✅ Import + Template buttons injected into toolbar");
+}
+
+function ensureToolbarInjection() {
+  const toolbarSelector = ".toolbar";
+  const attempted = { done: false };
+
+  function tryInject() {
+    const toolbar = document.querySelector(toolbarSelector);
+    if (toolbar) {
+      console.log("✅ Toolbar found, injecting buttons");
+      injectExportButton(toolbar);
+      injectImportUIInto(toolbar);
+      attempted.done = true;
+      return true;
     }
+    console.log("⏳ Toolbar not found yet");
+    return false;
   }
 
-  // Try immediate injection; if toolbar missing, watch DOM until available (then inject once)
-  function ensureToolbarInjection() {
-    const toolbarSelector = ".toolbar";
-    const attempted = { done: false };
+  if (tryInject()) return;
 
-    function tryInject() {
-      const toolbar = document.querySelector(toolbarSelector);
-      if (toolbar) {
-        injectExportButtonInto(toolbar);
-        injectImportUIInto(toolbar);
-        attempted.done = true;
-        return true;
-      }
-      return false;
-    }
+  const mo = new MutationObserver((mutations, obs) => {
+    if (tryInject()) obs.disconnect();
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
 
-    if (tryInject()) return;
+  setTimeout(() => {
+    if (!attempted.done) tryInject();
+  }, 1000);
+}
 
-    // If not present, set a MutationObserver to wait for it
-    const mo = new MutationObserver((mutations, obs) => {
-      if (tryInject()) obs.disconnect();
-    });
-    mo.observe(document.body, { childList: true, subtree: true });
-
-    // Also a safety timeout to attempt again after small delay (page frameworks sometimes render late)
-    setTimeout(() => { if (!attempted.done) tryInject(); }, 800);
-  }
 
   /***********************
    * Wire up UI
