@@ -735,36 +735,58 @@
   }
 
   async function exportProducts() {
-    try {
-      const snap = await db.collection("products").orderBy("name").get();
-      const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      if (items.length === 0) {
-        showBannerLocal("No products found to export.", 3000);
-        return;
-      }
-      const blob = new Blob([JSON.stringify(items, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const dt = new Date().toISOString().slice(0, 10);
-      a.download = `products-export-${dt}.json`;
-      document.body.appendChild(a);
+  let loadingEl;
+  try {
+    // Show a temporary loading popup
+    loadingEl = document.createElement("div");
+    loadingEl.id = "__exportLoadingPopup";
+    loadingEl.style.position = "fixed";
+    loadingEl.style.top = "0";
+    loadingEl.style.left = "0";
+    loadingEl.style.width = "100%";
+    loadingEl.style.height = "100%";
+    loadingEl.style.background = "rgba(0,0,0,0.4)";
+    loadingEl.style.display = "flex";
+    loadingEl.style.alignItems = "center";
+    loadingEl.style.justifyContent = "center";
+    loadingEl.style.zIndex = "9999";
+    loadingEl.innerHTML = `
+      <div style="background:white;padding:20px 30px;border-radius:8px;
+                  font-size:16px;font-weight:bold;box-shadow:0 2px 10px rgba(0,0,0,0.3);">
+        Exporting products... please wait
+      </div>`;
+    document.body.appendChild(loadingEl);
 
-      // User click - trigger
-      a.click();
-      a.remove();
+    const snap = await db.collection("products").orderBy("name").get();
+    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      // Revoke safely after short delay to allow download to start
-      setTimeout(() => {
-        try { URL.revokeObjectURL(url); } catch (e) { /* ignore */ }
-      }, 1500);
-
-      showBannerLocal(`Exported ${items.length} products.`, 3000);
-    } catch (err) {
-      console.error("Export failed:", err);
-      showBannerLocal("Export failed. Check console for details.", 4000);
+    if (items.length === 0) {
+      showBannerLocal("No products found to export.", 3000);
+      return;
     }
+
+    const blob = new Blob([JSON.stringify(items, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const dt = new Date().toISOString().slice(0, 10);
+    a.download = `products-export-${dt}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => { try { URL.revokeObjectURL(url); } catch {} }, 1500);
+
+    showBannerLocal(`Exported ${items.length} products.`, 3000);
+  } catch (err) {
+    console.error("Export failed:", err);
+    showBannerLocal("Export failed. Check console for details.", 4000);
+  } finally {
+    // Always remove loading popup
+    const el = document.getElementById("__exportLoadingPopup");
+    if (el) el.remove();
   }
+}
+
 
   function downloadTemplate() {
     const headers = [
