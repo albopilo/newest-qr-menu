@@ -1137,6 +1137,37 @@ importInput.addEventListener("change", (e) => {
   reader.readAsArrayBuffer(file);
 });
 
+document.getElementById("exportBtn").addEventListener("click", async () => {
+  try {
+    const snapshot = await db.collection("products").get();
+    const products = snapshot.docs.map(doc => ({
+      ID: doc.id,
+      Name: doc.data().name || "",
+      Variant: doc.data().variant || "",
+      Category: doc.data().category || "",
+      Price: doc.data().pos_sell_price || 0,
+      Hidden: doc.data().hidden || 0
+    }));
+
+    if (products.length === 0) {
+      alert("No products to export!");
+      return;
+    }
+
+    // Convert to worksheet
+    const worksheet = XLSX.utils.json_to_sheet(products);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
+
+    // Trigger download
+    XLSX.writeFile(workbook, "products.xlsx");
+  } catch (err) {
+    console.error("Export failed:", err);
+    alert("Export failed. Check console for details.");
+  }
+});
+
+
 
     // 🔹 Re-inject toolbar buttons once admin panel is revealed
   const observer = new MutationObserver(() => {
