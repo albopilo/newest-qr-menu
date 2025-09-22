@@ -913,12 +913,23 @@ if (checkoutBtn) {
     if (currentUser?.phoneNumber && !currentUser?.tier) {
       await fetchMemberTier(currentUser.phoneNumber);
     }
-    const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-    const discountRate = currentUser?.discountRate || 0;
-    const discount = subtotal * discountRate;
-    const taxRate = typeof currentUser?.taxRate === "number" ? currentUser.taxRate : 0.10;
-    const tax = (subtotal - discount) * taxRate;
-    const total = Math.round((subtotal - discount + tax) / 100) * 100;
+    // Calculate subtotal normally
+const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+
+// Discount only applies to items NOT in "Special Today"
+const discountRate = currentUser?.discountRate || 0;
+const discount = cart.reduce((sum, i) => {
+  // Only apply discount if category is NOT "Special Today"
+  return sum + ((i.category !== 'Special Today') ? i.price * i.qty * discountRate : 0);
+}, 0);
+
+// Tax (still applied to all items including Special Today)
+const taxRate = typeof currentUser?.taxRate === "number" ? currentUser.taxRate : 0.10;
+const tax = (subtotal - discount) * taxRate;
+
+// Total rounded to nearest 100
+const total = Math.round((subtotal - discount + tax) / 100) * 100;
+
 
     const items = cart.map(i => ({
       name: i.name + (i.variant ? ` (${i.variant})` : ""),
