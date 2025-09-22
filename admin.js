@@ -733,7 +733,6 @@ document.getElementById("cancelPromoBtn")?.addEventListener("click", () => close
      ------------------------ */
   async function exportProducts() {
     try {
-      const db = firebase.firestore();
       const snap = await db.collection("products").orderBy("name").get();
       const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       const blob = new Blob([JSON.stringify(items, null, 2)], { type: "application/json" });
@@ -1010,7 +1009,6 @@ document.getElementById("cancelPromoBtn")?.addEventListener("click", () => close
       return;
     }
 
-    const db = firebase.firestore();
     let batch = db.batch();
     let ops = 0;
     let created = 0;
@@ -1201,7 +1199,6 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
       return;
     }
 
-    const db = firebase.firestore();
     let batch = db.batch();
     let opCount = 0;
     let batchCount = 0;
