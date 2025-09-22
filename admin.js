@@ -1090,6 +1090,18 @@ document.getElementById("cancelPromoBtn")?.addEventListener("click", () => close
     }
   }
 
+    // 🔹 Re-inject toolbar buttons once admin panel is revealed
+  const observer = new MutationObserver(() => {
+    const adminPanel = document.getElementById("adminPanel");
+    if (adminPanel && !adminPanel.classList.contains("hidden")) {
+      injectExportButton();
+      injectImportUI();
+      observer.disconnect(); // inject once
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+
    /* ------------------------
      Bootstrapping UI injection on DOMContentLoaded
      ------------------------ */
