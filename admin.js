@@ -1,4 +1,4 @@
-// admin.js — full rewrite (single file)
+// admin.js — patched single file
 (() => {
   "use strict";
 
@@ -18,10 +18,10 @@
   const auth = firebase.auth();
   const db = firebase.firestore();
 
-  // Expose shared instances + helpers for outside/Part 2 usage
+  // Expose shared instances for outside usage
   window.auth = auth;
   window.db = db;
-  window.invalidateMenuCache = invalidateMenuCache;
+  // window.invalidateMenuCache will be assigned AFTER the function is defined.
 
   /***********************
    * Globals
@@ -76,6 +76,9 @@
       console.warn("Cache invalidate failed:", e);
     }
   }
+
+  // expose after declaration
+  window.invalidateMenuCache = invalidateMenuCache;
 
   /***********************
    * Admin gate using /admins/{uid}
@@ -345,6 +348,14 @@
     const hidden = Number(p?.pos_hidden ?? 0);
     document.getElementById("fieldHidden").value = String(hidden);
     populatePhotos(p);
+  }
+
+  // ---- FIX: add the missing openEditModal function ----
+  function openEditModal(id, data) {
+    currentEditId = id || null;
+    currentEditData = data || null;
+    populateForm(currentEditData);
+    openModal("adminModal");
   }
 
   function populatePromoForm(p = null) {
@@ -733,73 +744,71 @@
       showBannerLocal("Import failed. See console for details.", 4000);
     }
   }
-  
 
   async function exportProductsAsExcel() {
-  try {
-    if (typeof XLSX === "undefined") {
-      alert("XLSX library is missing. Please include https://unpkg.com/xlsx/dist/xlsx.full.min.js");
-      return;
+    try {
+      if (typeof XLSX === "undefined") {
+        alert("XLSX library is missing. Please include https://unpkg.com/xlsx/dist/xlsx.full.min.js");
+        return;
+      }
+
+      const snapshot = await db.collection("products").get();
+      if (snapshot.empty) {
+        alert("No products found to export!");
+        return;
+      }
+
+      const products = snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name || "",
+        category: doc.data().category || "",
+        variant_label: doc.data().variant_label || "",
+        variant_names: doc.data().variant_names || "",
+        pos_sell_price: doc.data().pos_sell_price ?? doc.data().sell_price ?? doc.data().market_price ?? 0,
+        pos_hidden: doc.data().pos_hidden ?? 0,
+        photo_1: doc.data().photo_1 || "",
+        photo_2: doc.data().photo_2 || "",
+        photo_3: doc.data().photo_3 || ""
+      }));
+
+      // Explicitly set header order
+      const headers = [
+        "id",
+        "name",
+        "category",
+        "variant_label",
+        "variant_names",
+        "pos_sell_price",
+        "pos_hidden",
+        "photo_1",
+        "photo_2",
+        "photo_3"
+      ];
+
+      const ws = XLSX.utils.json_to_sheet(products, { header: headers });
+      // overwrite header row labels if you want more human-friendly names
+      XLSX.utils.sheet_add_aoa(ws, [[
+        "ID",
+        "Name",
+        "Category",
+        "Variant Label",
+        "Variant Names",
+        "Price",
+        "Hidden",
+        "Photo 1",
+        "Photo 2",
+        "Photo 3"
+      ]], { origin: "A1" });
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Products");
+
+      XLSX.writeFile(wb, "products.xlsx");
+    } catch (err) {
+      console.error("❌ Excel export failed:", err);
+      alert("Export failed: " + err.message);
     }
-
-    const snapshot = await db.collection("products").get();
-    if (snapshot.empty) {
-      alert("No products found to export!");
-      return;
-    }
-
-    const products = snapshot.docs.map(doc => ({
-      id: doc.id,
-      name: doc.data().name || "",
-      category: doc.data().category || "",
-      variant_label: doc.data().variant_label || "",
-      variant_names: doc.data().variant_names || "",
-      pos_sell_price: doc.data().pos_sell_price ?? doc.data().sell_price ?? doc.data().market_price ?? 0,
-      pos_hidden: doc.data().pos_hidden ?? 0,
-      photo_1: doc.data().photo_1 || "",
-      photo_2: doc.data().photo_2 || "",
-      photo_3: doc.data().photo_3 || ""
-    }));
-
-    // Explicitly set header order
-    const headers = [
-      "id",
-      "name",
-      "category",
-      "variant_label",
-      "variant_names",
-      "pos_sell_price",
-      "pos_hidden",
-      "photo_1",
-      "photo_2",
-      "photo_3"
-    ];
-
-    const ws = XLSX.utils.json_to_sheet(products, { header: headers });
-    // overwrite header row labels if you want more human-friendly names
-    XLSX.utils.sheet_add_aoa(ws, [[
-      "ID",
-      "Name",
-      "Category",
-      "Variant Label",
-      "Variant Names",
-      "Price",
-      "Hidden",
-      "Photo 1",
-      "Photo 2",
-      "Photo 3"
-    ]], { origin: "A1" });
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Products");
-
-    XLSX.writeFile(wb, "products.xlsx");
-  } catch (err) {
-    console.error("❌ Excel export failed:", err);
-    alert("Export failed: " + err.message);
   }
-}
-
 
   function downloadTemplate() {
     const headers = [
@@ -862,87 +871,82 @@
     return input;
   }
 
-  /***********************
- * UI injection helpers - robust
- ***********************/
-function injectExportButton(toolbar) {
-  if (document.getElementById(EXPORT_BTN_ID)) {
-    console.log("ℹ️ Export button already exists, skipping inject");
-    return;
-  }
-
-  const btn = document.createElement("button");
-  btn.id = EXPORT_BTN_ID;
- btn.textContent = "Export Excel";
-btn.addEventListener("click", () => {
-  exportProductsAsExcel();
-});
-
-
-  toolbar.appendChild(btn);
-
-  console.log("✅ Export button injected into toolbar");
-}
-
-function injectImportUIInto(toolbar) {
-  if (document.getElementById(IMPORT_BTN_ID)) return;
-
-  const importBtn = document.createElement("button");
-  importBtn.id = IMPORT_BTN_ID;
-  importBtn.className = "btn";
-  importBtn.textContent = "Import CSV/XLSX";
-
-  const tplBtn = document.createElement("button");
-  tplBtn.id = TEMPLATE_BTN_ID;
-  tplBtn.className = "btn minimal";
-  tplBtn.style.marginLeft = "6px";
-  tplBtn.textContent = "Download Template";
-  tplBtn.addEventListener("click", downloadTemplate);
-
-  const fileInput = createOrGetFileInput();
-  importBtn.addEventListener("click", () => fileInput.click());
-
-  const logoutBtn = document.getElementById("logoutBtn");
-  if (logoutBtn && logoutBtn.parentNode === toolbar) {
-    toolbar.insertBefore(importBtn, logoutBtn);
-    toolbar.insertBefore(tplBtn, logoutBtn);
-  } else {
-    toolbar.appendChild(importBtn);
-    toolbar.appendChild(tplBtn);
-  }
-
-  console.log("✅ Import + Template buttons injected into toolbar");
-}
-
-function ensureToolbarInjection() {
-  const toolbarSelector = ".toolbar";
-  const attempted = { done: false };
-
-  function tryInject() {
-    const toolbar = document.querySelector(toolbarSelector);
-    if (toolbar) {
-      console.log("✅ Toolbar found, injecting buttons");
-      injectExportButton(toolbar);
-      injectImportUIInto(toolbar);
-      attempted.done = true;
-      return true;
+  function injectExportButton(toolbar) {
+    if (document.getElementById(EXPORT_BTN_ID)) {
+      console.log("ℹ️ Export button already exists, skipping inject");
+      return;
     }
-    console.log("⏳ Toolbar not found yet");
-    return false;
+
+    const btn = document.createElement("button");
+    btn.id = EXPORT_BTN_ID;
+    btn.textContent = "Export Excel";
+    btn.addEventListener("click", () => {
+      exportProductsAsExcel();
+    });
+
+    toolbar.appendChild(btn);
+
+    console.log("✅ Export button injected into toolbar");
   }
 
-  if (tryInject()) return;
+  function injectImportUIInto(toolbar) {
+    if (document.getElementById(IMPORT_BTN_ID)) return;
 
-  const mo = new MutationObserver((mutations, obs) => {
-    if (tryInject()) obs.disconnect();
-  });
-  mo.observe(document.body, { childList: true, subtree: true });
+    const importBtn = document.createElement("button");
+    importBtn.id = IMPORT_BTN_ID;
+    importBtn.className = "btn";
+    importBtn.textContent = "Import CSV/XLSX";
 
-  setTimeout(() => {
-    if (!attempted.done) tryInject();
-  }, 1000);
-}
+    const tplBtn = document.createElement("button");
+    tplBtn.id = TEMPLATE_BTN_ID;
+    tplBtn.className = "btn minimal";
+    tplBtn.style.marginLeft = "6px";
+    tplBtn.textContent = "Download Template";
+    tplBtn.addEventListener("click", downloadTemplate);
 
+    const fileInput = createOrGetFileInput();
+    importBtn.addEventListener("click", () => fileInput.click());
+
+    const logoutBtn = document.getElementById("logoutBtn");
+    if (logoutBtn && logoutBtn.parentNode === toolbar) {
+      toolbar.insertBefore(importBtn, logoutBtn);
+      toolbar.insertBefore(tplBtn, logoutBtn);
+    } else {
+      toolbar.appendChild(importBtn);
+      toolbar.appendChild(tplBtn);
+    }
+
+    console.log("✅ Import + Template buttons injected into toolbar");
+  }
+
+  function ensureToolbarInjection() {
+    const toolbarSelector = ".toolbar";
+    const attempted = { done: false };
+
+    function tryInject() {
+      const toolbar = document.querySelector(toolbarSelector);
+      if (toolbar) {
+        console.log("✅ Toolbar found, injecting buttons");
+        injectExportButton(toolbar);
+        injectImportUIInto(toolbar);
+        attempted.done = true;
+        return true;
+      }
+      console.log("⏳ Toolbar not found yet");
+      return false;
+    }
+
+    if (tryInject()) return;
+
+    const mo = new MutationObserver((mutations, obs) => {
+      if (tryInject()) obs.disconnect();
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+
+    setTimeout(() => {
+      if (!attempted.done) tryInject();
+    }, 1000);
+  }
 
   /***********************
    * Wire up UI
@@ -1066,74 +1070,25 @@ function ensureToolbarInjection() {
     });
   }
 
-  function handleExport() {
-  console.log("✅ Export button clicked");
+  /***********************
+   * DOM ready wiring (single place)
+   ***********************/
+  document.addEventListener("DOMContentLoaded", () => {
+    // wire possible existing export/import buttons in the HTML to the unified handlers
+    const exportBtn = document.getElementById("exportBtn");
+    if (exportBtn) {
+      exportBtn.addEventListener("click", () => exportProductsAsExcel());
+    }
 
-  // Example: replace with Firestore query results
-  const data = products.map(p => ({
-    Name: p.name || "",
-    Variant: p.variant || "",
-    Price: p.price || "",
-    Category: p.category || "",
-    Hidden: p.hidden ? "1" : "0"
-  }));
+    const importBtn = document.getElementById("importBtn");
+    if (importBtn) {
+      const fileInput = createOrGetFileInput();
+      importBtn.addEventListener("click", () => fileInput.click());
+    }
 
-  console.log(`📦 Found ${data.length} products`);
-
-  const worksheet = XLSX.utils.json_to_sheet(data, {
-    header: ["Name", "Variant", "Price", "Category", "Hidden"]
+    // Now initialize the app (auth listeners, injections, etc.)
+    init();
   });
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
-
-  XLSX.writeFile(workbook, "products.xlsx");
-}
-
-  
-document.addEventListener("DOMContentLoaded", () => {
-  const exportBtn = document.getElementById("exportBtn");
-  if (exportBtn) {
-    exportBtn.addEventListener("click", () => {
-      console.log("✅ Export button clicked");
-      exportProductsAsExcel();
-    });
-  }
-  const importBtn = document.getElementById("importBtn");
-
-  if (exportBtn) {
-    exportBtn.addEventListener("click", handleExport);
-  }
-
-  if (importBtn) {
-    importBtn.addEventListener("click", () => {
-      console.log("📥 Import button clicked");
-      // Trigger file input
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = ".xlsx,.xls";
-      input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const data = await file.arrayBuffer();
-        const workbook = XLSX.read(data, { type: "array" });
-
-        const sheetName = workbook.SheetNames[0];
-        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
-          defval: ""
-        });
-
-        console.log("📥 Imported rows:", rows);
-        // TODO: Save rows to Firestore
-      };
-      input.click();
-    });
-  }
-
-});
-
-
-  document.addEventListener("DOMContentLoaded", init);
 
   // Optional debug hook
   window.__adminDeleteProduct = deleteProduct;
