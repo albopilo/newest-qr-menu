@@ -19,6 +19,12 @@
   if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
   const db = firebase.firestore();
+// Expose shared instances + helpers so Part 2 can reuse them
+window.auth = auth;
+window.db = db;
+window.showBanner = showBanner;
+window.invalidateMenuCache = invalidateMenuCache;
+
 
   /***********************
    * Globals
@@ -710,23 +716,6 @@ document.getElementById("cancelPromoBtn")?.addEventListener("click", () => close
   const FILE_INPUT_ID = "__importFileInput";
   const BATCH_LIMIT = 500; // Firestore batch write limit
 
-  function showBannerLocal(msg, ms = 3000) {
-    const b = document.getElementById("banner");
-    if (!b) return;
-    b.textContent = msg;
-    b.classList.remove("hidden");
-    clearTimeout(b.__hideTimer);
-    b.__hideTimer = setTimeout(() => b.classList.add("hidden"), ms);
-  }
-
-  function parsePriceLocal(input) {
-    if (typeof input === "number") return input;
-    if (!input) return 0;
-    const cleaned = String(input).replace(/[^\d.-]/g, "");
-    const num = Number(cleaned);
-    return isNaN(num) ? 0 : Math.round(num);
-  }
-
 
   /* ------------------------
      EXPORT (your original code, kept mostly identical)
@@ -1022,263 +1011,87 @@ document.getElementById("cancelPromoBtn")?.addEventListener("click", () => close
         const idVal = findFirst(row, ["id", "product_id", "docid", "doc_id"]) || "";
         const id = String(idVal || "").trim();
 
-        const payload = buildPayloadFromRow(row);
-
-        // require name and positive price for creation (same validation as single-product form)
-        if (!payload.name || (payload.price <= 0 && !id)) {
-          // skip rows that are clearly invalid for a new document (if id present user may be updating partial fields)
-          // If id present we still allow update even if price is 0/empty
-          if (!id) {
-            console.warn("Skipping row because missing name or positive price:", row);
-            continue;
-          }
-        }
-
-        const docRef = id ? db.collection("products").doc(id) : db.collection("products").doc();
-
-        // Use merge so provided fields don't wipe other fields unless intended
-        batch.set(docRef, payload, { merge: true });
-
-        if (id) updated++; else created++;
-        ops++;
-
-        // commit when reaching BATCH_LIMIT
-        if (ops >= BATCH_LIMIT) {
-          await batch.commit();
-          batch = db.batch();
-          ops = 0;
-          showBannerLocal(`Imported ${processed} / ${rows.length} rows...`, 1500);
-        }
-      }
-
-      // commit remaining
-      if (ops > 0) {
-        await batch.commit();
-      }
-
-      showBannerLocal(`Import complete. Created: ${created}, Updated: ${updated}.`, 5000);
-    } catch (e) {
-      console.error("Import failed:", e);
-      showBannerLocal("Import failed. See console for details.", 6000);
-    }
-  }
-
-  /* ------------------------
-     File handler: routes file to CSV or XLSX parsers
-     ------------------------ */
-  async function handleFileImport(file) {
-    const name = (file && file.name) ? file.name.toLowerCase() : "";
-    showBannerLocal(`Reading ${file.name}...`, 2000);
-
-    try {
-      if (name.endsWith(".csv")) {
-        const txt = await file.text();
-        const objs = csvToObjects(txt);
-        await importRowsIntoFirestore(objs);
-      } else if (name.endsWith(".xls") || name.endsWith(".xlsx")) {
-        if (typeof XLSX === "undefined") {
-          showBannerLocal("XLSX library not found. Include SheetJS (xlsx) to import Excel files.", 6000);
-          console.warn("Include SheetJS: <script src='https://unpkg.com/xlsx/dist/xlsx.full.min.js'></script>");
-          return;
-        }
-        // read as arrayBuffer
-        const ab = await file.arrayBuffer();
-        const objs = parseXlsxArrayBufferToObjects(ab);
-        // objs from sheet_to_json will be array of objects (if headers present)
-        await importRowsIntoFirestore(objs);
-      } else {
-        showBannerLocal("Unsupported file type. Use .csv or .xlsx.", 4000);
-      }
-    } catch (err) {
-      console.error("File import error:", err);
-      showBannerLocal("Failed to parse/import file. See console for details.", 6000);
-    }
-  }
-
-  // Add a hidden file input dynamically
-const importInput = document.createElement("input");
-importInput.type = "file";
-importInput.accept = ".xlsx,.xls";
-importInput.style.display = "none";
-document.body.appendChild(importInput);
-
-document.getElementById("importBtn").addEventListener("click", () => {
-  importInput.click();
-});
-
-importInput.addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = (evt) => {
-    const data = new Uint8Array(evt.target.result);
-    const workbook = XLSX.read(data, { type: "array" });
-    const sheetName = workbook.SheetNames[0];
-    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-
-    console.log("Imported rows:", rows);
-
-    // 🔹 Example: iterate rows and add them to Firestore
-    rows.forEach(async (row) => {
-      await db.collection("products").add({
-        name: row.Name || "",
-        variant: row.Variant || "",
-        category: row.Category || "",
-        pos_sell_price: row.Price || 0,
-        hidden: row.Hidden || 0,
-      });
-    });
-
-    alert("Products imported!");
-  };
-  reader.readAsArrayBuffer(file);
-});
-
-document.getElementById("exportBtn").addEventListener("click", async () => {
-  try {
-    const snapshot = await db.collection("products").get();
-    const products = snapshot.docs.map(doc => ({
-      ID: doc.id,
-      Name: doc.data().name || "",
-      Variant: doc.data().variant || "",
-      Category: doc.data().category || "",
-      Price: doc.data().pos_sell_price || 0,
-      Hidden: doc.data().hidden || 0
-    }));
-
-    if (products.length === 0) {
-      alert("No products to export!");
-      return;
-    }
-
-    // Convert to worksheet
-    const worksheet = XLSX.utils.json_to_sheet(products);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
-
-    // Trigger download
-    XLSX.writeFile(workbook, "products.xlsx");
-  } catch (err) {
-    console.error("Export failed:", err);
-    alert("Export failed. Check console for details.");
-  }
-});
-
-
-
-    // 🔹 Re-inject toolbar buttons once admin panel is revealed
-  const observer = new MutationObserver(() => {
-    const adminPanel = document.getElementById("adminPanel");
-    if (adminPanel && !adminPanel.classList.contains("hidden")) {
-      injectExportButton();
-      injectImportUI();
-      observer.disconnect(); // inject once
-    }
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
-
-
-   /* ------------------------
-     Bootstrapping UI injection on DOMContentLoaded
-     ------------------------ */
-  document.addEventListener("DOMContentLoaded", () => {
-    // Slight delay to ensure toolbar and logoutBtn are present
-    setTimeout(() => {
-      injectExportButton();
-      injectImportUI();
-    }, 400);
-  });
-
-  /* ------------------------
-     Core import routine
-     ------------------------ */
-  async function importObjects(objs) {
-    if (!Array.isArray(objs) || objs.length === 0) {
-      showBannerLocal("No rows found to import.");
-      return;
-    }
-
-    let batch = db.batch();
-    let opCount = 0;
-    let batchCount = 0;
-
-    try {
-      for (let i = 0; i < objs.length; i++) {
-        const row = objs[i];
-        const payload = buildPayloadFromRow(row);
-        if (!payload.name || !payload.price) {
-          console.warn("Skipping row (missing name/price):", row);
+                const payload = buildPayloadFromRow(row);
+        if (!payload.name || payload.pos_sell_price <= 0) {
+          console.warn("Skipping invalid row:", row);
           continue;
         }
 
-        const rawId = (row.id || row.ID || "").toString().trim();
-        let ref;
-        if (rawId) {
-          // overwrite if ID provided
-          ref = db.collection("products").doc(rawId);
+        if (id) {
+          // update existing doc
+          const ref = db.collection("products").doc(id);
+          batch.set(ref, payload, { merge: true });
+          updated++;
         } else {
-          // new unique doc
-          ref = db.collection("products").doc();
+          // create new doc
+          const ref = db.collection("products").doc();
+          batch.set(ref, payload);
+          created++;
         }
+        ops++;
 
-        batch.set(ref, payload, { merge: false });
-        opCount++;
-
-        if (opCount % BATCH_LIMIT === 0) {
+        if (ops >= BATCH_LIMIT) {
           await batch.commit();
-          batchCount++;
-          console.log(`Committed batch ${batchCount} (${opCount} items)`);
+          console.log(`Committed batch of ${ops}`);
           batch = db.batch();
+          ops = 0;
         }
       }
-
-      if (opCount % BATCH_LIMIT !== 0) {
+      if (ops > 0) {
         await batch.commit();
-        batchCount++;
-        console.log(`Committed final batch (${opCount} total)`);
       }
-
-      showBannerLocal(`Imported ${opCount} product(s) successfully.`);
-      // invalidate menu cache so customers refresh
-      if (typeof invalidateMenuCache === "function") {
-        invalidateMenuCache();
-      }
+      invalidateMenuCache();
+      showBannerLocal(`Import done. Created ${created}, updated ${updated}. Processed ${processed} rows.`, 4000);
     } catch (e) {
       console.error("Import failed:", e);
-      showBannerLocal("Import failed. See console.");
+      showBannerLocal("Import failed. Check console for details.", 4000);
     }
+  }
+
+  function showBannerLocal(msg, ms = 3000) {
+    if (typeof showBanner === "function") {
+      showBanner(msg, ms);
+    } else {
+      alert(msg);
+    }
+  }
+
+  function parsePriceLocal(input) {
+    if (typeof input === "number") return input;
+    if (!input) return 0;
+    const cleaned = String(input).replace(/[^\d.-]/g, "");
+    const num = Number(cleaned);
+    return isNaN(num) ? 0 : Math.round(num);
   }
 
   async function handleFileImport(file) {
     try {
-      const ext = file.name.split(".").pop().toLowerCase();
-      let objs = [];
+      const ext = (file.name.split(".").pop() || "").toLowerCase();
+      let rows = [];
       if (ext === "csv") {
         const text = await file.text();
-        objs = csvToObjects(text);
-      } else if (ext === "xls" || ext === "xlsx") {
+        rows = csvToObjects(text);
+      } else if (ext === "xlsx" || ext === "xls") {
         const ab = await file.arrayBuffer();
-        objs = parseXlsxArrayBufferToObjects(ab);
+        rows = parseXlsxArrayBufferToObjects(ab);
       } else {
-        throw new Error("Unsupported file type: " + ext);
+        showBannerLocal("Unsupported file type. Please use CSV or XLSX.", 3000);
+        return;
       }
-
-      console.log("Parsed", objs.length, "rows from", file.name);
-      await importObjects(objs);
+      await importRowsIntoFirestore(rows);
     } catch (e) {
-      console.error("handleFileImport failed:", e);
-      showBannerLocal("Import failed.");
+      console.error("File import failed:", e);
+      showBannerLocal("Import failed.", 3000);
     }
   }
 
   /* ------------------------
-     Bootstrapping export/import UI
+     Bootstrapping
      ------------------------ */
-  function initExportImport() {
+  function initAdminImportExport() {
     injectExportButton();
     injectImportUI();
   }
 
-  document.addEventListener("DOMContentLoaded", initExportImport);
+  document.addEventListener("DOMContentLoaded", initAdminImportExport);
 })();
