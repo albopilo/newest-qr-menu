@@ -37,6 +37,9 @@
     <p><span class="label">Discount:</span> <span id="discountDisplay"></span></p>
     <p><span class="label">Tax:</span> <span id="taxDisplay"></span></p>
     <p><span class="label">Total:</span> <span id="totalDisplay"></span></p>
+    <!-- Added Open Hours -->
+     <p></p>
+    <p><span class="label">Open Hours:</span> 08:30 - 19:30</p>
     <button id="confirmBtn">✅ Confirm Order</button>
   </div>
 
@@ -110,7 +113,8 @@ await db.collection("orders").add({
 });
 
 
-          alert("Order confirmed and sent to staff!");
+
+          alert("Order confirmed and sent to staff! Please contact our staff for more information, thank you! 0821-8888-4663");
           // Optional redirect:
           // window.location.href = "thankyou.html";
         } catch (err) {

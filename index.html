@@ -5,6 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>13e Café – Order</title>
   <link rel="stylesheet" href="style.css" />
+  <script>
+  (function() {
+    const today = new Date();
+    const day = today.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+
+    if (day === 1) { // Monday
+      document.body.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:center;height:100vh;
+                    font-family:system-ui,sans-serif;text-align:center;color:#111;">
+          <div>
+            <h1 style="font-size:2rem;margin-bottom:1rem;">We’re Closed on Mondays</h1>
+            <p style="font-size:1.2rem;">Please come back another day 🙏</p>
+          </div>
+        </div>
+      `;
+    }
+  })();
+</script>
+
 </head>
 <body>
 
