@@ -392,16 +392,30 @@ window.handleAddToCartByName = function(productName) {
     const title = document.getElementById("variantTitle");
     if (!modal || !options) return;
     options.innerHTML = "";
+
+    // Configure the options container (scrollable + compact buttons)
+    configureVariantOptionsContainer(options, group.variants.length);
+
     if (title) {
       title.textContent = group.variant_label
         ? `Choose ${group.variant_label} for ${group.name}`
         : `Choose option for ${group.name}`;
     }
+    // remove any old freebie-note/search (defensive)
+    const oldNote = options.parentNode.querySelector(".freebie-note");
+    if (oldNote) oldNote.remove();
+    const oldSearch = options.parentNode.querySelector(".variant-search");
+    if (oldSearch) oldSearch.remove();
+
     group.variants.forEach(v => {
       const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "variant-option";
       btn.textContent = (v.variant && v.variant.trim())
         ? `${v.variant} — Rp${Number(v.price).toLocaleString()}`
         : `${group.name} — Rp${Number(v.price).toLocaleString()}`;
+      // compact styling for variant buttons
+      styleVariantButton(btn);
       btn.addEventListener("click", () => {
         addBuyItem(v, promoLinkId);
         closeModal();
@@ -462,6 +476,71 @@ window.handleAddToCartByName = function(productName) {
   }
 };
 
+/***********************
+ * Utility: configure + style variant options container & buttons
+ * - makes the options container scrollable + compact
+ * - optionally adds a search input when there are a lot of options
+ ***********************/
+function configureVariantOptionsContainer(optionsEl, variantCount) {
+  if (!optionsEl) return;
+  // reset any inline styles
+  optionsEl.style.maxHeight = "320px";
+  optionsEl.style.overflowY = "auto";
+  optionsEl.style.display = "flex";
+  optionsEl.style.flexDirection = "column";
+  optionsEl.style.gap = "6px";
+  optionsEl.style.padding = "6px 0";
+
+  // remove old search if present
+  const existingSearch = optionsEl.parentNode.querySelector(".variant-search");
+  if (existingSearch) existingSearch.remove();
+
+  // add search box when there are many variants
+  if (variantCount > 12) {
+    const search = document.createElement("input");
+    search.type = "search";
+    search.className = "variant-search";
+    search.placeholder = `Filter ${variantCount} options...`;
+    search.style.width = "100%";
+    search.style.boxSizing = "border-box";
+    search.style.marginBottom = "8px";
+    search.style.padding = "6px 8px";
+    search.style.fontSize = "0.95rem";
+    // insert before the options container
+    optionsEl.parentNode.insertBefore(search, optionsEl);
+
+    // filter behavior
+    search.addEventListener("input", () => {
+      const q = search.value.trim().toLowerCase();
+      Array.from(optionsEl.querySelectorAll("button")).forEach(btn => {
+        btn.style.display = btn.textContent.toLowerCase().includes(q) ? "" : "none";
+      });
+    });
+  }
+}
+
+function styleVariantButton(btn) {
+  // compact, full-width, left-aligned variant button styling (inline so no external CSS needed)
+  btn.style.padding = "8px 10px";
+  btn.style.fontSize = "0.92rem";
+  btn.style.textAlign = "left";
+  btn.style.width = "100%";
+  btn.style.borderRadius = "6px";
+  btn.style.border = "1px solid #e5e7eb";
+  btn.style.background = "#fff";
+  btn.style.color = "#111827";   // ✅ dark text for readability
+  btn.style.cursor = "pointer";
+  btn.style.boxSizing = "border-box";
+  btn.style.transition = "background .12s, transform .06s";
+  btn.addEventListener("mouseover", () => { btn.style.background = "#f8fafc"; });
+  btn.addEventListener("mouseout", () => { btn.style.background = "#fff"; });
+  btn.addEventListener("mousedown", () => { btn.style.transform = "translateY(1px)"; });
+  btn.addEventListener("mouseup", () => { btn.style.transform = ""; });
+}
+
+/***********************
+ * Show variant selector for pending free (freebie)
+ ***********************/
 function showVariantSelectorForPendingFree(group, promoLinkId) {
   if (!userHasInteracted) return;
   const modal = document.getElementById("variantModal");
@@ -474,6 +553,9 @@ function showVariantSelectorForPendingFree(group, promoLinkId) {
 
   // Clear old content
   options.innerHTML = "";
+  // configure container + search when many variants
+  configureVariantOptionsContainer(options, group.variants.length);
+
   if (title) {
     title.textContent = `🎁 Choose your FREE ${group.variant_label || "option"} for ${group.name}`;
     // remove any old note
@@ -490,9 +572,12 @@ function showVariantSelectorForPendingFree(group, promoLinkId) {
 
   group.variants.forEach(v => {
     const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "variant-option";
     btn.textContent = (v.variant && v.variant.trim())
       ? `${v.variant} — Rp0`
       : `${group.name} — Rp0`;
+    styleVariantButton(btn);
     btn.addEventListener("click", () => {
       addToCart({
         id: v.id,
@@ -511,6 +596,9 @@ function showVariantSelectorForPendingFree(group, promoLinkId) {
   modal.classList.remove("hidden");
 }
 
+/***********************
+ * Show variant selector for item already in cart (to update)
+ ***********************/
 function showVariantSelectorFor(cartIndex, group, forcePriceZero = false) {
   if (!userHasInteracted) return;
   const modal = document.getElementById("variantModal");
@@ -519,40 +607,45 @@ function showVariantSelectorFor(cartIndex, group, forcePriceZero = false) {
   if (!modal || !options) return;
 
   // Toggle freebie styling
-  if (forcePriceZero) {
-    modal.classList.add("freebie");
-  } else {
-    modal.classList.remove("freebie");
-  }
+  if (forcePriceZero) modal.classList.add("freebie");
+  else modal.classList.remove("freebie");
 
+  // Clear and configure
   options.innerHTML = "";
+  configureVariantOptionsContainer(options, group.variants.length);
+
   if (title) {
     if (forcePriceZero) {
-  modal.classList.add("freebie");
-  title.textContent = `🎁 Choose your FREE ${group.variant_label || "option"} for ${group.name}`;
-  const oldNote = options.parentNode.querySelector(".freebie-note");
-  if (oldNote) oldNote.remove();
-  const note = document.createElement("p");
-  note.className = "freebie-note";
-  note.textContent = "This item is included for free with your order.";
-  note.style.color = "#28a745";
-  note.style.fontWeight = "500";
-  note.style.marginBottom = "8px";
-  options.parentNode.insertBefore(note, options);
-} else {
-  modal.classList.remove("freebie");
-  title.textContent = group.variant_label
-    ? `Choose ${group.variant_label} for ${group.name}`
-    : `Choose option for ${group.name}`;
-}
+      modal.classList.add("freebie");
+      title.textContent = `🎁 Choose your FREE ${group.variant_label || "option"} for ${group.name}`;
+      const oldNote = options.parentNode.querySelector(".freebie-note");
+      if (oldNote) oldNote.remove();
+      const note = document.createElement("p");
+      note.className = "freebie-note";
+      note.textContent = "This item is included for free with your order.";
+      note.style.color = "#28a745";
+      note.style.fontWeight = "500";
+      note.style.marginBottom = "8px";
+      options.parentNode.insertBefore(note, options);
+    } else {
+      modal.classList.remove("freebie");
+      title.textContent = group.variant_label
+        ? `Choose ${group.variant_label} for ${group.name}`
+        : `Choose option for ${group.name}`;
+      const oldNote = options.parentNode.querySelector(".freebie-note");
+      if (oldNote) oldNote.remove();
+    }
   }
 
   group.variants.forEach(v => {
     const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "variant-option";
     const priceText = forcePriceZero ? "Rp0" : `Rp${Number(v.price).toLocaleString()}`;
     btn.textContent = (v.variant && v.variant.trim())
       ? `${v.variant} — ${priceText}`
       : `${group.name} — ${priceText}`;
+    styleVariantButton(btn);
 
     btn.addEventListener("click", () => {
       const idx = Number(cartIndex);
@@ -591,17 +684,24 @@ function showVariantSelector(group) {
   modal.classList.remove("freebie");
 
   options.innerHTML = "";
+  configureVariantOptionsContainer(options, group.variants.length);
+
   if (title) {
     title.textContent = group.variant_label
       ? `Choose ${group.variant_label} for ${group.name}`
       : `Choose option for ${group.name}`;
+    const oldNote = options.parentNode.querySelector(".freebie-note");
+    if (oldNote) oldNote.remove();
   }
 
   group.variants.forEach(v => {
     const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "variant-option";
     btn.textContent = (v.variant && v.variant.trim())
       ? `${v.variant} — Rp${Number(v.price).toLocaleString()}`
       : `${group.name} — Rp${Number(v.price).toLocaleString()}`;
+    styleVariantButton(btn);
     btn.addEventListener("click", () => {
       addToCart({ id: v.id, name: group.name, price: v.price, variant: v.variant || null });
       closeModal();
@@ -614,7 +714,13 @@ function showVariantSelector(group) {
 
 function closeModal() {
   const modal = document.getElementById("variantModal");
-  if (modal) modal.classList.add("hidden");
+  if (!modal) return;
+  // Clean up search / notes inside modal to avoid duplicates next open
+  const search = modal.querySelector(".variant-search");
+  if (search) search.remove();
+  const note = modal.querySelector(".freebie-note");
+  if (note) note.remove();
+  modal.classList.add("hidden");
 }
 
 /***********************
@@ -918,7 +1024,7 @@ window.filterOrders = filterOrders;
 
 /***********************
  * Persistent chime repeater
- ***********************/
+***********************/
 let chimeRepeatTimer = null;
 let repeatOrderIds = new Set();
 
@@ -1419,7 +1525,6 @@ function initStaff() {
   initStaffUI();
 }
 
-
 /***********************
  * Customer DOM bootstrap
  ***********************/
@@ -1514,50 +1619,48 @@ async function initCustomer() {
   }
   bindModalCloseHandlers();
 
-
-
   // Product list delegation
-const productList = document.getElementById("productList");
-if (productList) {
-  await fetchActivePromos();                 // ✅ promos first
-  await renderProducts();                    // render tabs and list
-  productList.addEventListener("click", e => {
-    const t = e.target;
-    if (t.classList?.contains("add-to-cart")) {
-      const productName = t.dataset.productName;
-      if (productName) window.handleAddToCartByName(productName);
-    }
-  });
-}
+  const productList = document.getElementById("productList");
+  if (productList) {
+    await fetchActivePromos();                 // ✅ promos first
+    await renderProducts();                    // render tabs and list
+    productList.addEventListener("click", e => {
+      const t = e.target;
+      if (t.classList?.contains("add-to-cart")) {
+        const productName = t.dataset.productName;
+        if (productName) window.handleAddToCartByName(productName);
+      }
+    });
+  }
 
-// Cart controls
-const cartList = document.querySelector(".cart-list");
-if (cartList) {
-  cartList.addEventListener("click", e => {
-    const t = e.target;
-    if (!t.classList) return;
+  // Cart controls
+  const cartList = document.querySelector(".cart-list");
+  if (cartList) {
+    cartList.addEventListener("click", e => {
+      const t = e.target;
+      if (!t.classList) return;
 
-    // Quantity handlers (existing)
-    if (t.classList.contains("inc")) {
-  increaseQtyByIndex(t.dataset.index);
-  return;
-}
-if (t.classList.contains("dec")) {
-  decreaseQtyByIndex(t.dataset.index);
-  return;
-}
+      // Quantity handlers (existing)
+      if (t.classList.contains("inc")) {
+        increaseQtyByIndex(t.dataset.index);
+        return;
+      }
+      if (t.classList.contains("dec")) {
+        decreaseQtyByIndex(t.dataset.index);
+        return;
+      }
 
-    // New: click on free item name to choose variant
-    if (t.classList.contains("cart-item-name")) {
-  const idx = Number(t.dataset.index);
-  const item = cart[idx];
-  if (!item) return;
-  const group = window.groupedProducts?.[item.name];
-  if (!group) return;
-  showVariantSelectorFor(idx, group, item.isPromoFree);
-}
-  });
-}
+      // New: click on free item name to choose variant
+      if (t.classList.contains("cart-item-name")) {
+        const idx = Number(t.dataset.index);
+        const item = cart[idx];
+        if (!item) return;
+        const group = window.groupedProducts?.[item.name];
+        if (!group) return;
+        showVariantSelectorFor(idx, group, item.isPromoFree);
+      }
+    });
+  }
 
   renderCart();
 }
