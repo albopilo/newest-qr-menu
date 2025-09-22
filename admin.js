@@ -663,61 +663,65 @@
   }
 
   async function importRowsIntoFirestore(rows) {
-    if (!Array.isArray(rows) || rows.length === 0) {
-      showBannerLocal("No rows found to import.", 3000);
-      return;
-    }
+  if (!Array.isArray(rows) || rows.length === 0) {
+    showBannerLocal("No rows found to import.", 3000);
+    return;
+  }
 
-    let batch = db.batch();
-    let ops = 0;
-    let created = 0;
-    let updated = 0;
-    let processed = 0;
+  let batch = db.batch();
+  let ops = 0;
+  let created = 0;
+  let updated = 0;
+  let processed = 0;
 
-    try {
-      for (const row of rows) {
-        processed++;
-        const idVal = findFirst(row, ["id", "product_id", "docid", "doc_id"]) || "";
-        const id = String(idVal || "").trim();
-        const payload = buildPayloadFromRow(row);
+  try {
+    for (const row of rows) {
+      processed++;
+      const idVal = findFirst(row, ["id", "product_id", "docid", "doc_id"]) || "";
+      const id = String(idVal || "").trim();
+      const payload = buildPayloadFromRow(row);
 
-        // Validate: require name and positive price for new creation
-        if (!payload.name || payload.pos_sell_price <= 0) {
-          // allow update if id present (user wants partial update)
-          if (!id) {
-            console.warn("Skipping invalid row:", row);
-            continue;
-          }
-        }
-
-        if (id) {
-          const ref = db.collection("products").doc(id);
-          batch.set(ref, payload, { merge: true });
-          updated++;
-        } else {
-          const ref = db.collection("products").doc();
-          batch.set(ref, payload);
-          created++;
-        }
-        ops++;
-
-        if (ops >= BATCH_LIMIT) {
-          await batch.commit();
-          batch = db.batch();
-          ops = 0;
-          showBannerLocal(`Imported ${processed} / ${rows.length} rows...`, 1200);
+      // Validate: require name and positive price for new creation
+      if (!payload.name || payload.pos_sell_price <= 0) {
+        // allow update if id present (user wants partial update)
+        if (!id) {
+          console.warn("Skipping invalid row:", row);
+          continue;
         }
       }
 
-      if (ops > 0) await batch.commit();
+      if (id) {
+        const ref = db.collection("products").doc(id);
+        batch.set(ref, payload, { merge: true });
+        updated++;
+      } else {
+        const ref = db.collection("products").doc();
+        batch.set(ref, { ...payload, id: ref.id }); // ⬅️ new ID injected into payload
+        created++;
+      }
+      ops++;
 
-      invalidateMenuCache();
-      showBannerLocal(`Import done. Created ${created}, updated ${updated}. Processed ${processed} rows.`, 4000);
-    } catch (e) {
-      console.error("Import failed:", e);
-      showBannerLocal("Import failed. Check console for details.", 4000);
+      if (ops >= BATCH_LIMIT) {
+        await batch.commit();
+        batch = db.batch();
+        ops = 0;
+        showBannerLocal(`Imported ${processed} / ${rows.length} rows...`, 1200);
+      }
     }
+
+    if (ops > 0) await batch.commit();
+
+    invalidateMenuCache();
+    showBannerLocal(
+      `Import done. Created ${created}, updated ${updated}. Processed ${processed} rows.`,
+      4000
+    );
+  } catch (e) {
+    console.error("Import failed:", e);
+    showBannerLocal("Import failed. Check console for details.", 4000);
   }
+}
+
 
   async function handleFileImport(file) {
     try {
