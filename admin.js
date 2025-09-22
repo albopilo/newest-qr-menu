@@ -733,57 +733,70 @@
       showBannerLocal("Import failed. See console for details.", 4000);
     }
   }
+  
 
-  async function exportProducts() {
-  let loadingEl;
+  async function exportProductsAsExcel() {
   try {
-    // Show a temporary loading popup
-    loadingEl = document.createElement("div");
-    loadingEl.id = "__exportLoadingPopup";
-    loadingEl.style.position = "fixed";
-    loadingEl.style.top = "0";
-    loadingEl.style.left = "0";
-    loadingEl.style.width = "100%";
-    loadingEl.style.height = "100%";
-    loadingEl.style.background = "rgba(0,0,0,0.4)";
-    loadingEl.style.display = "flex";
-    loadingEl.style.alignItems = "center";
-    loadingEl.style.justifyContent = "center";
-    loadingEl.style.zIndex = "9999";
-    loadingEl.innerHTML = `
-      <div style="background:white;padding:20px 30px;border-radius:8px;
-                  font-size:16px;font-weight:bold;box-shadow:0 2px 10px rgba(0,0,0,0.3);">
-        Exporting products... please wait
-      </div>`;
-    document.body.appendChild(loadingEl);
-
-    const snap = await db.collection("products").orderBy("name").get();
-    const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    if (items.length === 0) {
-      showBannerLocal("No products found to export.", 3000);
+    if (typeof XLSX === "undefined") {
+      alert("XLSX library is missing. Please include https://unpkg.com/xlsx/dist/xlsx.full.min.js");
       return;
     }
 
-    const blob = new Blob([JSON.stringify(items, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const dt = new Date().toISOString().slice(0, 10);
-    a.download = `products-export-${dt}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => { try { URL.revokeObjectURL(url); } catch {} }, 1500);
+    const snapshot = await db.collection("products").get();
+    if (snapshot.empty) {
+      alert("No products found to export!");
+      return;
+    }
 
-    showBannerLocal(`Exported ${items.length} products.`, 3000);
+    const products = snapshot.docs.map(doc => ({
+      id: doc.id,
+      name: doc.data().name || "",
+      category: doc.data().category || "",
+      variant_label: doc.data().variant_label || "",
+      variant_names: doc.data().variant_names || "",
+      pos_sell_price: doc.data().pos_sell_price ?? doc.data().sell_price ?? doc.data().market_price ?? 0,
+      pos_hidden: doc.data().pos_hidden ?? 0,
+      photo_1: doc.data().photo_1 || "",
+      photo_2: doc.data().photo_2 || "",
+      photo_3: doc.data().photo_3 || ""
+    }));
+
+    // Explicitly set header order
+    const headers = [
+      "id",
+      "name",
+      "category",
+      "variant_label",
+      "variant_names",
+      "pos_sell_price",
+      "pos_hidden",
+      "photo_1",
+      "photo_2",
+      "photo_3"
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(products, { header: headers });
+    // overwrite header row labels if you want more human-friendly names
+    XLSX.utils.sheet_add_aoa(ws, [[
+      "ID",
+      "Name",
+      "Category",
+      "Variant Label",
+      "Variant Names",
+      "Price",
+      "Hidden",
+      "Photo 1",
+      "Photo 2",
+      "Photo 3"
+    ]], { origin: "A1" });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Products");
+
+    XLSX.writeFile(wb, "products.xlsx");
   } catch (err) {
-    console.error("Export failed:", err);
-    showBannerLocal("Export failed. Check console for details.", 4000);
-  } finally {
-    // Always remove loading popup
-    const el = document.getElementById("__exportLoadingPopup");
-    if (el) el.remove();
+    console.error("❌ Excel export failed:", err);
+    alert("Export failed: " + err.message);
   }
 }
 
@@ -860,12 +873,12 @@ function injectExportButton(toolbar) {
 
   const btn = document.createElement("button");
   btn.id = EXPORT_BTN_ID;
-  btn.textContent = "Export JSON";
-  btn.className = "btn";
-  btn.addEventListener("click", () => {
-    console.log("✅ Export button clicked");
-    exportProducts();
-  });
+ btn.textContent = "Export Excel";
+btn.addEventListener("click", () => {
+  exportProductsAsExcel();
+});
+
+
   toolbar.appendChild(btn);
 
   console.log("✅ Export button injected into toolbar");
@@ -1052,6 +1065,73 @@ function ensureToolbarInjection() {
       ensureToolbarInjection();
     });
   }
+
+  function handleExport() {
+  console.log("✅ Export button clicked");
+
+  // Example: replace with Firestore query results
+  const data = products.map(p => ({
+    Name: p.name || "",
+    Variant: p.variant || "",
+    Price: p.price || "",
+    Category: p.category || "",
+    Hidden: p.hidden ? "1" : "0"
+  }));
+
+  console.log(`📦 Found ${data.length} products`);
+
+  const worksheet = XLSX.utils.json_to_sheet(data, {
+    header: ["Name", "Variant", "Price", "Category", "Hidden"]
+  });
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
+
+  XLSX.writeFile(workbook, "products.xlsx");
+}
+
+  
+document.addEventListener("DOMContentLoaded", () => {
+  const exportBtn = document.getElementById("exportBtn");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", () => {
+      console.log("✅ Export button clicked");
+      exportProductsAsExcel();
+    });
+  }
+  const importBtn = document.getElementById("importBtn");
+
+  if (exportBtn) {
+    exportBtn.addEventListener("click", handleExport);
+  }
+
+  if (importBtn) {
+    importBtn.addEventListener("click", () => {
+      console.log("📥 Import button clicked");
+      // Trigger file input
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".xlsx,.xls";
+      input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data, { type: "array" });
+
+        const sheetName = workbook.SheetNames[0];
+        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+          defval: ""
+        });
+
+        console.log("📥 Imported rows:", rows);
+        // TODO: Save rows to Firestore
+      };
+      input.click();
+    });
+  }
+
+});
+
 
   document.addEventListener("DOMContentLoaded", init);
 
