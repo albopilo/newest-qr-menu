@@ -67,6 +67,12 @@
 
     const subtotal = Number(params.get("subtotal")) || 0;
     let discount = Number(params.get("discount")) || 0;
+const memberTier = (params.get("tier") || "Guest").toLowerCase();
+
+// 🚫 Only force Classic to 0
+if (memberTier === "classic") {
+  discount = 0;
+}
     const tax = Number(params.get("tax")) || 0;
     const total = Number(params.get("total")) || 0;
     const table = params.get("table") || "unknown";

@@ -987,17 +987,19 @@ const discount = cart.reduce((sum, i) => {
       qty: i.qty
     }));
 
-    const query = new URLSearchParams({
-      subtotal: String(subtotal),
-      discount: String(discount),
-      tax: String(tax),
-      total: String(total),
-      table: tableNumber,
-      guestName: currentUser?.displayName || "Guest",
-      memberPhone: currentUser?.phoneNumber || "",
-      memberId: currentUser?.memberId || "", // propagate for loyalty link
-      items: JSON.stringify(items)
-    }).toString();
+const query = new URLSearchParams({
+  subtotal: String(subtotal),
+  discount: String(discount),
+  tax: String(tax),
+  total: String(total),
+  table: tableNumber,
+  guestName: currentUser?.displayName || "Guest",
+  memberPhone: currentUser?.phoneNumber || "",
+  memberId: currentUser?.memberId || "",
+  tier: currentUser?.tier || "Guest",   // ✅ must be passed
+  items: JSON.stringify(items)
+}).toString();
+
 
     window.location.href = `summary.html?${query}`;
   });
