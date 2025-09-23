@@ -958,6 +958,9 @@ if (checkoutBtn) {
     }
     // Calculate subtotal normally
     const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+    // Delivery fee (example: apply if table = "Delivery")
+const deliveryFee = (tableNumber.toLowerCase() === "delivery") ? 10000 : 0;
+
 
 // Discount only applies to items NOT in "Special Today"
 // Compute discountRate robustly: prefer numeric currentUser.discountRate if present,
@@ -979,8 +982,9 @@ const discount = cart.reduce((sum, i) => {
     const taxRate = typeof currentUser?.taxRate === "number" ? currentUser.taxRate : 0.10;
     const tax = (subtotal - discount) * taxRate;
 
-    // Total rounded to nearest 100
-    const total = Math.round((subtotal - discount + tax) / 100) * 100;
+    
+// Total rounded to nearest 100, including delivery fee
+const total = Math.round((subtotal - discount + tax + deliveryFee) / 100) * 100;
 
     const items = cart.map(i => ({
       name: i.name + (i.variant ? ` (${i.variant})` : ""),
@@ -991,12 +995,13 @@ const query = new URLSearchParams({
   subtotal: String(subtotal),
   discount: String(discount),
   tax: String(tax),
+  deliveryFee: String(deliveryFee),   // ✅ add this
   total: String(total),
   table: tableNumber,
   guestName: currentUser?.displayName || "Guest",
   memberPhone: currentUser?.phoneNumber || "",
   memberId: currentUser?.memberId || "",
-  tier: currentUser?.tier || "Guest",   // ✅ must be passed
+  tier: currentUser?.tier || "Guest",
   items: JSON.stringify(items)
 }).toString();
 
@@ -1448,6 +1453,17 @@ function listenForOrders(selectedDate) {
         const date = order.date || "—";
         timeLine.innerHTML = `<strong>Time:</strong> ${time} | <strong>Date:</strong> ${date}`;
         div.appendChild(timeLine);
+
+        // ✅ add payment info here
+const payLine = document.createElement("div");
+payLine.innerHTML = `<strong>Payment:</strong> ${order.paymentMethod || "N/A"} (${order.paymentStatus || "pending"})`;
+div.appendChild(payLine);
+
+if (order.proofUrl) {
+  const proofLine = document.createElement("div");
+  proofLine.innerHTML = `<a href="${order.proofUrl}" target="_blank">📷 View Proof</a>`;
+  div.appendChild(proofLine);
+}
 
         // Items list
         if (order.items?.length) {

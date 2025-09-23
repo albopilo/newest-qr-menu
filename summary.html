@@ -40,7 +40,12 @@
 
     <!-- Delivery fee -->
     <p id="deliveryRow" style="display:none;">
-      <span class="label">Delivery Fee:</span> <span id="deliveryFeeDisplay">Rp10,000</span>
+      <span class="label">Delivery Fee:</span> <span id="deliveryFeeDisplay"></span>
+    </p>
+
+    <!-- Grand Total -->
+    <p id="grandTotalRow" style="display:none;">
+      <span class="label">Grand Total:</span> <span id="grandTotalDisplay"></span>
     </p>
 
     <!-- Voucher code -->
@@ -51,6 +56,19 @@
       <p id="voucherMsg" style="color:#d33;font-size:0.9em;"></p>
     </div>
 
+    <!-- Payment Method -->
+    <div id="paymentSection" style="margin:20px 0;">
+      <label class="label">Payment Method:</label><br>
+      <input type="radio" name="paymentMethod" id="payCash" value="cash"> 
+      <label for="payCash">Cash</label><br>
+      <input type="radio" name="paymentMethod" id="payQRIS" value="qris"> 
+      <label for="payQRIS">QRIS</label>
+
+      <div id="cashInstruction" style="display:none; margin-top:10px; color:#555;">
+        💵 Please pay at the receptionist on 1st floor.
+      </div>
+    </div>
+
     <p><span class="label">Open Hours:</span> 08:30 - 19:30</p>
     <button id="confirmBtn">✅ Confirm Order</button>
   </div>
@@ -59,7 +77,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <script>
+<script>
   const urlParams = new URLSearchParams(window.location.search);
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -67,16 +85,76 @@
 
     const subtotal = Number(params.get("subtotal")) || 0;
     let discount = Number(params.get("discount")) || 0;
-const memberTier = (params.get("tier") || "Guest").toLowerCase();
+    const memberTier = (params.get("tier") || "Guest").toLowerCase();
 
-// 🚫 Only force Classic to 0
-if (memberTier === "classic") {
-  discount = 0;
-}
+    if (memberTier === "classic") {
+      discount = 0;
+    }
+
     const tax = Number(params.get("tax")) || 0;
-    const total = Number(params.get("total")) || 0;
     const table = params.get("table") || "unknown";
     const guestName = params.get("guestName") || "Guest";
+
+    let deliveryFee = 0;
+    if (/mille\s*1/i.test(table) || /mille\s*3/i.test(table)) {
+      deliveryFee = 10000;
+      document.getElementById("deliveryFeeDisplay").textContent = `Rp${deliveryFee.toLocaleString("id-ID")}`;
+      document.getElementById("deliveryRow").style.display = "block";
+    }
+
+    let paymentMethod = "";
+    let qrisOrderCreated = false;
+    const confirmBtn = document.getElementById("confirmBtn");
+
+    document.getElementById("payCash").addEventListener("change", () => {
+      paymentMethod = "cash";
+      document.getElementById("cashInstruction").style.display = "block";
+      confirmBtn.style.display = "block"; // show confirm for cash
+    });
+
+    document.getElementById("payQRIS").addEventListener("change", async () => {
+      paymentMethod = "qris";
+      document.getElementById("cashInstruction").style.display = "none";
+
+      if (qrisOrderCreated) return;
+
+      try {
+        const memberPhone = urlParams.get("memberPhone") || "";
+        const memberId = urlParams.get("memberId") || "";
+        const { finalTotal, grandTotal } = renderSummary();
+
+        const docRef = await db.collection("orders").add({
+          subtotal,
+          discount,
+          tax,
+          deliveryFee,
+          total: finalTotal,
+          grandTotal,
+          table,
+          guestName,
+          items,
+          date: new Date().toISOString().split("T")[0],
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          status: "pending",
+          memberPhone,
+          memberId,
+          paymentMethod: "qris",
+          paymentStatus: "awaiting-proof"
+        });
+
+        qrisOrderCreated = true;
+
+        // hide confirm button for QRIS (no double order)
+        confirmBtn.style.display = "none";
+
+        // open QRIS page immediately in new tab
+        window.open(`qris.html?orderId=${docRef.id}`, "_blank");
+
+      } catch (err) {
+        console.error("❌ Failed to create QRIS order immediately:", err);
+        alert("⚠️ Failed to prepare QRIS payment. Please try again.");
+      }
+    });
 
     let items = [];
     try {
@@ -105,13 +183,26 @@ if (memberTier === "classic") {
       subtotalDisplay.textContent = `Rp${subtotal.toLocaleString("id-ID")}`;
       discountDisplay.textContent = `Rp${discount.toLocaleString("id-ID")}`;
       taxDisplay.textContent = `Rp${tax.toLocaleString("id-ID")}`;
+
       const finalTotal = subtotal - discount + tax;
       totalDisplay.textContent = `Rp${finalTotal.toLocaleString("id-ID")}`;
-      return finalTotal;
+
+      const grandTotal = finalTotal + deliveryFee;
+      const grandRow = document.getElementById("grandTotalRow");
+      const grandDisplay = document.getElementById("grandTotalDisplay");
+
+      if (deliveryFee > 0) {
+        grandDisplay.textContent = `Rp${grandTotal.toLocaleString("id-ID")}`;
+        grandRow.style.display = "block";
+      } else {
+        grandRow.style.display = "none";
+      }
+
+      return { finalTotal, grandTotal };
     }
+
     renderSummary();
 
-    // Firebase setup
     const firebaseConfig = {
       apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
       authDomain: "e-loyalty-12563.firebaseapp.com",
@@ -120,7 +211,6 @@ if (memberTier === "classic") {
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    // Apply voucher
     document.getElementById("applyVoucherBtn").addEventListener("click", async () => {
       const code = document.getElementById("voucherInput").value.trim().toUpperCase();
       const msg = document.getElementById("voucherMsg");
@@ -146,7 +236,6 @@ if (memberTier === "classic") {
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
-        // Count redemptions for today
         const redemptionSnap = await db.collection("vouchers")
           .doc(voucherDoc.id)
           .collection("redemptions")
@@ -159,7 +248,6 @@ if (memberTier === "classic") {
           return;
         }
 
-        // Apply discount
         if (voucher.type === "percent") {
           discount += Math.floor(subtotal * (voucher.value / 100));
         } else if (voucher.type === "fixed") {
@@ -170,7 +258,6 @@ if (memberTier === "classic") {
         msg.textContent = `✅ Voucher applied: ${code}`;
         renderSummary();
 
-        // Log redemption (global usage tracking)
         await db.collection("vouchers")
           .doc(voucherDoc.id)
           .collection("redemptions")
@@ -186,18 +273,28 @@ if (memberTier === "classic") {
       }
     });
 
-    // Confirm order
-    document.getElementById("confirmBtn").onclick = async () => {
+    confirmBtn.onclick = async () => {
       try {
+        if (!paymentMethod) {
+          alert("⚠️ Please select a payment method.");
+          return;
+        }
+        if (paymentMethod === "qris") {
+          alert("✅ QRIS order already created. Please check the new tab.");
+          return;
+        }
+
         const memberPhone = urlParams.get("memberPhone") || "";
         const memberId = urlParams.get("memberId") || "";
-        const finalAmount = renderSummary();
+        const { finalTotal, grandTotal } = renderSummary();
 
         await db.collection("orders").add({
           subtotal,
           discount,
           tax,
-          total: finalAmount,
+          deliveryFee,
+          total: finalTotal,
+          grandTotal,
           table,
           guestName,
           items,
@@ -205,16 +302,18 @@ if (memberTier === "classic") {
           timestamp: firebase.firestore.FieldValue.serverTimestamp(),
           status: "pending",
           memberPhone,
-          memberId
+          memberId,
+          paymentMethod: "cash",
+          paymentStatus: "pending"
         });
 
-        alert("✅ Order confirmed and sent to staff! Please contact our staff for more information, thank you! 0821-8888-4663");
+        alert("✅ Order confirmed! Please pay at the receptionist.");
       } catch (err) {
         console.error("Error confirming order:", err);
         alert("❌ Failed to confirm order. Please try again.");
       }
     };
   });
-  </script>
+</script>
 </body>
 </html>

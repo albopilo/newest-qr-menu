@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>QRIS Payment</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; padding: 20px; text-align: center; }
+    img { max-width: 300px; margin: 20px auto; display: block; }
+    .upload-section { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h2>QRIS Payment</h2>
+  <p>📷 Please screenshot and pay using your mobile banking app.</p>
+  <img src="assets/qris versi 1.jpg" alt="QRIS Code" />
+
+  <div class="upload-section">
+    <p>⬆️ Upload your transaction screenshot</p>
+    <input type="file" id="paymentProof" accept="image/*" />
+    <button id="submitPayment">Submit Payment Proof</button>
+    <p id="statusMsg"></p>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+
+  <script>
+    // ✅ Firebase init
+    const firebaseConfig = {
+      apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
+      authDomain: "e-loyalty-12563.firebaseapp.com",
+      projectId: "e-loyalty-12563",
+      storageBucket: "e-loyalty-12563.appspot.com",
+      messagingSenderId: "3887061029",
+      appId: "1:3887061029:web:f9c238731d7e6dd5fb47cc",
+      measurementId: "G-966P8W06W2"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const storage = firebase.storage();
+
+    // ✅ Get orderId from query string (passed from summary.html)
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get("orderId");
+
+    if (!orderId) {
+      document.getElementById("statusMsg").textContent = "⚠️ Missing order reference!";
+    }
+
+    document.getElementById("submitPayment").onclick = async () => {
+      const file = document.getElementById("paymentProof").files[0];
+      if (!file) {
+        alert("⚠️ Please upload your transaction screenshot first.");
+        return;
+      }
+
+      try {
+        // Upload screenshot
+        const storageRef = storage.ref(`payments/${orderId}_${Date.now()}.jpg`);
+        await storageRef.put(file);
+        const fileUrl = await storageRef.getDownloadURL();
+
+        // Update the existing order
+        await db.collection("orders").doc(orderId).update({
+          paymentMethod: "qris",
+          paymentStatus: "success",
+          proofUrl: fileUrl,
+          proofUploadedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        document.getElementById("statusMsg").textContent = "✅ Payment proof uploaded successfully!";
+      } catch (err) {
+        console.error("❌ Upload error:", err);
+        document.getElementById("statusMsg").textContent = "❌ Failed to upload proof. Please try again.";
+      }
+    };
+  </script>
+</body>
+</html>

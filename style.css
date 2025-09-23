@@ -151,6 +151,24 @@ button:disabled {
   z-index: 1000;
 }
 
+#checkoutBtn {
+  position: sticky;       /* stick to bottom of scroll container */
+  bottom: 0;
+  width: 20%;
+  background: #5b3509;
+  color: white;
+  font-size: 1rem;
+  padding: 0.1rem;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  z-index: 1000;          /* make sure it stays above cart */
+}
+
+#checkoutBtn:hover {
+  background: #45a049;
+}
+
 #cart-header {
   padding: 4px 8px;
   background: #f7f7f7;
@@ -243,19 +261,13 @@ button:disabled {
   color: #000;
 }
 
-#checkoutBtn {
-  position: fixed;
-  bottom: 0;
-  right: 16px;
-  margin-bottom: 12px;
-  z-index: 1001;
-  background-color: #333;
-  color: white;
-  padding: 10px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+@media (max-width: 480px) {
+  #checkoutBtn {
+    font-size: 1rem;
+    padding: 0.85rem;
+  }
 }
+
 
 #cart-total {
   font-weight: bold;
@@ -393,12 +405,15 @@ body.staff .icon-btn {
     font-size: 1.1rem;
   }
 
-  button {
+  /* Only main action buttons go full-width on mobile */
+  #checkoutBtn,
+  #authModal .auth-actions button {
     width: 100%;
     font-size: 0.95em;
     padding: 10px 14px;
     min-height: 44px;
   }
+
 
   #categoryTabsContainer {
     position: sticky;
@@ -435,11 +450,13 @@ body.staff .icon-btn {
   }
 
   #checkoutBtn {
-    position: static;
+    position: sticky;   /* ✅ stay visible */
+    bottom: 0;
     width: 100%;
-    margin: 12px 0;
     font-size: 1rem;
     padding: 12px;
+    margin: 0;          /* avoid double spacing */
+    z-index: 1500;      /* make sure above cart */
   }
 
   .banner {
