@@ -8,12 +8,15 @@
     body { font-family: sans-serif; padding: 20px; text-align: center; }
     img { max-width: 300px; margin: 20px auto; display: block; }
     .upload-section { margin-top: 20px; }
+    #amountToPay { font-size: 1.5em; font-weight: bold; margin-top: 10px; }
   </style>
 </head>
 <body>
   <h2>QRIS Payment</h2>
   <p>📷 Please screenshot and pay using your mobile banking app.</p>
   <img src="assets/qris versi 1.jpg" alt="QRIS Code" />
+
+  <p id="amountToPay">💰 Calculating amount...</p>
 
   <div class="upload-section">
     <p>⬆️ Upload your transaction screenshot</p>
@@ -50,6 +53,36 @@
       document.getElementById("statusMsg").textContent = "⚠️ Missing order reference!";
     }
 
+    // Display amount to pay
+    async function displayAmount() {
+      if (!orderId) return;
+      try {
+        const doc = await db.collection("orders").doc(orderId).get();
+        if (!doc.exists) return;
+
+        const data = doc.data();
+        const subtotal = data.subtotal || 0;
+        const discount = data.discount || 0;
+        const tax = data.tax || 0;
+        const deliveryFee = data.deliveryFee || 0;
+
+        // Calculate total and grand total
+        const total = subtotal - discount + tax;
+        const grandTotal = total + deliveryFee;
+
+        // Show grandTotal if delivery fee exists, else show total
+        const amount = deliveryFee > 0 ? grandTotal : total;
+        document.getElementById("amountToPay").textContent =
+          `💰 Amount to pay: Rp${amount.toLocaleString("id-ID")}`;
+      } catch (err) {
+        console.error("❌ Failed to fetch order data:", err);
+        document.getElementById("amountToPay").textContent = "⚠️ Failed to calculate amount";
+      }
+    }
+
+    if (orderId) displayAmount();
+
+    // Submit payment proof
     document.getElementById("submitPayment").onclick = async () => {
       const file = document.getElementById("paymentProof").files[0];
       if (!file) {
@@ -58,12 +91,10 @@
       }
 
       try {
-        // Upload screenshot
         const storageRef = storage.ref(`payments/${orderId}_${Date.now()}.jpg`);
         await storageRef.put(file);
         const fileUrl = await storageRef.getDownloadURL();
 
-        // Update the existing order
         await db.collection("orders").doc(orderId).update({
           paymentMethod: "qris",
           paymentStatus: "success",
@@ -71,7 +102,11 @@
           proofUploadedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
+        document.getElementById("submitPayment").disabled = true; // ✅ prevent multiple uploads
         document.getElementById("statusMsg").textContent = "✅ Payment proof uploaded successfully!";
+
+        // Redirect to summary
+        window.location.href = `summary.html?orderId=${orderId}&status=success`;
       } catch (err) {
         console.error("❌ Upload error:", err);
         document.getElementById("statusMsg").textContent = "❌ Failed to upload proof. Please try again.";

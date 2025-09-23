@@ -39,6 +39,15 @@ async function fetchActivePromos() {
   activePromos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   console.log("📢 Active promos loaded:", activePromos);
 }
+// Load currentUser from localStorage safely
+currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+
+// Ensure Classic members have 0 discount
+if ((currentUser.tier || "").toLowerCase() === "classic") {
+  currentUser.discountRate = 0;
+  localStorage.setItem("currentUser", JSON.stringify(currentUser));
+}
+
 
 /***********************
  * Banner helper
@@ -197,10 +206,17 @@ async function fetchMemberTier(phone) {
     currentUser.memberId = memberDoc.id; // capture for loyalty linkage
     currentUser.discountRate = normalizeDiscountRate(member.discountRate ?? getDiscountByTier(member.tier));
     currentUser.taxRate = member.taxRate ?? 0.10;
+
+    // Auto remove invalid discount for Classic
+    if ((currentUser.tier || "").toLowerCase() === "classic") {
+      currentUser.discountRate = 0;
+    }
+
     localStorage.setItem("currentUser", JSON.stringify(currentUser));
     console.log("Tier info:", currentUser.tier, "Discount:", currentUser.discountRate, "Tax:", currentUser.taxRate);
   }
 }
+
 
 /***********************
  * Product cache + fetch (with stale fallback)
@@ -707,53 +723,88 @@ function showVariantSelectorFor(cartIndex, group, forcePriceZero = false) {
 /***********************
  * Variant selector modal
  ***********************/
-function showVariantSelector(group) {
-  if (!userHasInteracted) return;
+function showVariantSelector(group, forcePriceZero = false, cartIndex = null) {
   const modal = document.getElementById("variantModal");
   const options = document.getElementById("variantOptions");
   const title = document.getElementById("variantTitle");
   if (!modal || !options) return;
 
-  // Ensure no freebie styling
-  modal.classList.remove("freebie");
+  // Freebie styling
+  if (forcePriceZero) modal.classList.add("freebie");
+  else modal.classList.remove("freebie");
 
   options.innerHTML = "";
   configureVariantOptionsContainer(options, group.variants.length);
 
+  // Title and optional freebie note
   if (title) {
-    title.textContent = group.variant_label
-      ? `Choose ${group.variant_label} for ${group.name}`
-      : `Choose option for ${group.name}`;
     const oldNote = options.parentNode.querySelector(".freebie-note");
     if (oldNote) oldNote.remove();
+
+    if (forcePriceZero) {
+      title.textContent = `🎁 Choose your FREE ${group.variant_label || "option"} for ${group.name}`;
+      const note = document.createElement("p");
+      note.className = "freebie-note";
+      note.textContent = "This item is included for free with your order.";
+      note.style.color = "#28a745";
+      note.style.fontWeight = "500";
+      note.style.marginBottom = "8px";
+      options.parentNode.insertBefore(note, options);
+    } else {
+      title.textContent = group.variant_label
+        ? `Choose ${group.variant_label} for ${group.name}`
+        : `Choose option for ${group.name}`;
+    }
   }
 
+  // Add variant buttons
   group.variants.forEach(v => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "variant-option";
+    const priceText = forcePriceZero ? "Rp0" : `Rp${Number(v.price).toLocaleString()}`;
     btn.textContent = (v.variant && v.variant.trim())
-      ? `${v.variant} — Rp${Number(v.price).toLocaleString()}`
-      : `${group.name} — Rp${Number(v.price).toLocaleString()}`;
-    styleVariantButton(btn);
-    btn.addEventListener("click", () => {
-      addToCart({
-  id: v.id,
-  name: group.name,
-  price: 0,
-  variant: v.variant || null,
-  category: group.category || "",
-  isPromoFree: true,
-  promoLinkId
-});
+      ? `${v.variant} — ${priceText}`
+      : `${group.name} — ${priceText}`;
 
+    styleVariantButton(btn);
+
+    btn.addEventListener("click", () => {
+      if (cartIndex !== null) {
+        // Updating an existing cart item
+        const idx = Number(cartIndex);
+        if (!Number.isInteger(idx) || idx < 0 || idx >= cart.length) {
+          closeModal();
+          return;
+        }
+        cart[idx].id = v.id;
+        cart[idx].name = group.name;
+        cart[idx].variant = v.variant || null;
+        cart[idx].price = forcePriceZero ? 0 : Number(v.price) || 0;
+      } else {
+        // Adding new item
+        addToCart({
+          id: v.id,
+          name: group.name,
+          price: forcePriceZero ? 0 : Number(v.price) || 0,
+          variant: v.variant || null,
+          category: group.category || "",
+          isPromoFree: forcePriceZero,
+          promoLinkId: forcePriceZero ? v.promoLinkId : null
+        });
+      }
+
+      renderCart();
+      startSessionTimeout();
       closeModal();
     });
+
     options.appendChild(btn);
   });
 
   modal.classList.remove("hidden");
 }
+
 
 function closeModal() {
   const modal = document.getElementById("variantModal");
@@ -849,10 +900,14 @@ function renderCart() {
     nameSpan.dataset.index = String(idx);          // <-- index for in-place update
     nameSpan.dataset.promoFree = item.isPromoFree ? "1" : "0";
     nameSpan.textContent = item.name + (item.variant ? ` — ${item.variant}` : "");
-    if (item.isPromoFree) {
-      nameSpan.style.cursor = "pointer";
-      nameSpan.title = "Click to choose free item variant";
-    }
+  if (item.isPromoFree) {
+    nameSpan.style.cursor = "pointer";
+    nameSpan.title = "Click to choose free item variant";
+    nameSpan.addEventListener("click", () => {
+      const group = window.groupedProducts[item.name];
+      if (group) showVariantSelector(group, true, idx);
+    });
+  }
     li.appendChild(nameSpan);
 
     const qtyWrap = document.createElement("div");
@@ -969,12 +1024,9 @@ const discountRate = getEffectiveDiscountRate(currentUser);
 
 
 const discount = cart.reduce((sum, i) => {
-  // Only apply discount if category is NOT "Special Today"
-  // safeguard: treat missing category as not "Special Today" (so discount applies
-  // only when intended). If you want no discount when category is missing, change
-  // this logic accordingly.
   const isSpecial = (i.category || "") === "Special Today";
-  return sum + (isSpecial ? 0 : (Number(i.price || 0) * Number(i.qty || 0) * discountRate));
+  if (currentUser.tier === "classic" || isSpecial) return sum;
+  return sum + (Number(i.price || 0) * Number(i.qty || 0) * discountRate);
 }, 0);
 
 
