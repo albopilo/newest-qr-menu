@@ -1,99 +1,132 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>13e Café – Order</title>
   <link rel="stylesheet" href="style.css" />
+
+  <style>
+    /* Minimal fallback styles so the closed message looks okay even without style.css */
+    :root { --muted: #666; --brand: #111; }
+    body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; color: var(--brand); }
+    header { display:flex; justify-content:space-between; align-items:center; padding:1rem; border-bottom:1px solid #eee; }
+    #closedMessage { display:none; min-height:100vh; align-items:center; justify-content:center; text-align:center; padding:2rem; }
+    #closedMessage.visible { display:flex; }
+    #closedMessage h1 { font-size:1.75rem; margin:0 0 .5rem; }
+    #closedMessage p { margin:0; color:var(--muted); font-size:1.05rem; }
+    #app { display:block; }
+    .hidden { display:none !important; }
+    /* small responsive helper so the UI won't break on narrow screens */
+    @media (max-width:480px){
+      header h2 { font-size:1.1rem; }
+      #closedMessage h1 { font-size:1.25rem; }
+    }
+  </style>
 </head>
 <body>
 
-  <!-- Header -->
-  <header>
-    <h2>13e Café</h2>
-    <button id="signInBtn">Member Sign In</button>
-  </header>
-
-  <!-- Category Tabs -->
-  <div id="categoryTabsContainer">
-    <div id="categoryTabs">
-      <!-- Category buttons will be dynamically rendered -->
+  <!-- Closed message (hidden by default) -->
+  <div id="closedMessage" role="status" aria-live="polite">
+    <div>
+      <h1>We’re Closed on Mondays</h1>
+      <p>Please come back another day 🙏</p>
     </div>
   </div>
 
-  <!-- Product List -->
-  <main>
-    <div id="productList"></div>
-  </main>
+  <!-- App container (kept intact so scripts can safely query DOM elements) -->
+  <div id="app">
+    <!-- Header -->
+    <header>
+      <h2>13e Café</h2>
+      <button id="signInBtn" aria-label="Member Sign In">Member Sign In</button>
+    </header>
 
-  <!-- Variant Modal -->
-  <div id="variantModal" class="hidden">
-    <div class="modal-content">
-      <h3>Select a Variant</h3>
-      <div id="variantOptions"></div>
-      <button id="cancelVariant">Cancel</button>
-    </div>
-  </div>
-
-  <!-- Cart -->
-  <div id="cart-container">
-    <div id="cart-header">Your Cart</div>
-    <div id="cart-body">
-      <ul class="cart-list"></ul>
-      <div id="cart-summary">
-        <p><strong>Total:</strong> <span id="cart-total">Rp 0</span></p>
+    <!-- Category Tabs -->
+    <div id="categoryTabsContainer">
+      <div id="categoryTabs">
+        <!-- Category buttons will be dynamically rendered -->
       </div>
     </div>
-  </div>
 
-  <!-- Checkout -->
-  <button id="checkoutBtn">Checkout</button>
+    <!-- Product List -->
+    <main>
+      <div id="productList"></div>
+    </main>
 
-  <!-- Banner for notifications -->
-  <div id="banner" class="banner hidden"></div>
+    <!-- Variant Modal -->
+    <div id="variantModal" class="hidden" aria-hidden="true">
+      <div class="modal-content">
+        <h3>Select a Variant</h3>
+        <div id="variantOptions"></div>
+        <button id="cancelVariant">Cancel</button>
+      </div>
+    </div>
 
-  <!-- Optional Categories -->
-  <section id="categories">
-    <!-- Category buttons get injected here if category filtering is implemented -->
-  </section>
-
-  <!-- Optional Footer -->
-  <footer style="padding:1em; text-align:center; font-size:0.85em; color:#777;">
-    <p>© 2025 13e Café. All rights reserved.</p>
-    <p><a href="/privacy.html">Privacy Policy</a> | <a href="/terms.html">Terms</a></p>
-  </footer>
-
-<!-- Firebase Core -->
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-
-<!-- Firebase services you use -->
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
-
-<!-- Then your app -->
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const today = new Date();
-  const day = today.getDay(); // 0=Sunday, 1=Monday
-
-  if (day === 1) { // Monday
-    // Hide the main content
-    document.body.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:center;height:100vh;
-                  font-family:system-ui,sans-serif;text-align:center;color:#111;">
-        <div>
-          <h1 style="font-size:2rem;margin-bottom:1rem;">We’re Closed on Mondays</h1>
-          <p style="font-size:1.2rem;">Please come back another day 🙏</p>
+    <!-- Cart -->
+    <div id="cart-container" aria-live="polite">
+      <div id="cart-header">Your Cart</div>
+      <div id="cart-body">
+        <ul class="cart-list"></ul>
+        <div id="cart-summary">
+          <p><strong>Total:</strong> <span id="cart-total">Rp 0</span></p>
+          <!-- Open hours added here -->
+          <p><strong>Open Hours:</strong> 08:30 - 19:30</p>
         </div>
       </div>
-    `;
-  } else {
-    // If it's NOT Monday, load app.js normally
-    const script = document.createElement("script");
-    script.src = "app.js";
-    document.body.appendChild(script);
-  }
-});
-</script>
+    </div>
+
+    <!-- Checkout -->
+    <button id="checkoutBtn">Checkout</button>
+
+    <!-- Banner for notifications -->
+    <div id="banner" class="banner hidden" role="status" aria-live="polite"></div>
+
+    <!-- Optional Categories -->
+    <section id="categories">
+      <!-- Category buttons get injected here if category filtering is implemented -->
+    </section>
+
+    <!-- Optional Footer -->
+    <footer style="padding:1em; text-align:center; font-size:0.85em; color:#777;">
+      <p>© 2025 13e Café. All rights reserved.</p>
+      <p><a href="/privacy.html">Privacy Policy</a> | <a href="/terms.html">Terms</a></p>
+    </footer>
+  </div> <!-- /#app -->
+
+  <!-- Firebase Core -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <!-- Firebase services you use -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
+
+  <!-- Monday-closure logic: toggles UI, does NOT overwrite body -->
+  <script>
+    (function() {
+      // Determine local day of week: 0 = Sun, 1 = Mon, ...
+      const today = new Date();
+      const day = today.getDay();
+
+      // Expose a global flag so app.js can read it if needed
+      window.IS_CLOSED_ON_MONDAY = (day === 1);
+
+      // Show closed message and hide the app container (do not replace body)
+      const closedEl = document.getElementById('closedMessage');
+      const appEl = document.getElementById('app');
+
+      if (window.IS_CLOSED_ON_MONDAY) {
+        if (closedEl) closedEl.classList.add('visible');
+        if (appEl) appEl.classList.add('hidden');
+      } else {
+        // Ensure closed message is hidden and app visible on other days
+        if (closedEl) closedEl.classList.remove('visible');
+        if (appEl) appEl.classList.remove('hidden');
+      }
+    })();
+  </script>
+
+  <!-- Your app script should be loaded after the DOM markup above.
+       Use 'defer' if you prefer placing it in head, but here it is included at the end. -->
+  <script src="app.js"></script>
 </body>
 </html>
