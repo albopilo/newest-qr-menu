@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Register — 13e Café</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* small, self-contained layout for register page */
+    body { font-family: system-ui, sans-serif; margin: 0; background: #fafafa; color: #222; }
+    .page { max-width: 480px; margin: 40px auto; padding: 16px; background: #fff; border-radius: 8px; box-shadow: 0 6px 30px rgba(0,0,0,0.06); }
+    h1 { margin-top: 0; }
+    label { display:block; margin: 10px 0 6px; font-weight: 600; }
+    input[type="text"], input[type="email"], input[type="date"], input[type="tel"] {
+      width:100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box;
+    }
+    .row { display:flex; gap:8px; }
+    .row > * { flex:1; }
+    .error { color:#c53030; font-size:0.95rem; margin-top:6px; }
+    .actions { margin-top:16px; display:flex; gap:8px; }
+    button { padding: 10px 14px; border-radius: 6px; border: none; cursor: pointer; }
+    .primary { background:#333; color:#fff; }
+    .secondary { background:#eee; color:#111; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Create Member Account</h1>
+    <p>Please fill all fields. We'll check your phone and email are not already registered.</p>
+
+    <form id="registerForm" novalidate>
+      <label for="name">Full name</label>
+      <input id="name" name="name" type="text" autocomplete="name" required />
+
+      <label for="email">Email address</label>
+      <input id="email" name="email" type="email" autocomplete="email" required />
+
+      <label for="phone">Phone number</label>
+      <input id="phone" name="phone" type="tel" placeholder="081234567890" required />
+
+      <label for="birthdate">Birthdate</label>
+      <input id="birthdate" name="birthdate" type="date" required />
+
+      <div id="formError" class="error" role="alert" aria-live="polite" style="display:none;"></div>
+
+      <div class="actions">
+        <button type="button" id="cancelBtn" class="secondary">Cancel</button>
+        <button type="submit" id="registerBtn" class="primary">Register</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+  <!-- Register logic -->
+  <script src="register.js"></script>
+</body>
+</html>

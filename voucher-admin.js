@@ -1,0 +1,58 @@
+// --- Firebase init ---
+const firebaseConfig = {
+  apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
+  authDomain: "e-loyalty-12563.firebaseapp.com",
+  projectId: "e-loyalty-12563",
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("createVoucherBtn");
+  const msg = document.getElementById("msg");
+
+  btn.addEventListener("click", async () => {
+    const code = document.getElementById("code").value.trim().toUpperCase();
+    const type = document.getElementById("type").value;
+    const value = parseInt(document.getElementById("value").value, 10) || 0;
+    const limit = parseInt(document.getElementById("limit").value, 10) || 0;
+
+    if (!code || !value) {
+      msg.style.color = "red";
+      msg.textContent = "⚠️ Please fill all fields.";
+      return;
+    }
+
+    try {
+      // Check if voucher already exists
+      const snap = await db.collection("vouchers").where("code", "==", code).limit(1).get();
+      if (!snap.empty) {
+        msg.style.color = "red";
+        msg.textContent = "❌ Voucher code already exists.";
+        return;
+      }
+
+      // Create voucher
+      await db.collection("vouchers").add({
+        code,
+        type,
+        value,
+        used: "unlimited",      // ✅ stays unlimited unless you set a counter
+        limitPerDay: limit,     // ✅ 0 = unlimited, >0 = daily cap
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      msg.style.color = "green";
+      msg.textContent = `✅ Voucher ${code} created successfully!`;
+
+      // Reset form
+      document.getElementById("code").value = "";
+      document.getElementById("value").value = "";
+      document.getElementById("limit").value = "0";
+    } catch (err) {
+      console.error("Error creating voucher:", err);
+      msg.style.color = "red";
+      msg.textContent = "❌ Failed to create voucher.";
+    }
+  });
+});

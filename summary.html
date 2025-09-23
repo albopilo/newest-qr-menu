@@ -37,8 +37,20 @@
     <p><span class="label">Discount:</span> <span id="discountDisplay"></span></p>
     <p><span class="label">Tax:</span> <span id="taxDisplay"></span></p>
     <p><span class="label">Total:</span> <span id="totalDisplay"></span></p>
-    <!-- Added Open Hours -->
-     <p></p>
+
+    <!-- Delivery fee -->
+    <p id="deliveryRow" style="display:none;">
+      <span class="label">Delivery Fee:</span> <span id="deliveryFeeDisplay">Rp10,000</span>
+    </p>
+
+    <!-- Voucher code -->
+    <div id="voucherSection" style="margin-top:10px;">
+      <label for="voucherInput" class="label">Voucher Code:</label>
+      <input type="text" id="voucherInput" style="width:100%;padding:8px;margin:4px 0;" />
+      <button id="applyVoucherBtn" style="padding:8px 12px;">Apply</button>
+      <p id="voucherMsg" style="color:#d33;font-size:0.9em;"></p>
+    </div>
+
     <p><span class="label">Open Hours:</span> 08:30 - 19:30</p>
     <button id="confirmBtn">✅ Confirm Order</button>
   </div>
@@ -48,81 +60,155 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    
-    document.addEventListener("DOMContentLoaded", () => {
-      const params = new URLSearchParams(window.location.search);
+  const urlParams = new URLSearchParams(window.location.search);
 
-      const subtotal = Number(params.get("subtotal")) || 0;
-      const discount = Number(params.get("discount")) || 0;
-      const tax = Number(params.get("tax")) || 0;
-      const total = Number(params.get("total")) || 0;
-      const table = params.get("table") || "unknown";
-      const guestName = params.get("guestName") || "Guest";
+  document.addEventListener("DOMContentLoaded", () => {
+    const params = new URLSearchParams(window.location.search);
 
-      let items = [];
-      try {
-        const rawItems = decodeURIComponent(params.get("items"));
-        items = JSON.parse(rawItems);
-      } catch (err) {
-        console.error("Failed to parse items:", err);
+    const subtotal = Number(params.get("subtotal")) || 0;
+    let discount = Number(params.get("discount")) || 0;
+    const tax = Number(params.get("tax")) || 0;
+    const total = Number(params.get("total")) || 0;
+    const table = params.get("table") || "unknown";
+    const guestName = params.get("guestName") || "Guest";
+
+    let items = [];
+    try {
+      const rawItems = decodeURIComponent(params.get("items"));
+      items = JSON.parse(rawItems);
+    } catch (err) {
+      console.error("Failed to parse items:", err);
+    }
+
+    document.getElementById("tableDisplay").textContent = table;
+    document.getElementById("guestDisplay").textContent = guestName;
+
+    const itemsList = document.getElementById("itemsList");
+    items.forEach(item => {
+      const li = document.createElement("li");
+      li.textContent = `${item.qty} × ${item.name}`;
+      itemsList.appendChild(li);
+    });
+
+    const subtotalDisplay = document.getElementById("subtotalDisplay");
+    const discountDisplay = document.getElementById("discountDisplay");
+    const taxDisplay = document.getElementById("taxDisplay");
+    const totalDisplay = document.getElementById("totalDisplay");
+
+    function renderSummary() {
+      subtotalDisplay.textContent = `Rp${subtotal.toLocaleString("id-ID")}`;
+      discountDisplay.textContent = `Rp${discount.toLocaleString("id-ID")}`;
+      taxDisplay.textContent = `Rp${tax.toLocaleString("id-ID")}`;
+      const finalTotal = subtotal - discount + tax;
+      totalDisplay.textContent = `Rp${finalTotal.toLocaleString("id-ID")}`;
+      return finalTotal;
+    }
+    renderSummary();
+
+    // Firebase setup
+    const firebaseConfig = {
+      apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
+      authDomain: "e-loyalty-12563.firebaseapp.com",
+      projectId: "e-loyalty-12563",
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Apply voucher
+    document.getElementById("applyVoucherBtn").addEventListener("click", async () => {
+      const code = document.getElementById("voucherInput").value.trim().toUpperCase();
+      const msg = document.getElementById("voucherMsg");
+      msg.style.color = "#d33";
+
+      if (!code) {
+        msg.textContent = "⚠️ Please enter a voucher code.";
+        return;
       }
 
-      document.getElementById("tableDisplay").textContent = table;
-      document.getElementById("guestDisplay").textContent = guestName;
-
-      const itemsList = document.getElementById("itemsList");
-      items.forEach(item => {
-        const li = document.createElement("li");
-        li.textContent = `${item.qty} × ${item.name}`;
-        itemsList.appendChild(li);
-      });
-
-      document.getElementById("subtotalDisplay").textContent = `Rp${subtotal.toLocaleString("id-ID")}`;
-      document.getElementById("discountDisplay").textContent = `Rp${discount.toLocaleString("id-ID")}`;
-      document.getElementById("taxDisplay").textContent = `Rp${tax.toLocaleString("id-ID")}`;
-      document.getElementById("totalDisplay").textContent = `Rp${total.toLocaleString("id-ID")}`;
-
-      // Firebase setup
-      const firebaseConfig = {
-        apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
-        authDomain: "e-loyalty-12563.firebaseapp.com",
-        projectId: "e-loyalty-12563",
-      };
-      firebase.initializeApp(firebaseConfig);
-      const db = firebase.firestore();
-
-      document.getElementById("confirmBtn").onclick = async () => {
-        try {
-           const memberPhone = urlParams.get("memberPhone") || "";
-const memberId = urlParams.get("memberId") || "";
-
-await db.collection("orders").add({
-  subtotal,
-  discount,
-  tax,
-  total,
-  table,
-  guestName,
-  items,
-  date: new Date().toISOString().split("T")[0],
-  timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-  status: "pending",
-  memberPhone, // ✅ ensure loyalty link
-  memberId     // ✅ ensure loyalty link
-});
-
-
-
-          alert("Order confirmed and sent to staff! Please contact our staff for more information, thank you! 0821-8888-4663");
-          // Optional redirect:
-          // window.location.href = "thankyou.html";
-        } catch (err) {
-          console.error("Error confirming order:", err);
-          alert("Failed to confirm order. Please try again.");
+      try {
+        const snap = await db.collection("vouchers").where("code", "==", code).limit(1).get();
+        if (snap.empty) {
+          msg.textContent = "❌ Invalid voucher code.";
+          return;
         }
-      };
+
+        const voucherDoc = snap.docs[0];
+        const voucher = voucherDoc.data();
+
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        // Count redemptions for today
+        const redemptionSnap = await db.collection("vouchers")
+          .doc(voucherDoc.id)
+          .collection("redemptions")
+          .where("timestamp", ">=", today)
+          .where("timestamp", "<", tomorrow)
+          .get();
+
+        if (voucher.limitPerDay && voucher.limitPerDay > 0 && redemptionSnap.size >= voucher.limitPerDay) {
+          msg.textContent = "❌ This voucher has reached its daily limit.";
+          return;
+        }
+
+        // Apply discount
+        if (voucher.type === "percent") {
+          discount += Math.floor(subtotal * (voucher.value / 100));
+        } else if (voucher.type === "fixed") {
+          discount += voucher.value;
+        }
+
+        msg.style.color = "green";
+        msg.textContent = `✅ Voucher applied: ${code}`;
+        renderSummary();
+
+        // Log redemption (global usage tracking)
+        await db.collection("vouchers")
+          .doc(voucherDoc.id)
+          .collection("redemptions")
+          .add({
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            table,
+            guestName
+          });
+
+      } catch (err) {
+        console.error("Voucher check failed:", err);
+        msg.textContent = "⚠️ Failed to apply voucher. Try again.";
+      }
     });
+
+    // Confirm order
+    document.getElementById("confirmBtn").onclick = async () => {
+      try {
+        const memberPhone = urlParams.get("memberPhone") || "";
+        const memberId = urlParams.get("memberId") || "";
+        const finalAmount = renderSummary();
+
+        await db.collection("orders").add({
+          subtotal,
+          discount,
+          tax,
+          total: finalAmount,
+          table,
+          guestName,
+          items,
+          date: new Date().toISOString().split("T")[0],
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          status: "pending",
+          memberPhone,
+          memberId
+        });
+
+        alert("✅ Order confirmed and sent to staff! Please contact our staff for more information, thank you! 0821-8888-4663");
+      } catch (err) {
+        console.error("Error confirming order:", err);
+        alert("❌ Failed to confirm order. Please try again.");
+      }
+    };
+  });
   </script>
 </body>
 </html>

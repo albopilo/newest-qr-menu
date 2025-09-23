@@ -36,10 +36,25 @@
 
   <!-- App container (kept intact so scripts can safely query DOM elements) -->
   <div id="app">
+    <!-- Auth Modal -->
+<div id="authModal" class="hidden" aria-hidden="true">
+  <div class="modal-content">
+    <h3>Member Access</h3>
+    <p>Please sign in to continue</p>
+
+    <div class="auth-actions">
+      <button id="authSignIn">Sign In</button>
+      <button id="authSignUp" class="secondary">Sign Up</button>
+    </div>
+
+    <button id="closeAuth" class="minimal">Cancel</button>
+  </div>
+</div>
+
     <!-- Header -->
     <header>
       <h2>13e Café</h2>
-      <button id="signInBtn" aria-label="Member Sign In">Member Sign In</button>
+      <button id="signInBtn" aria-label="Member Login">Member Sign In</button>
     </header>
 
     <!-- Category Tabs -->

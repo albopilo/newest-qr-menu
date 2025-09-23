@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Voucher Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
+    .container { max-width: 500px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+    h2 { margin-bottom: 1rem; }
+    label { display: block; margin-top: 10px; font-weight: bold; }
+    input, select { width: 100%; padding: 8px; margin-top: 4px; }
+    button { margin-top: 20px; padding: 10px; background: #4CAF50; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
+    button:hover { background: #45a049; }
+    #msg { margin-top: 15px; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Create Voucher</h2>
+    
+    <label for="code">Voucher Code</label>
+    <input type="text" id="code" placeholder="e.g. TEST10">
+
+    <label for="type">Type</label>
+    <select id="type">
+      <option value="percent">Percent (%)</option>
+      <option value="fixed">Fixed (Rp)</option>
+    </select>
+
+    <label for="value">Value</label>
+    <input type="number" id="value" placeholder="e.g. 10">
+
+    <label for="limit">Limit per Day (0 = unlimited)</label>
+    <input type="number" id="limit" value="0">
+
+    <button id="createVoucherBtn">Create Voucher</button>
+    <p id="msg"></p>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="voucher-admin.js"></script>
+</body>
+</html>

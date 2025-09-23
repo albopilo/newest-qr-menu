@@ -158,7 +158,7 @@ function getDiscountByTier(tier) {
     case "silver": return 0.15;
     case "gold": return 0.20;
     case "bronze": return 0.10;
-    default: return 0.10;
+    default: return 0;
   }
 }
 
@@ -794,30 +794,30 @@ function renderCart() {
   list.innerHTML = "";
   let total = 0;
 
-cart.forEach((item, idx) => {
-  total += item.price * item.qty;
+  cart.forEach((item, idx) => {
+    total += item.price * item.qty;
 
-  const li = document.createElement("li");
-  li.className = "cart-item";
+    const li = document.createElement("li");
+    li.className = "cart-item";
 
-  const nameSpan = document.createElement("span");
-  nameSpan.className = "cart-item-name";
-  nameSpan.dataset.productName = item.name;
-  nameSpan.dataset.index = String(idx);          // <-- index for in-place update
-  nameSpan.dataset.promoFree = item.isPromoFree ? "1" : "0";
-  nameSpan.textContent = item.name + (item.variant ? ` — ${item.variant}` : "");
-  if (item.isPromoFree) {
-    nameSpan.style.cursor = "pointer";
-    nameSpan.title = "Click to choose free item variant";
-  }
-  li.appendChild(nameSpan);
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "cart-item-name";
+    nameSpan.dataset.productName = item.name;
+    nameSpan.dataset.index = String(idx);          // <-- index for in-place update
+    nameSpan.dataset.promoFree = item.isPromoFree ? "1" : "0";
+    nameSpan.textContent = item.name + (item.variant ? ` — ${item.variant}` : "");
+    if (item.isPromoFree) {
+      nameSpan.style.cursor = "pointer";
+      nameSpan.title = "Click to choose free item variant";
+    }
+    li.appendChild(nameSpan);
 
     const qtyWrap = document.createElement("div");
     qtyWrap.className = "qty-adjuster";
 
     const decBtn = document.createElement("button");
     decBtn.className = "icon-btn dec";
-decBtn.dataset.index = String(idx);
+    decBtn.dataset.index = String(idx);
 
     decBtn.textContent = "−";
     qtyWrap.appendChild(decBtn);
@@ -914,22 +914,21 @@ if (checkoutBtn) {
       await fetchMemberTier(currentUser.phoneNumber);
     }
     // Calculate subtotal normally
-const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+    const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
 
-// Discount only applies to items NOT in "Special Today"
-const discountRate = currentUser?.discountRate || 0;
-const discount = cart.reduce((sum, i) => {
-  // Only apply discount if category is NOT "Special Today"
-  return sum + ((i.category !== 'Special Today') ? i.price * i.qty * discountRate : 0);
-}, 0);
+    // Discount only applies to items NOT in "Special Today"
+    const discountRate = currentUser?.discountRate || 0;
+    const discount = cart.reduce((sum, i) => {
+      // Only apply discount if category is NOT "Special Today"
+      return sum + ((i.category !== 'Special Today') ? i.price * i.qty * discountRate : 0);
+    }, 0);
 
-// Tax (still applied to all items including Special Today)
-const taxRate = typeof currentUser?.taxRate === "number" ? currentUser.taxRate : 0.10;
-const tax = (subtotal - discount) * taxRate;
+    // Tax (still applied to all items including Special Today)
+    const taxRate = typeof currentUser?.taxRate === "number" ? currentUser.taxRate : 0.10;
+    const tax = (subtotal - discount) * taxRate;
 
-// Total rounded to nearest 100
-const total = Math.round((subtotal - discount + tax) / 100) * 100;
-
+    // Total rounded to nearest 100
+    const total = Math.round((subtotal - discount + tax) / 100) * 100;
 
     const items = cart.map(i => ({
       name: i.name + (i.variant ? ` (${i.variant})` : ""),
@@ -1571,22 +1570,78 @@ async function initCustomer() {
   const tableInfo = document.getElementById("tableInfo");
   if (tableInfo) tableInfo.textContent = `Table ${tableNumber}`;
 
-  // Sign-in flow
+  /*************************
+   * Auth modal (Sign In / Sign Up) bindings
+   *************************/
   const signInBtn = document.getElementById("signInBtn");
-  if (signInBtn) {
-    signInBtn.addEventListener("click", async () => {
+  const authModal = document.getElementById("authModal");
+  const authSignIn = document.getElementById("authSignIn");
+  const authSignUp = document.getElementById("authSignUp");
+  const authClose = document.getElementById("closeAuth");
+
+  // Utility: update header sign-in button to show member name if signed in
+  function updateHeaderSigninButton() {
+    const btn = document.getElementById("signInBtn");
+    if (!btn) return;
+    if (currentUser && currentUser.displayName) {
+      btn.textContent = currentUser.displayName;
+      btn.dataset.memberId = currentUser.memberId || "";
+      btn.classList.add("signed-in");
+      btn.setAttribute("aria-label", `Signed in as ${currentUser.displayName}`);
+    } else {
+      btn.textContent = "Member Sign In";
+      btn.removeAttribute("data-member-id");
+      btn.classList.remove("signed-in");
+      btn.setAttribute("aria-label", "Member Login");
+    }
+  }
+
+  // Ensure header button reflects persisted session on load
+  updateHeaderSigninButton();
+
+  // Open the auth modal
+  if (signInBtn && authModal) {
+    signInBtn.addEventListener("click", () => {
+      authModal.classList.remove("hidden");
+      // optional: focus an input if you add one later
+    });
+  }
+
+  // Close handler
+  if (authClose && authModal) {
+    authClose.addEventListener("click", () => authModal.classList.add("hidden"));
+  }
+  if (authModal) {
+    authModal.addEventListener("click", (e) => {
+      if (e.target === authModal) authModal.classList.add("hidden");
+    });
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (authModal && !authModal.classList.contains("hidden")) authModal.classList.add("hidden");
+      closeModal();
+    }
+  });
+
+  // Helper to normalize phone numbers
+  const normalizePhone = (input) => {
+    return input
+      .replace(/[^\d+]/g, "")
+      .replace(/^\+?62/, "0")
+      .replace(/^0+/, "0");
+  };
+
+  // Sign-in logic (using modal -> prompt for phone)
+  if (authSignIn) {
+    authSignIn.addEventListener("click", async () => {
       const input = prompt("Enter your phone number (e.g. 081234567890):");
       if (!input) return;
-
-      const phone = input
-        .replace(/[^\d+]/g, "")
-        .replace(/^\+?62/, "0")
-        .replace(/^0+/, "0");
+      const phone = normalizePhone(input);
 
       try {
         const snapshot = await db.collection("members").where("phone", "==", phone).limit(1).get();
         if (snapshot.empty) {
-          showBanner("Phone number not found. Please check and try again.", 4000);
+          showBanner("Phone number not found. Please sign up.", 4000);
           return;
         }
         const memberDoc = snapshot.docs[0];
@@ -1601,10 +1656,13 @@ async function initCustomer() {
         };
         localStorage.setItem("currentUser", JSON.stringify(currentUser));
         localStorage.setItem("sessionStart", Date.now().toString());
+        // update header button text to member name
+        updateHeaderSigninButton();
         const userStatus = document.getElementById("userStatus");
         if (userStatus) userStatus.textContent = currentUser.displayName;
         startSessionTimeout();
         showBanner(`Signed in as ${currentUser.displayName}`, 3000);
+        if (authModal) authModal.classList.add("hidden");
       } catch (error) {
         console.error("Sign-in error:", error);
         showBanner("Failed to sign in. Please try again.", 4000);
@@ -1612,7 +1670,17 @@ async function initCustomer() {
     });
   }
 
-  // Modal close binding
+  // Sign-up logic: navigate to register.html page (preserves return path)
+  if (authSignUp) {
+    authSignUp.addEventListener("click", () => {
+      // Go to dedicated registration page. Add return param so user can come back.
+      const returnTo = window.location.pathname + window.location.search;
+      window.location.href = `register.html?return=${encodeURIComponent(returnTo)}`;
+    });
+  }
+
+
+  // Modal close binding for variant modal
   const modal = document.getElementById("variantModal");
   function bindModalCloseHandlers() {
     setTimeout(() => {
