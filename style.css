@@ -97,12 +97,12 @@ button:disabled {
 
 #categoryTabs button {
   display: inline-block;
-  font-size: 0.85em;         /* compact by default */
-  padding: 6px 10px;         /* compact by default */
-  margin-right: 6px;         /* small gap between tabs */
+  font-size: 0.85em;
+  padding: 6px 10px;
+  margin-right: 6px;
   border-radius: 20px;
-  white-space: nowrap;       /* keep label on one line */
-  width: auto;               /* prevent full-width buttons */
+  white-space: nowrap;
+  width: auto;
   background-color: #eee;
   color: #333;
   border: none;
@@ -283,39 +283,53 @@ body.staff .icon-btn {
   font-size: 16px;
 }
 
-/* === Variant Modal === */
+/* === Variant Modal: Always in front of cart === */
 #variantModal {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   background: rgba(0,0,0,0.6);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 999;
+  z-index: 2000;
   padding: 1em;
 }
 
-.modal-content {
-  background: white;
+#variantModal.hidden {
+  display: none !important;
+}
+
+#variantModal .modal-content {
+  background: #fff;
   padding: 20px;
   border-radius: 8px;
   text-align: center;
   max-width: 90%;
+  z-index: 2001;
 }
 
-.hidden {
-  display: none !important;
-}
-
-#variantOptions button {
-  margin: 6px;
-  min-width: 140px;
+/* === Variant Modal: Mobile improvement === */
+@media (max-width: 600px) {
+  #variantModal {
+    align-items: flex-start;        /* top align modal */
+    padding-top: 80px;              /* leave room for header/cart */
+    overflow-y: auto;               /* scroll if content too tall */
+  }
+  #variantModal .modal-content {
+    max-height: calc(100vh - 100px); /* keep content visible */
+    width: 100%;
+    max-width: 320px;
+    padding: 16px;
+  }
 }
 
 /* === Banner Notifications === */
 .banner {
   position: fixed;
-  top: 0; /* change to 'auto' and set bottom: 16px; for bottom placement */
+  top: 0;
   left: 0;
   right: 0;
   background: #333;
@@ -330,7 +344,7 @@ body.staff .icon-btn {
 
 .banner.hidden {
   opacity: 0;
-  pointer-events: none; /* allows clicks through while fading */
+  pointer-events: none;
 }
 
 /* === Cart Highlight Animation === */
@@ -355,7 +369,6 @@ body.staff .icon-btn {
   box-shadow: 0 0 12px rgba(40, 167, 69, 0.4);
 }
 
-/* Make title green whether it's an h3 or #variantTitle */
 #variantModal.freebie h3,
 #variantModal.freebie #variantTitle {
   color: #28a745;
@@ -380,7 +393,6 @@ body.staff .icon-btn {
     font-size: 1.1rem;
   }
 
-  /* Global buttons for mobile */
   button {
     width: 100%;
     font-size: 0.95em;
@@ -388,28 +400,25 @@ body.staff .icon-btn {
     min-height: 44px;
   }
 
-  /* Sticky + horizontal scroll tabs (no wrap) */
   #categoryTabsContainer {
     position: sticky;
     top: 0;
     z-index: 800;
     background: #fff;
     border-bottom: 1px solid #eee;
-
-    overflow-x: auto;            /* enable horizontal scroll */
+    overflow-x: auto;
     overflow-y: hidden;
-    white-space: nowrap;         /* keep single row */
+    white-space: nowrap;
     -webkit-overflow-scrolling: touch;
     padding: 6px;
   }
 
   #categoryTabs {
-    display: inline-block;       /* inline flow for single line */
+    display: inline-block;
   }
 
-  /* Override global button width for chips */
   #categoryTabs button {
-    width: auto;                 /* prevent full-width chips */
+    width: auto;
     display: inline-block;
     font-size: 0.85em;
     padding: 6px 10px;
@@ -431,12 +440,6 @@ body.staff .icon-btn {
     margin: 12px 0;
     font-size: 1rem;
     padding: 12px;
-  }
-
-  #variantModal .modal-content {
-    width: 100%;
-    max-width: 320px;
-    padding: 16px;
   }
 
   .banner {
