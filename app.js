@@ -154,13 +154,39 @@ function startSessionTimeout() {
  * Tier helpers
  ***********************/
 function getDiscountByTier(tier) {
-  switch (tier?.toLowerCase()) {
-    case "silver": return 0.15;
-    case "gold": return 0.20;
-    case "bronze": return 0.10;
-    default: return 0;
+  // Normalize carefully: handle null/undefined, trim whitespace, lowercase
+  if (!tier) return 0;
+  const t = String(tier).trim().toLowerCase();
+  switch (t) {
+    case "classic": return 0.0;
+    case "bronze":  return 0.10;
+    case "silver":  return 0.15;
+    case "gold":    return 0.20;
+    default:        return 0.0;
   }
 }
+
+// Normalize discount rates coming from Firestore / localStorage.
+//
+// Accepts either a decimal (0.1) or a percent (10) and returns a decimal [0..1].
+function normalizeDiscountRate(val) {
+  if (val == null) return 0;
+  const n = Number(val);
+  if (Number.isNaN(n)) return 0;
+  // If > 1 assume percent (e.g. 10 -> 0.10). clamp to [0,1]
+  const normalized = n > 1 ? n / 100 : n;
+  return Math.max(0, Math.min(1, normalized));
+}
+
+// Return effective discount rate for a currentUser object (decimal)
+function getEffectiveDiscountRate(user) {
+  if (!user) return 0;
+  if (typeof user.discountRate === "number") return normalizeDiscountRate(user.discountRate);
+  // fallback to tier mapping
+  return getDiscountByTier(user.tier);
+}
+
+
 
 async function fetchMemberTier(phone) {
   const snapshot = await db.collection("members").where("phone", "==", phone).limit(1).get();
@@ -169,7 +195,7 @@ async function fetchMemberTier(phone) {
     const member = memberDoc.data();
     currentUser.tier = member.tier || null;
     currentUser.memberId = memberDoc.id; // capture for loyalty linkage
-    currentUser.discountRate = member.discountRate ?? getDiscountByTier(member.tier);
+    currentUser.discountRate = normalizeDiscountRate(member.discountRate ?? getDiscountByTier(member.tier));
     currentUser.taxRate = member.taxRate ?? 0.10;
     localStorage.setItem("currentUser", JSON.stringify(currentUser));
     console.log("Tier info:", currentUser.tier, "Discount:", currentUser.discountRate, "Tax:", currentUser.taxRate);
@@ -367,15 +393,17 @@ window.handleAddToCartByName = function(productName) {
   const hasVariants = group.variants.length > 1 || !!group.variants[0]?.variant;
 
   // Choose variant for buy item before adding
-  const addBuyItem = (variantObj, promoLinkId = null) => {
-    addToCart({
-      id: variantObj.id,
-      name: group.name,
-      price: variantObj.price,
-      variant: variantObj.variant || null,
-      promoLinkId
-    });
-  };
+const addBuyItem = (variantObj, promoLinkId = null) => {
+  addToCart({
+    id: variantObj.id,
+    name: group.name,
+    price: variantObj.price,
+    variant: variantObj.variant || null,
+    category: group.category || "", // ← ensure category is present
+    promoLinkId
+  });
+};
+
 
   const chosenVariant = group.variants[0];
 
@@ -431,13 +459,15 @@ window.handleAddToCartByName = function(productName) {
                 showVariantSelectorForPendingFree(freeGroup, promoLinkId);
               } else {
                 addToCart({
-                  id: freeGroup.variants[0].id,
-                  name: freeGroup.name,
-                  price: 0,
-                  variant: freeGroup.variants[0]?.variant || null,
-                  isPromoFree: true,
-                  promoLinkId
-                });
+  id: freeGroup.variants[0].id,
+  name: freeGroup.name,
+  price: 0,
+  variant: freeGroup.variants[0]?.variant || null,
+  category: freeGroup.category || "",
+  isPromoFree: true,
+  promoLinkId
+});
+
                 highlightCartItemByName(freeGroup.name);
               }
             }
@@ -461,13 +491,15 @@ window.handleAddToCartByName = function(productName) {
             showVariantSelectorForPendingFree(freeGroup, promoLinkId);
           } else {
             addToCart({
-              id: freeGroup.variants[0].id,
-              name: freeGroup.name,
-              price: 0,
-              variant: freeGroup.variants[0]?.variant || null,
-              isPromoFree: true,
-              promoLinkId
-            });
+  id: freeGroup.variants[0].id,
+  name: freeGroup.name,
+  price: 0,
+  variant: freeGroup.variants[0]?.variant || null,
+  category: freeGroup.category || "",
+  isPromoFree: true,
+  promoLinkId
+});
+
             highlightCartItemByName(freeGroup.name);
           }
         }
@@ -580,13 +612,15 @@ function showVariantSelectorForPendingFree(group, promoLinkId) {
     styleVariantButton(btn);
     btn.addEventListener("click", () => {
       addToCart({
-        id: v.id,
-        name: group.name,
-        price: 0,
-        variant: v.variant || null,
-        isPromoFree: true,
-        promoLinkId
-      });
+  id: v.id,
+  name: group.name,
+  price: 0,
+  variant: v.variant || null,
+  category: group.category || "",
+  isPromoFree: true,
+  promoLinkId
+});
+
       highlightCartItemByName(group.name);
       closeModal();
     });
@@ -703,7 +737,16 @@ function showVariantSelector(group) {
       : `${group.name} — Rp${Number(v.price).toLocaleString()}`;
     styleVariantButton(btn);
     btn.addEventListener("click", () => {
-      addToCart({ id: v.id, name: group.name, price: v.price, variant: v.variant || null });
+      addToCart({
+  id: v.id,
+  name: group.name,
+  price: 0,
+  variant: v.variant || null,
+  category: group.category || "",
+  isPromoFree: true,
+  promoLinkId
+});
+
       closeModal();
     });
     options.appendChild(btn);
@@ -916,12 +959,21 @@ if (checkoutBtn) {
     // Calculate subtotal normally
     const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
 
-    // Discount only applies to items NOT in "Special Today"
-    const discountRate = currentUser?.discountRate || 0;
-    const discount = cart.reduce((sum, i) => {
-      // Only apply discount if category is NOT "Special Today"
-      return sum + ((i.category !== 'Special Today') ? i.price * i.qty * discountRate : 0);
-    }, 0);
+// Discount only applies to items NOT in "Special Today"
+// Compute discountRate robustly: prefer numeric currentUser.discountRate if present,
+// otherwise derive from the stored tier using the canonical helper.
+const discountRate = getEffectiveDiscountRate(currentUser);
+
+
+const discount = cart.reduce((sum, i) => {
+  // Only apply discount if category is NOT "Special Today"
+  // safeguard: treat missing category as not "Special Today" (so discount applies
+  // only when intended). If you want no discount when category is missing, change
+  // this logic accordingly.
+  const isSpecial = (i.category || "") === "Special Today";
+  return sum + (isSpecial ? 0 : (Number(i.price || 0) * Number(i.qty || 0) * discountRate));
+}, 0);
+
 
     // Tax (still applied to all items including Special Today)
     const taxRate = typeof currentUser?.taxRate === "number" ? currentUser.taxRate : 0.10;
@@ -1549,14 +1601,16 @@ async function initCustomer() {
   // Restore session + cart
   const savedUser = localStorage.getItem("currentUser");
   const sessionStart = localStorage.getItem("sessionStart");
-  if (savedUser && sessionStart) {
-    const elapsed = Date.now() - Number(sessionStart);
-    if (elapsed < 3600000) {
-      currentUser = JSON.parse(savedUser);
-      const userStatus = document.getElementById("userStatus");
-      if (userStatus) userStatus.textContent = currentUser.displayName || "Guest";
-      startSessionTimeout();
-    } else {
+if (savedUser && sessionStart) {
+  const elapsed = Date.now() - Number(sessionStart);
+  if (elapsed < 3600000) {
+    currentUser = JSON.parse(savedUser);
+    // Ensure persisted discountRate is normalized
+    currentUser.discountRate = normalizeDiscountRate(currentUser.discountRate ?? getDiscountByTier(currentUser.tier));
+    const userStatus = document.getElementById("userStatus");
+    if (userStatus) userStatus.textContent = currentUser.displayName || "Guest";
+    startSessionTimeout();
+  } else {
       localStorage.removeItem("currentUser");
       localStorage.removeItem("sessionStart");
       localStorage.removeItem("cart");
