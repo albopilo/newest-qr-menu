@@ -201,7 +201,7 @@ let discount = 0;
 let tax = 0;
 let deliveryFee = 0;
 let paymentMethod = "";
-let qrisOrderCreated = false;
+let qrisOrderCreated = null; // store docRef for QRIS order
 
 // Initialize page
 document.addEventListener("DOMContentLoaded", async () => {
@@ -294,7 +294,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           paymentMethod: "qris",
           paymentStatus: "awaiting-proof"
         });
-        qrisOrderCreated = true;
+        qrisOrderCreated = docRef; // store the created order document reference
         confirmBtn.style.display = "none";
         window.open(`qris.html?orderId=${docRef.id}`, "_blank");
       } catch (err) {
@@ -353,20 +353,45 @@ document.addEventListener("DOMContentLoaded", async () => {
           if (voucherDoc.data().type === "percent") orderDiscount = Math.floor(subtotal * (voucherDoc.data().value / 100));
           else if (voucherDoc.data().type === "fixed") orderDiscount = voucherDoc.data().value;
 
-          // Add redemption properly even if orderId is missing
-          const redemptionDocRef = orderId ? voucherRef.collection("redemptions").doc(orderId)
-                                           : voucherRef.collection("redemptions").doc(`${Date.now()}-${Math.random().toString(36).substr(2,5)}`);
+// Determine redemption doc ID and store voucher
+        let redemptionDocRef;
+        if (orderId) {
+          redemptionDocRef = voucherRef.collection("redemptions").doc(orderId);
           tx.set(redemptionDocRef, {
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
             table,
             guestName,
-            orderId: orderId || null
+            orderId
           });
-          if (orderId) tx.update(db.collection("orders").doc(orderId), {
+          tx.update(db.collection("orders").doc(orderId), {
             voucherId: voucherDoc.id,
             discount: orderDiscount
           });
-          discount = orderDiscount;
+} else if (qrisOrderCreated) {
+  const qrisOrderRef = qrisOrderCreated; // already docRef
+  const qrisOrderId = qrisOrderRef.id;
+  redemptionDocRef = voucherRef.collection("redemptions").doc(qrisOrderId);
+  tx.set(redemptionDocRef, {
+    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+    table,
+    guestName,
+    orderId: qrisOrderId
+  });
+  tx.update(qrisOrderRef, {
+    voucherId: voucherDoc.id,
+    discount: orderDiscount
+          });
+        } else {
+          // fallback: generate temporary doc ID
+          redemptionDocRef = voucherRef.collection("redemptions").doc(`${Date.now()}-${Math.random().toString(36).substr(2,5)}`);
+          tx.set(redemptionDocRef, {
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            table,
+            guestName,
+            orderId: null
+          });
+        }
+        discount = orderDiscount;
         });
 
         voucherMsg.style.color = "green";
