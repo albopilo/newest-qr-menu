@@ -12,13 +12,17 @@
       background: #f8f9fa; 
       color: #333;
     }
-    img { 
-      max-width: 90%; 
-      margin: 20px auto; 
-      display: block; 
-      border-radius: 12px; 
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+
+    img.qr-code {
+      max-width: 400px; /* desktop max */
+      width: 90%;       /* small screens */
+      height: auto;
+      margin: 20px auto;
+      display: block;
+      border-radius: 12px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
+
     .upload-section { 
       margin-top: 20px; 
       max-width: 350px; 
@@ -29,12 +33,14 @@
       border-radius: 12px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
+
     #amountToPay { 
       font-size: 1.3em; 
       font-weight: bold; 
       margin-top: 10px; 
       color: #2c3e50;
     }
+
     button { 
       padding: 10px 20px; 
       font-size: 1em; 
@@ -46,10 +52,12 @@
       cursor: pointer; 
       transition: background 0.3s;
     }
+
     button:disabled { 
       background: #a5d6a7; 
       cursor: not-allowed; 
     }
+
     #progressContainer { 
       width: 100%; 
       background: #e0e0e0; 
@@ -59,6 +67,7 @@
       height: 20px; 
       display: none;
     }
+
     #progressBar { 
       height: 100%; 
       width: 0%; 
@@ -69,11 +78,13 @@
       font-size: 12px; 
       transition: width 0.2s ease;
     }
+
     #statusMsg {
       font-size: 0.95em;
       margin-top: 10px;
       min-height: 24px;
     }
+
     @media (max-width: 400px) {
       .upload-section {
         padding: 15px;
@@ -87,7 +98,7 @@
 <body>
   <h2>QRIS Payment</h2>
   <p>📷 Please screenshot and pay using your mobile banking app.</p>
-  <img src="/assets/qris versi 1.jpeg" alt="QRIS Code" />
+  <img src="/assets/qris versi 1.jpeg" alt="QRIS Code" class="qr-code" />
   <p id="amountToPay">💰 Calculating amount...</p>
 
   <div class="upload-section">
@@ -100,19 +111,16 @@
     <p id="statusMsg"></p>
   </div>
 
-  <!-- Firebase SDK -->
+  <!-- Firebase SDK (Firestore only, no messaging/storage) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <script>
+    // Initialize Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
       authDomain: "e-loyalty-12563.firebaseapp.com",
       projectId: "e-loyalty-12563",
-      storageBucket: "e-loyalty-12563.appspot.com",
-      messagingSenderId: "3887061029",
-      appId: "1:3887061029:web:f9c238731d7e6dd5fb47cc",
-      measurementId: "G-966P8W06W2"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
@@ -124,6 +132,7 @@
       document.getElementById("statusMsg").textContent = "⚠️ Missing order reference!";
     }
 
+    // Display order amount
     async function displayAmount() {
       if (!orderId) return;
       try {
@@ -150,6 +159,7 @@
 
     if (orderId) displayAmount();
 
+    // Upload screenshot to Postimages and update Firestore
     document.getElementById("submitPayment").onclick = () => {
       const file = document.getElementById("paymentProof").files[0];
       if (!file) {

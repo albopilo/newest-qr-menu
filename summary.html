@@ -5,24 +5,114 @@
   <title>Order Summary</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
-    .summary { max-width: 500px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    .summary h2 { margin-bottom: 1em; }
-    .summary ul { list-style: none; padding: 0; }
-    .summary li { margin-bottom: 0.5em; }
-    .label { font-weight: bold; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f6fa;
+      padding: 15px;
+      margin: 0;
+      color: #333;
+    }
+    .summary {
+      max-width: 500px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    }
+    .summary h2 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 20px;
+    }
+    .summary p, .summary ul {
+      margin: 8px 0;
+      font-size: 1em;
+    }
+    ul#itemsList {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    ul#itemsList li {
+      padding: 6px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .label {
+      font-weight: 600;
+      color: #555;
+    }
+    #subtotalDisplay, #discountDisplay, #taxDisplay, #totalDisplay, #deliveryFeeDisplay, #grandTotalDisplay {
+      float: right;
+      font-weight: 500;
+    }
+    p#grandTotalRow {
+      font-size: 1.1em;
+      font-weight: bold;
+      color: #4caf50;
+      border-top: 2px solid #4caf50;
+      padding-top: 8px;
+      margin-top: 10px;
+      display: none;
+    }
     #confirmBtn {
       margin-top: 20px;
-      padding: 12px 20px;
+      padding: 12px;
       background-color: #4CAF50;
       color: white;
       border: none;
       font-size: 16px;
-      border-radius: 5px;
+      border-radius: 8px;
       cursor: pointer;
       width: 100%;
+      transition: 0.3s;
     }
     #confirmBtn:hover { background-color: #45a049; }
+    #confirmBtn:disabled { background-color: #a5d6a7; cursor: not-allowed; }
+
+    #voucherSection input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      margin: 6px 0;
+      font-size: 0.95em;
+    }
+    #voucherSection button {
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      background-color: #3498db;
+      color: white;
+      cursor: pointer;
+      margin-top: 6px;
+      transition: 0.3s;
+    }
+    #voucherSection button:hover { background-color: #2980b9; }
+    #voucherMsg {
+      font-size: 0.9em;
+      margin-top: 4px;
+      min-height: 18px;
+    }
+    #paymentSection {
+      margin: 20px 0;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
+    }
+    #paymentSection label {
+      font-weight: 600;
+    }
+    #paymentSection .cash-instruction {
+      margin-top: 8px;
+      color: #555;
+      font-size: 0.95em;
+    }
+    @media(max-width: 480px){
+      body { padding: 10px; }
+      .summary { padding: 15px; }
+      #confirmBtn { font-size: 0.95em; padding: 10px; }
+      #voucherSection input { font-size: 0.9em; }
+    }
   </style>
 </head>
 <body>
@@ -31,6 +121,7 @@
     <p><span class="label">Table:</span> <span id="tableDisplay"></span></p>
     <p><span class="label">Guest:</span> <span id="guestDisplay"></span></p>
     <ul id="itemsList"></ul>
+
     <p><span class="label">Subtotal:</span> <span id="subtotalDisplay"></span></p>
     <p><span class="label">Discount:</span> <span id="discountDisplay"></span></p>
     <p><span class="label">Tax:</span> <span id="taxDisplay"></span></p>
@@ -39,28 +130,22 @@
     <p id="deliveryRow" style="display:none;">
       <span class="label">Delivery Fee:</span> <span id="deliveryFeeDisplay"></span>
     </p>
+    <p id="grandTotalRow"><span class="label">Grand Total:</span> <span id="grandTotalDisplay"></span></p>
 
-    <p id="grandTotalRow" style="display:none;">
-      <span class="label">Grand Total:</span> <span id="grandTotalDisplay"></span>
-    </p>
-
-    <div id="voucherSection" style="margin-top:10px;">
+    <div id="voucherSection">
       <label for="voucherInput" class="label">Voucher Code:</label>
-      <input type="text" id="voucherInput" style="width:100%;padding:8px;margin:4px 0;" />
-      <button id="applyVoucherBtn" style="padding:8px 12px;">Apply</button>
-      <p id="voucherMsg" style="color:#d33;font-size:0.9em;"></p>
+      <input type="text" id="voucherInput" placeholder="Enter voucher code"/>
+      <button id="applyVoucherBtn">Apply</button>
+      <p id="voucherMsg"></p>
     </div>
 
-    <div id="paymentSection" style="margin:20px 0;">
+    <div id="paymentSection">
       <label class="label">Payment Method:</label><br>
       <input type="radio" name="paymentMethod" id="payCash" value="cash"> 
       <label for="payCash">Cash</label><br>
       <input type="radio" name="paymentMethod" id="payQRIS" value="qris"> 
       <label for="payQRIS">QRIS</label>
-
-      <div id="cashInstruction" style="display:none; margin-top:10px; color:#555;">
-        💵 Please pay at the receptionist on 1st floor.
-      </div>
+      <div id="cashInstruction" class="cash-instruction" style="display:none;">💵 Please pay at the receptionist on 1st floor.</div>
     </div>
 
     <p><span class="label">Open Hours:</span> 08:30 - 19:30</p>
