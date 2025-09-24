@@ -14,7 +14,8 @@
 <body>
   <h2>QRIS Payment</h2>
   <p>📷 Please screenshot and pay using your mobile banking app.</p>
-  <img src="assets/qris versi 1.jpeg" alt="QRIS Code" />
+  <!-- ✅ Use alt=media public download link -->
+<img src="assets/qris versi 1.jpeg" alt="QRIS Code" />
 
   <p id="amountToPay">💰 Calculating amount...</p>
 
@@ -31,7 +32,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 
   <script>
-    // ✅ Firebase init
     const firebaseConfig = {
       apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
       authDomain: "e-loyalty-12563.firebaseapp.com",
@@ -45,7 +45,7 @@
     const db = firebase.firestore();
     const storage = firebase.storage();
 
-    // ✅ Get orderId from query string (passed from summary.html)
+    // Get orderId from query string
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get("orderId");
 
@@ -66,12 +66,10 @@
         const tax = data.tax || 0;
         const deliveryFee = data.deliveryFee || 0;
 
-        // Calculate total and grand total
         const total = subtotal - discount + tax;
         const grandTotal = total + deliveryFee;
-
-        // Show grandTotal if delivery fee exists, else show total
         const amount = deliveryFee > 0 ? grandTotal : total;
+
         document.getElementById("amountToPay").textContent =
           `💰 Amount to pay: Rp${amount.toLocaleString("id-ID")}`;
       } catch (err) {
@@ -91,10 +89,16 @@
       }
 
       try {
+        // Disable button immediately to prevent double submission
+        const submitBtn = document.getElementById("submitPayment");
+        submitBtn.disabled = true;
+
+        // Upload to Firebase Storage
         const storageRef = storage.ref(`payments/${orderId}_${Date.now()}.jpg`);
         await storageRef.put(file);
         const fileUrl = await storageRef.getDownloadURL();
 
+        // Update Firestore
         await db.collection("orders").doc(orderId).update({
           paymentMethod: "qris",
           paymentStatus: "success",
@@ -102,14 +106,15 @@
           proofUploadedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
-        document.getElementById("submitPayment").disabled = true; // ✅ prevent multiple uploads
         document.getElementById("statusMsg").textContent = "✅ Payment proof uploaded successfully!";
-
-        // Redirect to summary
-        window.location.href = `summary.html?orderId=${orderId}&status=success`;
+        // Redirect to summary page
+        setTimeout(() => {
+          window.location.href = `summary.html?orderId=${orderId}&status=success`;
+        }, 1500);
       } catch (err) {
         console.error("❌ Upload error:", err);
         document.getElementById("statusMsg").textContent = "❌ Failed to upload proof. Please try again.";
+        document.getElementById("submitPayment").disabled = false; // Re-enable on failure
       }
     };
   </script>
