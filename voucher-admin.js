@@ -30,6 +30,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const msg = document.getElementById("msg");
 
   btn.addEventListener("click", async () => {
+    if (!firebase.auth().currentUser) {
+      msg.style.color = "red";
+      msg.textContent = "⚠️ Please login as admin first.";
+      return;
+    }
+
     const code = document.getElementById("code").value.trim().toUpperCase();
     const type = document.getElementById("type").value;
     const value = parseInt(document.getElementById("value").value, 10) || 0;
@@ -42,7 +48,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      // Check if voucher already exists
       const snap = await db.collection("vouchers").where("code", "==", code).limit(1).get();
       if (!snap.empty) {
         msg.style.color = "red";
@@ -50,20 +55,18 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // Create voucher
       await db.collection("vouchers").add({
         code,
         type,
         value,
-        used: "unlimited",      // ✅ stays unlimited unless you set a counter
-        limitPerDay: limit,     // ✅ 0 = unlimited, >0 = daily cap
+        used: "unlimited",
+        limitPerDay: limit,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
 
       msg.style.color = "green";
       msg.textContent = `✅ Voucher ${code} created successfully!`;
 
-      // Reset form
       document.getElementById("code").value = "";
       document.getElementById("value").value = "";
       document.getElementById("limit").value = "0";
