@@ -159,8 +159,10 @@
 
     if (orderId) displayAmount();
 
-    // Upload screenshot to Postimages and update Firestore
-    document.getElementById("submitPayment").onclick = () => {
+    // ImgBB API Key
+    const imgbbApiKey = "8cb647e6ce3e2dd18d960f95cf9a4c4d"; // <- replace with your key
+
+    document.getElementById("submitPayment").onclick = async () => {
       const file = document.getElementById("paymentProof").files[0];
       if (!file) {
         alert("⚠️ Please upload your transaction screenshot first.");
@@ -178,58 +180,52 @@
       progressBar.style.width = "0%";
       progressBar.textContent = "0%";
 
-      const formData = new FormData();
-      formData.append("upload", file);
+      try {
+        // Convert file to base64
+        const toBase64 = file => new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => resolve(reader.result.split(",")[1]); // remove data:image/...;base64,
+          reader.onerror = error => reject(error);
+        });
 
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", "https://api.postimages.org/1/upload", true);
+        const base64Image = await toBase64(file);
 
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const percent = Math.round((event.loaded / event.total) * 100);
-          progressBar.style.width = percent + "%";
-          progressBar.textContent = percent + "%";
-        }
-      };
+        // Upload to ImgBB
+        const formData = new FormData();
+        formData.append("image", base64Image);
+        formData.append("name", `order-${orderId}`);
 
-      xhr.onload = async () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const response = JSON.parse(xhr.responseText);
-            const fileUrl = response.data.url;
+        const uploadResponse = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbApiKey}`, {
+          method: "POST",
+          body: formData
+        });
 
-            await db.collection("orders").doc(orderId).update({
-              paymentMethod: "qris",
-              paymentStatus: "success",
-              proofUrl: fileUrl,
-              proofUploadedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+        const data = await uploadResponse.json();
+        if (!data.success) throw new Error("ImgBB upload failed");
 
-            progressBar.style.width = "100%";
-            progressBar.textContent = "100%";
-            statusMsg.textContent = "✅ Payment proof uploaded successfully!";
-            setTimeout(() => {
-              window.location.href = `summary.html?orderId=${orderId}&status=success`;
-            }, 1500);
-          } catch (err) {
-            console.error("❌ Firestore update error:", err);
-            statusMsg.textContent = "❌ Upload succeeded but failed to save record. Try again.";
-            submitBtn.disabled = false;
-          }
-        } else {
-          console.error("❌ Upload failed:", xhr.responseText);
-          statusMsg.textContent = "❌ Failed to upload proof. Please try again.";
-          submitBtn.disabled = false;
-        }
-      };
+        const fileUrl = data.data.url;
 
-      xhr.onerror = () => {
-        console.error("❌ Network error during upload");
-        statusMsg.textContent = "❌ Network error. Please try again.";
+        // Update Firestore
+        await db.collection("orders").doc(orderId).update({
+          paymentMethod: "qris",
+          paymentStatus: "success",
+          proofUrl: fileUrl,
+          proofUploadedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        progressBar.style.width = "100%";
+        progressBar.textContent = "100%";
+        statusMsg.textContent = "✅ Payment proof uploaded successfully!";
+        setTimeout(() => {
+          window.location.href = `summary.html?orderId=${orderId}&status=success`;
+        }, 1500);
+
+      } catch (err) {
+        console.error("❌ Upload error:", err);
+        statusMsg.textContent = "❌ Failed to upload payment proof. Please try again.";
         submitBtn.disabled = false;
-      };
-
-      xhr.send(formData);
+      }
     };
   </script>
 </body>
