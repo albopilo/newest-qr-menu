@@ -5,31 +5,104 @@
   <title>QRIS Payment</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: sans-serif; padding: 20px; text-align: center; }
-    img { max-width: 300px; margin: 20px auto; display: block; }
-    .upload-section { margin-top: 20px; }
-    #amountToPay { font-size: 1.5em; font-weight: bold; margin-top: 10px; }
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      padding: 20px; 
+      text-align: center; 
+      background: #f8f9fa; 
+      color: #333;
+    }
+    img { 
+      max-width: 90%; 
+      margin: 20px auto; 
+      display: block; 
+      border-radius: 12px; 
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+    }
+    .upload-section { 
+      margin-top: 20px; 
+      max-width: 350px; 
+      margin-left: auto; 
+      margin-right: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    #amountToPay { 
+      font-size: 1.3em; 
+      font-weight: bold; 
+      margin-top: 10px; 
+      color: #2c3e50;
+    }
+    button { 
+      padding: 10px 20px; 
+      font-size: 1em; 
+      margin-top: 10px; 
+      border: none; 
+      border-radius: 8px; 
+      background: #4caf50; 
+      color: #fff; 
+      cursor: pointer; 
+      transition: background 0.3s;
+    }
+    button:disabled { 
+      background: #a5d6a7; 
+      cursor: not-allowed; 
+    }
+    #progressContainer { 
+      width: 100%; 
+      background: #e0e0e0; 
+      border-radius: 12px; 
+      overflow: hidden; 
+      margin: 15px 0; 
+      height: 20px; 
+      display: none;
+    }
+    #progressBar { 
+      height: 100%; 
+      width: 0%; 
+      background: linear-gradient(90deg, #4caf50, #81c784); 
+      text-align: center; 
+      color: white; 
+      line-height: 20px; 
+      font-size: 12px; 
+      transition: width 0.2s ease;
+    }
+    #statusMsg {
+      font-size: 0.95em;
+      margin-top: 10px;
+      min-height: 24px;
+    }
+    @media (max-width: 400px) {
+      .upload-section {
+        padding: 15px;
+      }
+      button {
+        width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
   <h2>QRIS Payment</h2>
   <p>📷 Please screenshot and pay using your mobile banking app.</p>
-  <!-- ✅ Use alt=media public download link -->
-<img src="/assets/qris_versi_1.jpeg" alt="QRIS Code" />
-
+  <img src="/assets/qris versi 1.jpeg" alt="QRIS Code" />
   <p id="amountToPay">💰 Calculating amount...</p>
 
   <div class="upload-section">
     <p>⬆️ Upload your transaction screenshot</p>
     <input type="file" id="paymentProof" accept="image/*" />
     <button id="submitPayment">Submit Payment Proof</button>
+    <div id="progressContainer">
+      <div id="progressBar">0%</div>
+    </div>
     <p id="statusMsg"></p>
   </div>
 
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 
   <script>
     const firebaseConfig = {
@@ -43,9 +116,7 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    const storage = firebase.storage();
 
-    // Get orderId from query string
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get("orderId");
 
@@ -53,7 +124,6 @@
       document.getElementById("statusMsg").textContent = "⚠️ Missing order reference!";
     }
 
-    // Display amount to pay
     async function displayAmount() {
       if (!orderId) return;
       try {
@@ -80,42 +150,76 @@
 
     if (orderId) displayAmount();
 
-    // Submit payment proof
-    document.getElementById("submitPayment").onclick = async () => {
+    document.getElementById("submitPayment").onclick = () => {
       const file = document.getElementById("paymentProof").files[0];
       if (!file) {
         alert("⚠️ Please upload your transaction screenshot first.");
         return;
       }
 
-      try {
-        // Disable button immediately to prevent double submission
-        const submitBtn = document.getElementById("submitPayment");
-        submitBtn.disabled = true;
+      const submitBtn = document.getElementById("submitPayment");
+      const statusMsg = document.getElementById("statusMsg");
+      const progressContainer = document.getElementById("progressContainer");
+      const progressBar = document.getElementById("progressBar");
 
-        // Upload to Firebase Storage
-        const storageRef = storage.ref(`payments/${orderId}_${Date.now()}.jpg`);
-        await storageRef.put(file);
-        const fileUrl = await storageRef.getDownloadURL();
+      submitBtn.disabled = true;
+      statusMsg.textContent = "⬆️ Uploading screenshot, please wait...";
+      progressContainer.style.display = "block";
+      progressBar.style.width = "0%";
+      progressBar.textContent = "0%";
 
-        // Update Firestore
-        await db.collection("orders").doc(orderId).update({
-          paymentMethod: "qris",
-          paymentStatus: "success",
-          proofUrl: fileUrl,
-          proofUploadedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+      const formData = new FormData();
+      formData.append("upload", file);
 
-        document.getElementById("statusMsg").textContent = "✅ Payment proof uploaded successfully!";
-        // Redirect to summary page
-        setTimeout(() => {
-          window.location.href = `summary.html?orderId=${orderId}&status=success`;
-        }, 1500);
-      } catch (err) {
-        console.error("❌ Upload error:", err);
-        document.getElementById("statusMsg").textContent = "❌ Failed to upload proof. Please try again.";
-        document.getElementById("submitPayment").disabled = false; // Re-enable on failure
-      }
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "https://api.postimages.org/1/upload", true);
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          progressBar.style.width = percent + "%";
+          progressBar.textContent = percent + "%";
+        }
+      };
+
+      xhr.onload = async () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            const fileUrl = response.data.url;
+
+            await db.collection("orders").doc(orderId).update({
+              paymentMethod: "qris",
+              paymentStatus: "success",
+              proofUrl: fileUrl,
+              proofUploadedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            progressBar.style.width = "100%";
+            progressBar.textContent = "100%";
+            statusMsg.textContent = "✅ Payment proof uploaded successfully!";
+            setTimeout(() => {
+              window.location.href = `summary.html?orderId=${orderId}&status=success`;
+            }, 1500);
+          } catch (err) {
+            console.error("❌ Firestore update error:", err);
+            statusMsg.textContent = "❌ Upload succeeded but failed to save record. Try again.";
+            submitBtn.disabled = false;
+          }
+        } else {
+          console.error("❌ Upload failed:", xhr.responseText);
+          statusMsg.textContent = "❌ Failed to upload proof. Please try again.";
+          submitBtn.disabled = false;
+        }
+      };
+
+      xhr.onerror = () => {
+        console.error("❌ Network error during upload");
+        statusMsg.textContent = "❌ Network error. Please try again.";
+        submitBtn.disabled = false;
+      };
+
+      xhr.send(formData);
     };
   </script>
 </body>
