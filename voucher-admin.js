@@ -7,6 +7,24 @@ const firebaseConfig = {
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+const loginBtn = document.getElementById("loginBtn");
+const loginMsg = document.getElementById("loginMsg");
+
+loginBtn.addEventListener("click", async () => {
+  const email = document.getElementById("adminEmail").value;
+  const password = document.getElementById("adminPassword").value;
+  try {
+    await firebase.auth().signInWithEmailAndPassword(email, password);
+    loginMsg.style.color = "green";
+    loginMsg.textContent = "✅ Logged in successfully!";
+  } catch (err) {
+    console.error("Login error:", err);
+    loginMsg.style.color = "red";
+    loginMsg.textContent = "❌ Login failed.";
+  }
+});
+
+
 document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("createVoucherBtn");
   const msg = document.getElementById("msg");
