@@ -122,6 +122,46 @@ const phoneMap = {
   "mille 3": "6282261863984", // replace with real number C
 };
 
+const messaging = firebase.messaging();
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js')
+    .then((reg) => {
+      console.log("Service Worker registered", reg);
+      messaging.useServiceWorker(reg);
+    })
+    .catch(err => console.error("SW registration failed:", err));
+}
+
+// Request permission for notifications
+async function initFCM() {
+  try {
+    const token = await messaging.getToken({
+      vapidKey: "VPFwm_C_GPv0AAtxLfI1LWOZegHj4t8k5nLlD9s5ZLs"
+    });
+    console.log("FCM Token:", token);
+
+    // 👉 Save this token to Firestore under staff-users collection
+    // db.collection("staffTokens").doc(token).set({ token });
+
+  } catch (err) {
+    console.error("Unable to get FCM token", err);
+  }
+}
+
+messaging.onMessage((payload) => {
+  console.log("Message received. ", payload);
+  // Foreground notification
+  new Notification(payload.notification.title, {
+    body: payload.notification.body,
+    icon: "/icons/icon-192.png"
+  });
+});
+
+initFCM();
+
+
 function renderOrder(id, data) {
   const table = (data.table || "").toLowerCase();
   const status = data.status || "incoming";
