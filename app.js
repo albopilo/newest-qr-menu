@@ -1136,12 +1136,13 @@ let currentFilter = "all";
 function filterOrders(status) {
   currentFilter = status;
   document.querySelectorAll(".order").forEach(el => {
-    const orderStatus = (el.dataset.status || "").toLowerCase();
+    const orderStatus = (el.dataset.kitchenStatus || "").toLowerCase();
     const isIncoming = status === "incoming" && ["pending", "preparing"].includes(orderStatus);
     el.style.display = (status === "all" || isIncoming || orderStatus === status) ? "" : "none";
   });
 }
 window.filterOrders = filterOrders;
+
 
 /***********************
  * Persistent chime repeater
@@ -1196,13 +1197,15 @@ function calculatePoints(total) {
   return Math.floor((Number(total) || 0) / RATE_RP_PER_POINT);
 }
 
-async function updateOrderStatusAndMaybeRecordLoyalty(orderId, targetStatus) {
+/***********************
+ * Loyalty + order updates
+ ***********************/
+async function updateOrderStatusAndMaybeRecordLoyalty(orderId, targetKitchenStatus) {
   const orderRef = db.collection("orders").doc(orderId);
   const ratesDocRef = db.collection("settings").doc("cashbackRates");
   const tierSettingsRef = db.collection("settings").doc("tierThresholds");
 
   await db.runTransaction(async (t) => {
-    // 1️⃣ READS FIRST
     const orderSnap = await t.get(orderRef);
     if (!orderSnap.exists) throw new Error("Order not found");
     const order = orderSnap.data();
@@ -1225,8 +1228,8 @@ async function updateOrderStatusAndMaybeRecordLoyalty(orderId, targetStatus) {
     const now = new Date();
     const todayStr = now.toISOString().split("T")[0];
 
-    // 2️⃣ CANCELLED: reverse loyalty effects
-    if (targetStatus === "cancelled" && alreadyRecorded && order.loyaltyTxId && memberRef && memberSnap?.exists) {
+    // 🔴 CANCELLED case
+    if (targetKitchenStatus === "cancelled" && alreadyRecorded && order.loyaltyTxId && memberRef && memberSnap?.exists) {
       const member = memberSnap.data();
       const txList = Array.isArray(member.transactions) ? member.transactions : [];
 
@@ -1261,16 +1264,15 @@ async function updateOrderStatusAndMaybeRecordLoyalty(orderId, targetStatus) {
       t.delete(txRef);
 
       t.update(orderRef, {
-        status: targetStatus,
+        kitchenStatus: targetKitchenStatus,
         loyaltyRecorded: false,
         loyaltyTxId: null
       });
-
       return;
     }
 
-    // 3️⃣ SERVED: record loyalty
-    if (targetStatus === "served" && !alreadyRecorded && (memberId || memberPhone)) {
+    // 🟢 SERVED case
+    if (targetKitchenStatus === "served" && !alreadyRecorded && (memberId || memberPhone)) {
       const member = memberSnap?.data() || {};
       const tierRaw = (member.tier || "Bronze").toString().trim();
       const tier = tierRaw.charAt(0).toUpperCase() + tierRaw.slice(1).toLowerCase();
@@ -1350,16 +1352,15 @@ async function updateOrderStatusAndMaybeRecordLoyalty(orderId, targetStatus) {
       }
 
       t.update(orderRef, {
-        status: targetStatus,
+        kitchenStatus: targetKitchenStatus,
         loyaltyRecorded: true,
         loyaltyTxId: txRef.id
       });
-
       return;
     }
 
-    // 4️⃣ DEFAULT: just update status
-    t.update(orderRef, { status: targetStatus });
+    // Default: just update kitchenStatus
+    t.update(orderRef, { kitchenStatus: targetKitchenStatus });
   });
 }
 
@@ -1451,7 +1452,6 @@ function toProperTier(tier) {
  * Listen and render orders (staff)
  ***********************/
 function listenForOrders(selectedDate) {
-  // Stop any existing listener and chime loops before starting new
   if (typeof unsubscribeOrders === "function") {
     unsubscribeOrders();
     unsubscribeOrders = null;
@@ -1473,11 +1473,11 @@ function listenForOrders(selectedDate) {
 
       snapshot.forEach(docSnap => {
         const order = docSnap.data();
-        const rawStatus = (order.status || "pending").toLowerCase();
+        const rawStatus = (order.kitchenStatus || "pending").toLowerCase();
 
         const div = document.createElement("div");
         div.className = "order";
-        div.dataset.status = rawStatus;
+        div.dataset.kitchenStatus = rawStatus;
         styleOrderBox(div, rawStatus);
 
         // Table + item count
@@ -1488,49 +1488,13 @@ function listenForOrders(selectedDate) {
         tableLine.appendChild(document.createTextNode(` - ${(order.items || []).length} items`));
         div.appendChild(tableLine);
 
-        // Status
+        // Status line
         const statusLine = document.createElement("div");
         statusLine.className = "status";
         statusLine.textContent = rawStatus;
         div.appendChild(statusLine);
 
-        // Name
-        const nameLine = document.createElement("div");
-        nameLine.innerHTML = `<strong>Name:</strong> ${order.guestName || "—"}`;
-        div.appendChild(nameLine);
-
-        // Time/date
-        const timeLine = document.createElement("div");
-        const time = order.timestamp?.toDate?.().toLocaleTimeString?.("id-ID", { hour: '2-digit', minute: '2-digit' }) || "—";
-        const date = order.date || "—";
-        timeLine.innerHTML = `<strong>Time:</strong> ${time} | <strong>Date:</strong> ${date}`;
-        div.appendChild(timeLine);
-
-        // ✅ add payment info here
-const payLine = document.createElement("div");
-payLine.innerHTML = `<strong>Payment:</strong> ${order.paymentMethod || "N/A"} (${order.paymentStatus || "pending"})`;
-div.appendChild(payLine);
-
-if (order.proofUrl) {
-  const proofLine = document.createElement("div");
-  proofLine.innerHTML = `<a href="${order.proofUrl}" target="_blank">📷 View Proof</a>`;
-  div.appendChild(proofLine);
-}
-
-        // Items list
-        if (order.items?.length) {
-          const ul = document.createElement("ul");
-          ul.style.marginTop = "6px";
-          ul.style.paddingLeft = "16px";
-          order.items.forEach(i => {
-            const li = document.createElement("li");
-            li.textContent = `${i.qty} × ${i.name}`;
-            ul.appendChild(li);
-          });
-          div.appendChild(ul);
-        }
-
-        // Status controls — disable whole group during update
+        // Controls
         const statusControls = document.createElement("div");
         statusControls.className = "status-controls";
         ["preparing","served","cancelled"].forEach(newStatus => {
@@ -1560,68 +1524,57 @@ if (order.proofUrl) {
         ordersContainer.appendChild(div);
       });
 
-      // Maintain repeat set for chimes
+      // 🔔 Chime tracking
       repeatOrderIds.clear();
       snapshot.forEach(docSnap => {
-        const s = (docSnap.data().status || "").toLowerCase();
+        const s = (docSnap.data().kitchenStatus || "").toLowerCase();
         if (INCOMING_STATUSES.includes(s)) repeatOrderIds.add(docSnap.id);
       });
       if (repeatOrderIds.size > 0) startRepeatingChimes();
       else stopRepeatingChimes();
 
-      // Changes for chime decisions and autocorrect
-      const changes = snapshot.docChanges();
-
-      // Auto-correct: if a brand-new order arrives already "preparing", flip it to "pending"
+      // Auto-correct if new order arrives with wrong status
       if (initialProcessed) {
-        changes.forEach(async change => {
+        snapshot.docChanges().forEach(async change => {
           if (change.type !== "added") return;
-          const now = (change.doc.data().status || "").toLowerCase();
+          const now = (change.doc.data().kitchenStatus || "").toLowerCase();
           if (now === "preparing") {
             try {
-              await db.collection("orders").doc(change.doc.id).update({ status: "pending" });
-              console.log(`↩️ Auto-corrected new order ${change.doc.id} from "preparing" to "pending"`);
+              await db.collection("orders").doc(change.doc.id).update({ kitchenStatus: "pending" });
             } catch (err) {
-              console.warn("Failed to correct status to pending:", err);
+              console.warn("Failed to correct to pending:", err);
             }
           }
         });
       }
 
-      // Decide whether to chime
+      // Chime decision
       let shouldChime = false;
-
       if (!initialProcessed) {
-        // First snapshot: chime if any pending already present
         const hasPending = snapshot.docs.some(d =>
-          INCOMING_STATUSES.includes((d.data().status || "").toLowerCase())
+          INCOMING_STATUSES.includes((d.data().kitchenStatus || "").toLowerCase())
         );
         shouldChime = hasPending;
         initialProcessed = true;
       } else {
-        // Subsequent snapshots: chime for new pending or became-pending
-        changes.forEach(change => {
-          const now = (change.doc.data().status || "").toLowerCase();
+        snapshot.docChanges().forEach(change => {
+          const now = (change.doc.data().kitchenStatus || "").toLowerCase();
           if (!INCOMING_STATUSES.includes(now)) return;
-          if (change.type === "added") {
-            shouldChime = true;
-          } else if (change.type === "modified") {
+          if (change.type === "added") shouldChime = true;
+          else if (change.type === "modified") {
             const before = prevStatuses.get(change.doc.id);
             if (!INCOMING_STATUSES.includes(before)) shouldChime = true;
           }
         });
       }
+      if (shouldChime) AudioChime.requestChime();
 
-      if (shouldChime) {
-        AudioChime.requestChime();
-      }
-
-      // Update prevStatuses AFTER detection
+      // Update prevStatuses
       snapshot.forEach(docSnap => {
-        prevStatuses.set(docSnap.id, (docSnap.data().status || "").toLowerCase());
+        prevStatuses.set(docSnap.id, (docSnap.data().kitchenStatus || "").toLowerCase());
       });
 
-      // Apply current filter
+      // Apply filter
       filterOrders(currentFilter);
     });
 }

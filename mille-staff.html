@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mille 1 Orders</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body.staff {
+      font-family: sans-serif;
+      background: #f9f9f9;
+      padding: 12px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.3em;
+      margin-bottom: 10px;
+    }
+
+    #orderFilters {
+      position: sticky;
+      top: 0;
+      background: #f9f9f9;
+      padding: 6px 0;
+      z-index: 10;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+
+    #orderFilters .btn.active {
+      background: #3b82f6;
+      color: white;
+    }
+
+.order {
+  background: white;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  font-size: 0.9rem;
+  line-height: 1.2;  /* tighter */
+  transition: box-shadow 0.3s, border-color 0.3s;
+}
+
+.order p {
+  margin: 2px 0;   /* less space between lines */
+}
+
+.order strong {
+  display: inline-block;
+  min-width: 90px;  /* aligns the labels like Table:, Items:, etc. */
+}
+
+
+
+    .order.alert {
+      border: 2px solid #ef4444; /* red border */
+      box-shadow: 0 0 10px #ef4444;
+    }
+
+    .status {
+      font-weight: bold;
+      color: #444;
+      margin-top: 4px;
+    }
+
+    .btn {
+      margin: 4px 4px 0 0;
+      padding: 6px 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    .paid { background: #c3e6cb; }
+    .receive { background: #bee5eb; }
+
+    #orderDate {
+      font-size: 0.95rem;
+      padding: 4px;
+      margin: 8px 0;
+      width: 100%;
+      max-width: 250px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 1.1rem; }
+      .btn {
+        display: block;
+        width: 100%;
+        margin: 4px 0;
+      }
+      .order {
+        font-size: 0.85rem;
+        padding: 8px;
+      }
+    }
+  </style>
+</head>
+<body class="staff">
+  <h1>🍽 Mille 1 Orders</h1>
+
+  <div id="orderFilters">
+    <button onclick="filterOrders('all')" class="btn active">All</button>
+    <button onclick="filterOrders('pending')" class="btn">Pending</button>
+    <button onclick="filterOrders('paid')" class="btn">Paid</button>
+    <button onclick="filterOrders('received')" class="btn">Received</button>
+  </div>
+
+  <h2 style="text-align:center;">Orders for <input type="date" id="orderDate" /></h2>
+  <div id="orderList"></div>
+
+  <!-- Chime sound -->
+  <audio id="newOrderSound" src="https://albopilo.github.io/newest-qr-menu/assets/sound.mp3" preload="auto"></audio>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
+  authDomain: "e-loyalty-12563.firebaseapp.com",
+  projectId: "e-loyalty-12563",
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const orderList = document.getElementById("orderList");
+const orderDate = document.getElementById("orderDate");
+const chime = document.getElementById("newOrderSound");
+orderDate.valueAsDate = new Date();
+
+let currentFilter = "all";
+let ringingIntervals = {}; // store repeating chimes per order
+
+// 🎨 Styling rules for Mille staff cards
+function styleMilleOrderBox(el, status) {
+  const palette = {
+    pending:   { bg: "#ffffff", border: "#e5e7eb", text: "#111827" },
+    paid:      { bg: "#ecfdf5", border: "#10b981", text: "#064e3b" },
+    received:  { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a" },
+    default:   { bg: "#f9fafb", border: "#e5e7eb", text: "#111827" }
+  };
+  const c = palette[status] || palette.default;
+  el.style.backgroundColor = c.bg;
+  el.style.border = `1px solid ${c.border}`;
+  el.style.borderRadius = "6px";
+  el.style.padding = "8px";
+  el.style.marginBottom = "8px";
+  el.style.color = c.text;
+}
+
+function renderOrder(id, data) {
+  const total = data.grandTotal ?? data.total ?? 0;
+  const method = (data.paymentMethod || "Unspecified").toLowerCase();
+  const milleStatus = data.milleStatus || "pending";
+  const paymentStatus = data.paymentStatus || "pending";
+  const kitchenStatus = (data.status || "").toLowerCase();
+  const time = data.timestamp?.toDate?.().toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'}) || "—";
+  const date = data.date || "—";
+
+  const div = document.createElement("div");
+  div.className = "order";
+  div.dataset.status = milleStatus;
+  div.dataset.id = id;
+  styleMilleOrderBox(div, milleStatus);
+
+  // Build buttons
+  const paidBtn = document.createElement("button");
+  paidBtn.className = "btn paid";
+  paidBtn.textContent = "✅ Have Paid";
+  paidBtn.onclick = () => markPaid(id);
+
+  if (method.includes("qris")) {
+    paidBtn.disabled = true;
+    paidBtn.style.opacity = "0.5";
+    paidBtn.title = "Disabled for QRIS payments";
+  }
+
+  const receiveBtn = document.createElement("button");
+  receiveBtn.className = "btn receive";
+  receiveBtn.textContent = "📥 Receive";
+  receiveBtn.onclick = () => markReceived(id);
+
+  if (kitchenStatus !== "served") {
+    receiveBtn.disabled = true;
+    receiveBtn.style.opacity = "0.5";
+    receiveBtn.title = "Disabled until kitchen serves";
+  }
+
+  const waBtn = document.createElement("a");
+  waBtn.className = "btn";
+  waBtn.style.background = "#25D366";
+  waBtn.style.color = "#fff";
+  waBtn.href = `https://wa.me/6282188884663?text=Hello%20Cafe,%20please%20check%20order%20${id}%20(${data.table || "Mille 1"})`;
+  waBtn.target = "_blank";
+  waBtn.textContent = "💬 Contact Cafe";
+
+  div.innerHTML = `
+    <p><strong>Table:</strong> ${data.table || "?"}</p>
+    <p><strong>Items:</strong> ${(data.items || []).map(i => `${i.qty}× ${i.name}`).join(", ")}</p>
+    <p><strong>Grand Total:</strong> Rp ${total.toLocaleString("id-ID")}</p>
+    <p><strong>Payment:</strong> ${data.paymentMethod || "Unspecified"} (${paymentStatus})</p>
+    <p><strong>Time:</strong> ${time} | <strong>Date:</strong> ${date}</p>
+    <p class="status">Mille Status: ${milleStatus}</p>
+  `;
+
+  div.appendChild(paidBtn);
+  div.appendChild(receiveBtn);
+  div.appendChild(waBtn);
+
+  // 🚨 Alert system
+  if (milleStatus === "pending") {
+    if (method.includes("cash")) {
+      // start repeating chime until paid
+      if (!ringingIntervals[id]) {
+        chime.play();
+        div.classList.add("alert");
+        ringingIntervals[id] = setInterval(() => chime.play(), 5000);
+      }
+    } else if (method.includes("qris")) {
+      // play once + visual alert
+      chime.play();
+      div.classList.add("alert");
+      setTimeout(() => div.classList.remove("alert"), 5000);
+    }
+  }
+
+  return div;
+}
+
+async function markPaid(id) {
+  await db.collection("orders").doc(id).update({
+    milleStatus: "paid",
+    paymentStatus: "success"
+  });
+  // stop chime if ringing
+  if (ringingIntervals[id]) {
+    clearInterval(ringingIntervals[id]);
+    delete ringingIntervals[id];
+  }
+  alert("✅ Order marked as Paid");
+}
+
+async function markReceived(id) {
+  await db.collection("orders").doc(id).update({
+    milleStatus: "received"
+  });
+  alert("📥 Order marked as Received");
+}
+
+function loadOrders() {
+  const yyyyMmDd = new Date(orderDate.value).toISOString().split("T")[0];
+
+  db.collection("orders")
+    .where("date", "==", yyyyMmDd)
+    .orderBy("timestamp", "desc")
+    .onSnapshot(snapshot => {
+      orderList.innerHTML = "";
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.table && /mille\s*1/i.test(data.table)) {
+          const card = renderOrder(doc.id, data);
+          if (currentFilter === "all" || card.dataset.status === currentFilter) {
+            orderList.appendChild(card);
+          }
+        }
+      });
+    });
+}
+
+function filterOrders(status) {
+  currentFilter = status;
+  document.querySelectorAll("#orderFilters .btn").forEach(btn => btn.classList.remove("active"));
+  const activeBtn = [...document.querySelectorAll("#orderFilters .btn")].find(b => b.textContent.toLowerCase().includes(status));
+  if (activeBtn) activeBtn.classList.add("active");
+  loadOrders();
+}
+
+orderDate.addEventListener("change", loadOrders);
+loadOrders();
+</script>
+</body>
+</html>
