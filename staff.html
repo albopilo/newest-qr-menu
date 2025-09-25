@@ -58,6 +58,7 @@
     .pending { background: #ffeeba; }
     .preparing { background: #bee5eb; }
     .served { background: #c3e6cb; }
+    .contact { background: #25D366; color: white; }
 
     #orderDate {
       font-size: 1rem;
@@ -71,27 +72,15 @@
     }
 
     @media (max-width: 600px) {
-      h1 {
-        font-size: 1.2rem;
-      }
-
-      .btn {
-        display: block;
-        width: 100%;
-        margin: 6px 0;
-      }
-
-      .order {
-        font-size: 0.9rem;
-        padding: 10px;
-      }
+      h1 { font-size: 1.2rem; }
+      .btn { display: block; width: 100%; margin: 6px 0; }
+      .order { font-size: 0.9rem; padding: 10px; }
     }
   </style>
 </head>
 <body class="staff">
   <h1>📋 Incoming Orders</h1>
   
-
   <div id="orderFilters">
     <button onclick="filterOrders('all')" class="btn">All</button>
     <button onclick="filterOrders('incoming')" class="btn">Incoming</button>
@@ -99,18 +88,98 @@
     <button onclick="filterOrders('cancelled')" class="btn">Cancelled</button>
   </div>
 
-<h2 style="text-align:center;">Orders for <input type="date" id="orderDate" /></h2>
-<div id="orderList"></div>
+  <h2 style="text-align:center;">Orders for <input type="date" id="orderDate" /></h2>
+  <div id="orderList"></div>
 
   <audio id="newOrderSound" src="https://albopilo.github.io/newest-qr-menu/assets/sound.mp3" preload="auto"></audio>
-
   <button id="installBtn" style="display:none;">Install App</button>
 
   <!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
-<script src="app.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
+  authDomain: "e-loyalty-12563.firebaseapp.com",
+  projectId: "e-loyalty-12563",
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const orderList = document.getElementById("orderList");
+const orderDate = document.getElementById("orderDate");
+orderDate.valueAsDate = new Date();
+
+let currentFilter = "all";
+
+// 📱 Define phone numbers for each Mille
+const phoneMap = {
+  "mille 1": "6282217091699", // replace with real number A
+  "mille 2": "6281220039853", // replace with real number B
+  "mille 3": "6282261863984", // replace with real number C
+};
+
+function renderOrder(id, data) {
+  const table = (data.table || "").toLowerCase();
+  const status = data.status || "incoming";
+  const time = data.timestamp?.toDate?.().toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'}) || "—";
+
+  const div = document.createElement("div");
+  div.className = "order";
+  div.dataset.status = status;
+
+  div.innerHTML = `
+    <p><strong>Table:</strong> ${data.table || "?"}</p>
+    <p><strong>Items:</strong> ${(data.items || []).map(i => `${i.qty}× ${i.name}`).join(", ")}</p>
+    <p><strong>Status:</strong> ${status}</p>
+    <p><strong>Time:</strong> ${time}</p>
+  `;
+
+  // ✅ Contact Mille button logic
+  let phone = null;
+  if (table.includes("mille 1")) phone = phoneMap["mille 1"];
+  else if (table.includes("mille 2")) phone = phoneMap["mille 2"];
+  else if (table.includes("mille 3")) phone = phoneMap["mille 3"];
+
+  if (phone) {
+    const waBtn = document.createElement("a");
+    waBtn.className = "btn contact";
+    waBtn.href = `https://wa.me/${phone}?text=Hello,%20please%20check%20order%20${id}%20(${data.table})`;
+    waBtn.target = "_blank";
+    waBtn.textContent = "💬 Contact Mille";
+    div.appendChild(waBtn);
+  }
+
+  return div;
+}
+
+function loadOrders() {
+  const yyyyMmDd = new Date(orderDate.value).toISOString().split("T")[0];
+  db.collection("orders")
+    .where("date", "==", yyyyMmDd)
+    .orderBy("timestamp", "desc")
+    .onSnapshot(snapshot => {
+      orderList.innerHTML = "";
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const card = renderOrder(doc.id, data);
+        if (currentFilter === "all" || card.dataset.status === currentFilter) {
+          orderList.appendChild(card);
+        }
+      });
+    });
+}
+
+function filterOrders(status) {
+  currentFilter = status;
+  loadOrders();
+}
+
+orderDate.addEventListener("change", loadOrders);
+loadOrders();
+</script>
 </body>
 </html>
