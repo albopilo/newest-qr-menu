@@ -31,6 +31,11 @@
       justify-content: center;
     }
 
+    #orderFilters .btn.active {
+      background: #3b82f6;
+      color: white;
+    }
+
     .order {
       background: white;
       border-radius: 8px;
@@ -38,11 +43,11 @@
       margin-bottom: 12px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
       font-size: 0.95rem;
+      transition: box-shadow 0.3s, border-color 0.3s;
     }
 
     .status {
       font-weight: bold;
-      color: #555;
       margin-top: 6px;
     }
 
@@ -55,10 +60,9 @@
       font-size: 0.95rem;
     }
 
-    .pending { background: #ffeeba; }
-    .preparing { background: #bee5eb; }
-    .served { background: #c3e6cb; }
-    .contact { background: #25D366; color: white; }
+    .btn.minimal {
+      background: #e5e7eb;
+    }
 
     #orderDate {
       font-size: 1rem;
@@ -82,7 +86,7 @@
   <h1>📋 Incoming Orders</h1>
   
   <div id="orderFilters">
-    <button onclick="filterOrders('all')" class="btn">All</button>
+    <button onclick="filterOrders('all')" class="btn active">All</button>
     <button onclick="filterOrders('incoming')" class="btn">Incoming</button>
     <button onclick="filterOrders('served')" class="btn">Served</button>
     <button onclick="filterOrders('cancelled')" class="btn">Cancelled</button>
@@ -119,103 +123,65 @@ orderDate.valueAsDate = new Date();
 
 let currentFilter = "all";
 
-// 📱 Define phone numbers for each Mille
-const phoneMap = {
-  "mille 1": "6282217091699", // replace with real number A
-  "mille 2": "6281220039853", // replace with real number B
-  "mille 3": "6282261863984", // replace with real number C
-};
-
-const messaging = firebase.messaging();
-
-// Register service worker
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js')
-    .then((reg) => {
-      console.log("Service Worker registered", reg);
-      messaging.useServiceWorker(reg);
-    })
-    .catch(err => console.error("SW registration failed:", err));
+// ✅ Helper: style order card by kitchen status
+function styleOrderBox(el, status) {
+  const palette = {
+    pending:   { bg: "#fff7ed", border: "#f97316", text: "#7c2d12" },   // orange
+    preparing: { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a" },   // blue
+    served:    { bg: "#ecfdf5", border: "#10b981", text: "#064e3b" },   // green
+    cancelled: { bg: "#fee2e2", border: "#ef4444", text: "#991b1b" },   // red
+    default:   { bg: "#f9fafb", border: "#e5e7eb", text: "#111827" }
+  };
+  const c = palette[status] || palette.default;
+  el.style.backgroundColor = c.bg;
+  el.style.border = `1px solid ${c.border}`;
+  el.style.color = c.text;
 }
 
-
-
-
-// Request permission for notifications
-async function initFCM() {
-  try {
-    const token = await messaging.getToken({
-      vapidKey: "BB46kklO696abLSqlK13UKbJh5zCJR-ZCjNa4j4NE08X7JOSJM_IpsJIjsLck4Aqx9QEnQ6Rid4gjLhk1cNjd2w"
-    });
-    console.log("FCM Token:", token);
-
-    // 👉 Save this token to Firestore under staff-users collection
-    // db.collection("staffTokens").doc(token).set({ token });
-
-  } catch (err) {
-    console.error("Unable to get FCM token", err);
-  }
-}
-
-messaging.onMessage((payload) => {
-  console.log("Message received. ", payload);
-  // Foreground notification
-  new Notification(payload.notification.title, {
-    body: payload.notification.body,
-    icon: "/icons/icon-192.png"
-  });
-});
-
-initFCM();
-
-
+// ✅ Render each order card
 function renderOrder(id, data) {
-  const table = (data.table || "").toLowerCase();
-  const status = (data.kitchenStatus || data.status || "pending").toLowerCase();
+  const table = data.table || "?";
+  const kitchenStatus = (data.kitchenStatus || data.status || "pending").toLowerCase();
+  const paymentStatus = (data.paymentStatus || "unknown").toLowerCase();
+  const method = (data.paymentMethod || "unspecified").toLowerCase();
   const time = data.timestamp?.toDate?.().toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'}) || "—";
+  const date = data.date || "—";
 
   const div = document.createElement("div");
   div.className = "order";
-  div.dataset.status = status;
+  div.dataset.status = kitchenStatus;
+  styleOrderBox(div, kitchenStatus);
 
-  // === Basic info ===
   div.innerHTML = `
-    <p><strong>Table:</strong> ${data.table || "?"}</p>
+    <p><strong>Table:</strong> ${table}</p>
     <p><strong>Items:</strong> ${(data.items || []).map(i => `${i.qty}× ${i.name}`).join(", ")}</p>
-    <p><strong>Status:</strong> ${status}</p>
-    <p><strong>Time:</strong> ${time}</p>
+    <p><strong>Payment:</strong> ${method} (${paymentStatus})</p>
+    <p><strong>Time:</strong> ${time} | <strong>Date:</strong> ${date}</p>
+    <p class="status">Kitchen Status: ${kitchenStatus}</p>
   `;
 
-  // === Status control buttons ===
+  // ✅ Action buttons
   const statusControls = document.createElement("div");
   statusControls.className = "status-controls";
 
-  const isMilleTable = /mille\s*[123]/i.test(table);
-  const isQrisAwaiting = ((data.paymentMethod || "").toLowerCase().includes("qris")) &&
-                         ((data.paymentStatus || "").toLowerCase() === "awaiting-proof");
-
-  ["preparing", "served", "cancelled"].forEach(newStatus => {
+  ["preparing","served","cancelled"].forEach(newStatus => {
     const btn = document.createElement("button");
     btn.textContent = newStatus;
     btn.className = "btn minimal";
 
-    // disable logic
-    if (isMilleTable || isQrisAwaiting) {
+    // Disable if QRIS awaiting proof
+    if (method.includes("qris") && paymentStatus === "awaiting-proof") {
       btn.disabled = true;
+      btn.title = "Disabled while waiting for QRIS proof";
       btn.style.opacity = "0.6";
-      btn.title = isQrisAwaiting
-        ? "Disabled while waiting for QRIS proof"
-        : "Disabled for Mille tables";
     }
 
     btn.addEventListener("click", async () => {
       try {
-        await db.collection("orders").doc(id).update({
-          kitchenStatus: newStatus
-        });
+        await updateOrderStatusAndMaybeRecordLoyalty(id, newStatus);
       } catch (err) {
-        console.error("Failed to update:", err);
-        alert("❌ Could not update status");
+        console.error("❌ Failed to update:", err);
+        alert("Failed to update order status.");
       }
     });
 
@@ -223,26 +189,10 @@ function renderOrder(id, data) {
   });
 
   div.appendChild(statusControls);
-
-  // === Contact Mille button ===
-  let phone = null;
-  if (table.includes("mille 1")) phone = phoneMap["mille 1"];
-  else if (table.includes("mille 2")) phone = phoneMap["mille 2"];
-  else if (table.includes("mille 3")) phone = phoneMap["mille 3"];
-
-  if (phone) {
-    const waBtn = document.createElement("a");
-    waBtn.className = "btn contact";
-    waBtn.href = `https://wa.me/${phone}?text=Hello,%20please%20check%20order%20${id}%20(${data.table})`;
-    waBtn.target = "_blank";
-    waBtn.textContent = "💬 Contact Mille";
-    div.appendChild(waBtn);
-  }
-
   return div;
 }
 
-
+// ✅ Load all orders of selected date
 function loadOrders() {
   const yyyyMmDd = new Date(orderDate.value).toISOString().split("T")[0];
   db.collection("orders")
@@ -253,16 +203,26 @@ function loadOrders() {
       snapshot.forEach(doc => {
         const data = doc.data();
         const card = renderOrder(doc.id, data);
-        if (currentFilter === "all" || card.dataset.status === currentFilter) {
-          orderList.appendChild(card);
-        }
+        orderList.appendChild(card);
       });
+      filterOrders(currentFilter); // reapply filter after render
     });
 }
 
+// ✅ Filter orders by current status
 function filterOrders(status) {
   currentFilter = status;
-  loadOrders();
+
+  document.querySelectorAll("#orderFilters .btn").forEach(btn => btn.classList.remove("active"));
+  const activeBtn = [...document.querySelectorAll("#orderFilters .btn")]
+    .find(b => b.textContent.toLowerCase().includes(status));
+  if (activeBtn) activeBtn.classList.add("active");
+
+  document.querySelectorAll(".order").forEach(el => {
+    const orderStatus = (el.dataset.status || "").toLowerCase();
+    const isIncoming = status === "incoming" && ["pending", "preparing"].includes(orderStatus);
+    el.style.display = (status === "all" || isIncoming || orderStatus === status) ? "" : "none";
+  });
 }
 
 orderDate.addEventListener("change", loadOrders);
