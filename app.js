@@ -1619,6 +1619,8 @@ function listenForOrders(selectedDate) {
             }
           });
           statusControls.appendChild(btn);
+        // Debug visibility
+        console.debug("Staff order controls:", order.table, newStatus, "-> disabled?", btn.disabled);
         });
         div.appendChild(statusControls);
 
