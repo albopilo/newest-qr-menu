@@ -7,9 +7,8 @@
   <link rel="stylesheet" href="style.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-
 .modal {
-  display: none; /* hidden by default */
+  display: none;
   position: fixed;
   z-index: 1000;
   left: 0; top: 0;
@@ -17,7 +16,6 @@
   background: rgba(0,0,0,0.6);
   display: flex; align-items: center; justify-content: center;
 }
-
 .modal-content {
   background: #fff;
   padding: 20px;
@@ -32,116 +30,50 @@
   from { transform: scale(0.8); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
-.modal-content h2 {
-  margin-top: 0;
-  color: #ef4444;
-}
+.modal-content h2 { margin-top: 0; color: #ef4444; }
 .modal-content button {
-  margin-top: 15px;
-  padding: 8px 14px;
-  background: #3b82f6;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
+  margin-top: 15px; padding: 8px 14px;
+  background: #3b82f6; color: #fff;
+  border: none; border-radius: 6px;
   cursor: pointer;
-}  
-    body.staff {
-      font-family: sans-serif;
-      background: #f9f9f9;
-      padding: 12px;
-    }
-
-    h1 {
-      text-align: center;
-      font-size: 1.3em;
-      margin-bottom: 10px;
-    }
-
-    #orderFilters {
-      position: sticky;
-      top: 0;
-      background: #f9f9f9;
-      padding: 6px 0;
-      z-index: 10;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      justify-content: center;
-    }
-
-    #orderFilters .btn.active {
-      background: #3b82f6;
-      color: white;
-    }
-
+}
+body.staff { font-family: sans-serif; background: #f9f9f9; padding: 12px; }
+h1 { text-align: center; font-size: 1.3em; margin-bottom: 10px; }
+#orderFilters {
+  position: sticky; top: 0;
+  background: #f9f9f9; padding: 6px 0;
+  z-index: 10; display: flex; flex-wrap: wrap;
+  gap: 6px; justify-content: center;
+}
+#orderFilters .btn.active { background: #3b82f6; color: white; }
 .order {
-  background: white;
-  border-radius: 6px;
-  padding: 8px 10px;
-  margin-bottom: 8px;
+  background: white; border-radius: 6px;
+  padding: 8px 10px; margin-bottom: 8px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  font-size: 0.9rem;
-  line-height: 1.2;  /* tighter */
+  font-size: 0.9rem; line-height: 1.2;
   transition: box-shadow 0.3s, border-color 0.3s;
 }
-
-.order p {
-  margin: 2px 0;   /* less space between lines */
+.order p { margin: 2px 0; }
+.order strong { display: inline-block; min-width: 90px; }
+.order.alert { border: 2px solid #ef4444; box-shadow: 0 0 10px #ef4444; }
+.status { font-weight: bold; color: #444; margin-top: 4px; }
+.btn {
+  margin: 4px 4px 0 0; padding: 6px 10px;
+  border: none; border-radius: 4px;
+  cursor: pointer; font-size: 0.85rem;
 }
-
-.order strong {
-  display: inline-block;
-  min-width: 90px;  /* aligns the labels like Table:, Items:, etc. */
+.paid { background: #c3e6cb; }
+.receive { background: #bee5eb; }
+#orderDate {
+  font-size: 0.95rem; padding: 4px; margin: 8px 0;
+  width: 100%; max-width: 250px;
+  display: block; margin-left: auto; margin-right: auto;
 }
-
-
-
-    .order.alert {
-      border: 2px solid #ef4444; /* red border */
-      box-shadow: 0 0 10px #ef4444;
-    }
-
-    .status {
-      font-weight: bold;
-      color: #444;
-      margin-top: 4px;
-    }
-
-    .btn {
-      margin: 4px 4px 0 0;
-      padding: 6px 10px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.85rem;
-    }
-
-    .paid { background: #c3e6cb; }
-    .receive { background: #bee5eb; }
-
-    #orderDate {
-      font-size: 0.95rem;
-      padding: 4px;
-      margin: 8px 0;
-      width: 100%;
-      max-width: 250px;
-      display: block;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    @media (max-width: 600px) {
-      h1 { font-size: 1.1rem; }
-      .btn {
-        display: block;
-        width: 100%;
-        margin: 4px 0;
-      }
-      .order {
-        font-size: 0.85rem;
-        padding: 8px;
-      }
-    }
+@media (max-width: 600px) {
+  h1 { font-size: 1.1rem; }
+  .btn { display: block; width: 100%; margin: 4px 0; }
+  .order { font-size: 0.85rem; padding: 8px; }
+}
   </style>
 </head>
 <body class="staff">
@@ -174,29 +106,197 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <script>
-const firebaseConfig = { apiKey:"AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc", authDomain:"e-loyalty-12563.firebaseapp.com", projectId:"e-loyalty-12563" };
+const firebaseConfig = {
+  apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
+  authDomain: "e-loyalty-12563.firebaseapp.com",
+  projectId: "e-loyalty-12563",
+  storageBucket: "e-loyalty-12563.appspot.com",
+  messagingSenderId: "3887061029",
+  appId: "1:3887061029:web:f9c238731d7e6dd5fb47cc",
+  measurementId: "G-966P8W06W2"
+};
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-const orderList=document.getElementById("orderList"), orderDate=document.getElementById("orderDate"), chime=document.getElementById("newOrderSound"), modal=document.getElementById("orderModal"), modalText=document.getElementById("modalText");
-orderDate.valueAsDate=new Date();
+const orderList = document.getElementById("orderList");
+const orderDate = document.getElementById("orderDate");
+const chime = document.getElementById("newOrderSound");
+const modal = document.getElementById("orderModal");
+const modalText = document.getElementById("modalText");
+orderDate.valueAsDate = new Date();
 
-let currentFilter="all", ringingIntervals={}, shownModals=new Set();
+let currentFilter = "all";
+let ringingIntervals = {};
+let shownModals = new Set();
 
-document.getElementById("closeModal").addEventListener("click",()=>modal.style.display="none");
+document.getElementById("closeModal").addEventListener("click", () => {
+  modal.style.display = "none";
+  for (const key in ringingIntervals) {
+    clearInterval(ringingIntervals[key]);
+    delete ringingIntervals[key];
+  }
+});
 
-function styleMilleOrderBox(el,status){const p={pending:{bg:"#fff",border:"#e5e7eb",text:"#111"},paid:{bg:"#ecfdf5",border:"#10b981",text:"#064e3b"},received:{bg:"#eff6ff",border:"#3b82f6",text:"#1e3a8a"},default:{bg:"#f9fafb",border:"#e5e7eb",text:"#111"}};const c=p[status]||p.default;el.style.backgroundColor=c.bg;el.style.border=`1px solid ${c.border}`;el.style.color=c.text;}
+function styleMilleOrderBox(el, status) {
+  const palette = {
+    pending:   { bg: "#ffffff", border: "#e5e7eb", text: "#111827" },
+    paid:      { bg: "#ecfdf5", border: "#10b981", text: "#064e3b" },
+    received:  { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a" },
+    default:   { bg: "#f9fafb", border: "#e5e7eb", text: "#111827" }
+  };
+  const c = palette[status] || palette.default;
+  el.style.backgroundColor = c.bg;
+  el.style.border = `1px solid ${c.border}`;
+  el.style.borderRadius = "6px";
+  el.style.padding = "8px";
+  el.style.marginBottom = "8px";
+  el.style.color = c.text;
+}
 
-function renderOrder(id,data){const total=data.grandTotal??data.total??0;const method=(data.paymentMethod||"Unspecified").toLowerCase();let milleStatus=data.milleStatus||"pending";const kitchenStatus=(data.status||"").toLowerCase();const time=data.timestamp?.toDate?.().toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'})||"—";const date=data.date||"—";const div=document.createElement("div");div.className="order";div.dataset.status=milleStatus;div.dataset.id=id;if(kitchenStatus==="cancelled"&&milleStatus!=="cancelled_by_kitchen"){db.collection("orders").doc(id).update({milleStatus:"cancelled_by_kitchen"});milleStatus="cancelled_by_kitchen";}if(milleStatus==="cancelled_by_kitchen"){div.style.backgroundColor="#fee2e2";div.style.border="1px solid #ef4444";div.style.color="#991b1b";}else{styleMilleOrderBox(div,milleStatus);}const paidBtn=document.createElement("button");paidBtn.className="btn paid";paidBtn.textContent="✅ Have Paid";paidBtn.onclick=()=>markPaid(id);if(method.includes("qris")){paidBtn.disabled=true;paidBtn.style.opacity="0.5";}const receiveBtn=document.createElement("button");receiveBtn.className="btn receive";receiveBtn.textContent="📥 Receive";receiveBtn.onclick=()=>markReceived(id);if(kitchenStatus!=="served"){receiveBtn.disabled=true;receiveBtn.style.opacity="0.5";}if(milleStatus==="cancelled_by_kitchen"){paidBtn.disabled=true;receiveBtn.disabled=true;}const waBtn=document.createElement("a");waBtn.className="btn";waBtn.style.background="#25D366";waBtn.style.color="#fff";waBtn.href=`https://wa.me/6282188884663?text=Hello%20Cafe,%20please%20check%20order%20${id}%20(${data.table||"Mille 3"})`;waBtn.target="_blank";waBtn.textContent="💬 Contact Cafe";div.innerHTML=`<p><strong>Table:</strong> ${data.table||"?"}</p><p><strong>Items:</strong> ${(data.items||[]).map(i=>`${i.qty}× ${i.name}`).join(", ")}</p><p><strong>Grand Total:</strong> Rp ${total.toLocaleString("id-ID")}</p><p><strong>Payment:</strong> ${data.paymentMethod||"Unspecified"} (${data.paymentStatus||"pending"})</p><p><strong>Time:</strong> ${time} | <strong>Date:</strong> ${date}</p><p class="status">Mille Status: ${milleStatus.replace("_"," ")}<br/>Kitchen Status: ${kitchenStatus||"—"}</p>`;div.appendChild(paidBtn);div.appendChild(receiveBtn);div.appendChild(waBtn);if(milleStatus==="pending"&&kitchenStatus!=="cancelled"&&!shownModals.has(id)){modal.style.display="flex";modalText.textContent=`New order from ${data.table||"unknown table"} with total Rp ${total.toLocaleString("id-ID")}`;shownModals.add(id);if(method.includes("cash")){if(!ringingIntervals[id]){chime.play();ringingIntervals[id]=setInterval(()=>chime.play(),5000);}}else if(method.includes("qris")){chime.play();}}return div;}
+function renderOrder(id, data) {
+  const total = data.grandTotal ?? data.total ?? 0;
+  const method = (data.paymentMethod || "Unspecified").toLowerCase();
+  let milleStatus = data.milleStatus || "pending";
+  const paymentStatus = (data.paymentStatus || "pending").toLowerCase();
+  const kitchenStatus = ((data.kitchenStatus || data.status) || "").toLowerCase();
+  const time = data.timestamp?.toDate?.().toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'}) || "—";
+  const date = data.date || "—";
 
-async function markPaid(id){await db.collection("orders").doc(id).update({milleStatus:"paid",paymentStatus:"success"});if(ringingIntervals[id]){clearInterval(ringingIntervals[id]);delete ringingIntervals[id];}alert("✅ Order marked as Paid");}
-async function markReceived(id){await db.collection("orders").doc(id).update({milleStatus:"received"});alert("📥 Order marked as Received");}
+  const div = document.createElement("div");
+  div.className = "order";
+  div.dataset.status = milleStatus;
+  div.dataset.id = id;
 
-function loadOrders(){const yyyyMmDd=new Date(orderDate.value).toISOString().split("T")[0];db.collection("orders").where("date","==",yyyyMmDd).orderBy("timestamp","desc").onSnapshot(snapshot=>{orderList.innerHTML="";snapshot.forEach(doc=>{const data=doc.data();if(data.table&&/mille\s*3/i.test(data.table)){const card=renderOrder(doc.id,data);if(currentFilter==="all"||card.dataset.status===currentFilter){orderList.appendChild(card);}}});});}
+  if (kitchenStatus === "cancelled" && milleStatus !== "cancelled_by_kitchen") {
+    db.collection("orders").doc(id).update({ milleStatus: "cancelled_by_kitchen" });
+    milleStatus = "cancelled_by_kitchen";
+  }
 
-function filterOrders(status){currentFilter=status;document.querySelectorAll("#orderFilters .btn").forEach(btn=>btn.classList.remove("active"));const activeBtn=[...document.querySelectorAll("#orderFilters .btn")].find(b=>b.textContent.toLowerCase().includes(status));if(activeBtn)activeBtn.classList.add("active");loadOrders();}
+  if (milleStatus === "cancelled_by_kitchen") {
+    div.style.backgroundColor = "#fee2e2";
+    div.style.border = "1px solid #ef4444";
+    div.style.color = "#991b1b";
+  } else {
+    styleMilleOrderBox(div, milleStatus);
+  }
 
-orderDate.addEventListener("change",loadOrders);
+  const paidBtn = document.createElement("button");
+  paidBtn.className = "btn paid";
+  paidBtn.textContent = "✅ Have Paid";
+  paidBtn.onclick = () => markPaid(id);
+
+  const receiveBtn = document.createElement("button");
+  receiveBtn.className = "btn receive";
+  receiveBtn.textContent = "📥 Receive";
+  receiveBtn.onclick = () => markReceived(id);
+
+  if (method.includes("qris") && paymentStatus === "awaiting-proof") {
+    paidBtn.disabled = true;
+    receiveBtn.disabled = true;
+    paidBtn.style.opacity = "0.5";
+    receiveBtn.style.opacity = "0.5";
+    paidBtn.title = "Disabled until QRIS proof is uploaded";
+    receiveBtn.title = "Disabled until QRIS proof is uploaded";
+  }
+
+  if (kitchenStatus !== "served") {
+    receiveBtn.disabled = true;
+    receiveBtn.style.opacity = "0.5";
+    receiveBtn.title = "Disabled until kitchen serves";
+  }
+
+  if (milleStatus === "cancelled_by_kitchen") {
+    paidBtn.disabled = true;
+    receiveBtn.disabled = true;
+    paidBtn.style.opacity = "0.5";
+    receiveBtn.style.opacity = "0.5";
+  }
+
+  const waBtn = document.createElement("a");
+  waBtn.className = "btn";
+  waBtn.style.background = "#25D366";
+  waBtn.style.color = "#fff";
+  waBtn.href = `https://wa.me/6282177774663?text=Hello%20Cafe,%20please%20check%20order%20${id}%20(${data.table || "Mille 3"})`;
+  waBtn.target = "_blank";
+  waBtn.textContent = "💬 Contact Cafe";
+
+  div.innerHTML = `
+    <p><strong>Table:</strong> ${data.table || "?"}</p>
+    <p><strong>Items:</strong> ${(data.items || []).map(i => `${i.qty}× ${i.name}`).join(", ")}</p>
+    <p><strong>Grand Total:</strong> Rp ${total.toLocaleString("id-ID")}</p>
+    <p><strong>Payment:</strong> ${data.paymentMethod || "Unspecified"} (${paymentStatus})</p>
+    <p><strong>Time:</strong> ${time} | <strong>Date:</strong> ${date}</p>
+    <p class="status">
+      Mille Status: ${milleStatus.replace("_", " ")} <br/>
+      Kitchen Status: ${kitchenStatus || "—"}
+    </p>
+  `;
+  div.appendChild(paidBtn);
+  div.appendChild(receiveBtn);
+  div.appendChild(waBtn);
+
+  if (milleStatus === "pending" && kitchenStatus !== "cancelled" && !shownModals.has(id)) {
+    modal.style.display = "flex";
+    modalText.textContent = `New order from ${data.table || "unknown table"} with total Rp ${total.toLocaleString("id-ID")}`;
+    shownModals.add(id);
+    if (method.includes("cash")) {
+      if (!ringingIntervals[id]) {
+        chime.play();
+        ringingIntervals[id] = setInterval(() => chime.play(), 5000);
+      }
+    } else if (method.includes("qris")) {
+      chime.play();
+    }
+  }
+
+  return div;
+}
+
+async function markPaid(id) {
+  await db.collection("orders").doc(id).update({
+    milleStatus: "paid",
+    paymentStatus: "success"
+  });
+  if (ringingIntervals[id]) {
+    clearInterval(ringingIntervals[id]);
+    delete ringingIntervals[id];
+  }
+  alert("✅ Order marked as Paid");
+}
+
+async function markReceived(id) {
+  await db.collection("orders").doc(id).update({ milleStatus: "received" });
+  alert("📥 Order marked as Received");
+}
+
+function loadOrders() {
+  const yyyyMmDd = new Date(orderDate.value).toISOString().split("T")[0];
+  db.collection("orders")
+    .where("date", "==", yyyyMmDd)
+    .orderBy("timestamp", "desc")
+    .onSnapshot(snapshot => {
+      orderList.innerHTML = "";
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.table && /mille\s*3/i.test(data.table)) {
+          const card = renderOrder(doc.id, data);
+          if (currentFilter === "all" || card.dataset.status === currentFilter) {
+            orderList.appendChild(card);
+          }
+        }
+      });
+    });
+}
+
+function filterOrders(status) {
+  currentFilter = status;
+  document.querySelectorAll("#orderFilters .btn").forEach(btn => btn.classList.remove("active"));
+  const activeBtn = [...document.querySelectorAll("#orderFilters .btn")].find(b => b.textContent.toLowerCase().includes(status));
+  if (activeBtn) activeBtn.classList.add("active");
+  loadOrders();
+}
+
+orderDate.addEventListener("change", loadOrders);
 loadOrders();
 </script>
 </body>

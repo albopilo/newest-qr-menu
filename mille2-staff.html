@@ -7,21 +7,73 @@
   <link rel="stylesheet" href="style.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    /* Same CSS from Mille1 */
-    body.staff { font-family: sans-serif; background: #f9f9f9; padding: 12px; }
-    h1 { text-align: center; font-size: 1.3em; margin-bottom: 10px; }
-    #orderFilters { position: sticky; top: 0; background: #f9f9f9; padding: 6px 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-    #orderFilters .btn.active { background: #3b82f6; color: white; }
-    .order { background: white; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 0.9rem; line-height: 1.2; }
-    .order p { margin: 2px 0; }
-    .order strong { display: inline-block; min-width: 90px; }
-    .btn { margin: 4px 4px 0 0; padding: 6px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
-    .paid { background: #c3e6cb; } .receive { background: #bee5eb; }
-    #orderDate { font-size: 0.95rem; padding: 4px; margin: 8px 0; width: 100%; max-width: 250px; display: block; margin-left: auto; margin-right: auto; }
-    @media (max-width: 600px) { h1 { font-size: 1.1rem; } .btn { display: block; width: 100%; margin: 4px 0; } .order { font-size: 0.85rem; padding: 8px; } }
-    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; }
-    .modal-content { background: #fff; padding: 20px; border-radius: 8px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); animation: pop 0.3s ease; }
-    @keyframes pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0; top: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  animation: pop 0.3s ease;
+}
+@keyframes pop {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.modal-content h2 { margin-top: 0; color: #ef4444; }
+.modal-content button {
+  margin-top: 15px; padding: 8px 14px;
+  background: #3b82f6; color: #fff;
+  border: none; border-radius: 6px;
+  cursor: pointer;
+}
+body.staff { font-family: sans-serif; background: #f9f9f9; padding: 12px; }
+h1 { text-align: center; font-size: 1.3em; margin-bottom: 10px; }
+#orderFilters {
+  position: sticky; top: 0;
+  background: #f9f9f9; padding: 6px 0;
+  z-index: 10; display: flex; flex-wrap: wrap;
+  gap: 6px; justify-content: center;
+}
+#orderFilters .btn.active { background: #3b82f6; color: white; }
+.order {
+  background: white; border-radius: 6px;
+  padding: 8px 10px; margin-bottom: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  font-size: 0.9rem; line-height: 1.2;
+  transition: box-shadow 0.3s, border-color 0.3s;
+}
+.order p { margin: 2px 0; }
+.order strong { display: inline-block; min-width: 90px; }
+.order.alert { border: 2px solid #ef4444; box-shadow: 0 0 10px #ef4444; }
+.status { font-weight: bold; color: #444; margin-top: 4px; }
+.btn {
+  margin: 4px 4px 0 0; padding: 6px 10px;
+  border: none; border-radius: 4px;
+  cursor: pointer; font-size: 0.85rem;
+}
+.paid { background: #c3e6cb; }
+.receive { background: #bee5eb; }
+#orderDate {
+  font-size: 0.95rem; padding: 4px; margin: 8px 0;
+  width: 100%; max-width: 250px;
+  display: block; margin-left: auto; margin-right: auto;
+}
+@media (max-width: 600px) {
+  h1 { font-size: 1.1rem; }
+  .btn { display: block; width: 100%; margin: 4px 0; }
+  .order { font-size: 0.85rem; padding: 8px; }
+}
   </style>
 </head>
 <body class="staff">
@@ -46,7 +98,7 @@
     </div>
   </div>
 
-  <!-- Chime -->
+  <!-- Chime sound -->
   <audio id="newOrderSound" src="https://albopilo.github.io/newest-qr-menu/assets/sound.mp3" preload="auto"></audio>
 
   <!-- Firebase SDK -->
@@ -74,38 +126,63 @@ const modalText = document.getElementById("modalText");
 orderDate.valueAsDate = new Date();
 
 let currentFilter = "all";
-let ringingIntervals = {};
+let ringingIntervals = {}; 
 let shownModals = new Set();
 
-document.getElementById("closeModal").addEventListener("click", () => modal.style.display = "none");
+// ✅ Global listener to close modal
+document.getElementById("closeModal").addEventListener("click", () => {
+  modal.style.display = "none";
+  for (const key in ringingIntervals) {
+    clearInterval(ringingIntervals[key]);
+    delete ringingIntervals[key];
+  }
+});
 
+// 🎨 Styling rules
 function styleMilleOrderBox(el, status) {
-  const palette = { pending:{bg:"#fff",border:"#e5e7eb",text:"#111"}, paid:{bg:"#ecfdf5",border:"#10b981",text:"#064e3b"}, received:{bg:"#eff6ff",border:"#3b82f6",text:"#1e3a8a"}, default:{bg:"#f9fafb",border:"#e5e7eb",text:"#111"} };
+  const palette = {
+    pending:   { bg: "#ffffff", border: "#e5e7eb", text: "#111827" },
+    paid:      { bg: "#ecfdf5", border: "#10b981", text: "#064e3b" },
+    received:  { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a" },
+    default:   { bg: "#f9fafb", border: "#e5e7eb", text: "#111827" }
+  };
   const c = palette[status] || palette.default;
-  el.style.backgroundColor = c.bg; el.style.border = `1px solid ${c.border}`; el.style.color = c.text;
+  el.style.backgroundColor = c.bg;
+  el.style.border = `1px solid ${c.border}`;
+  el.style.borderRadius = "6px";
+  el.style.padding = "8px";
+  el.style.marginBottom = "8px";
+  el.style.color = c.text;
 }
 
 function renderOrder(id, data) {
-const total = data.grandTotal ?? data.total ?? 0;
+  const total = data.grandTotal ?? data.total ?? 0;
   const method = (data.paymentMethod || "Unspecified").toLowerCase();
-  let milleStatus = data.milleStatus || "pending"; // local variable so we can override
+  let milleStatus = data.milleStatus || "pending";
   const paymentStatus = (data.paymentStatus || "pending").toLowerCase();
-  const kitchenStatus = ((data.status || data.kitchenStatus) || "").toLowerCase(); // kitchen status (normalize field names)
-  const tableLower = (data.table || "").toLowerCase();
-  const isMilleTable = /mille\s*[1-3]/i.test(data.table || "");
+  const kitchenStatus = ((data.kitchenStatus || data.status) || "").toLowerCase();
   const time = data.timestamp?.toDate?.().toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'}) || "—";
   const date = data.date || "—";
 
-  const div = document.createElement("div"); div.className = "order"; div.dataset.status = milleStatus; div.dataset.id = id;
+  const div = document.createElement("div");
+  div.className = "order";
+  div.dataset.status = milleStatus;
+  div.dataset.id = id;
 
   if (kitchenStatus === "cancelled" && milleStatus !== "cancelled_by_kitchen") {
-    db.collection("orders").doc(id).update({ milleStatus: "cancelled_by_kitchen" }); milleStatus = "cancelled_by_kitchen";
+    db.collection("orders").doc(id).update({ milleStatus: "cancelled_by_kitchen" });
+    milleStatus = "cancelled_by_kitchen";
   }
 
-  if (milleStatus === "cancelled_by_kitchen") { div.style.backgroundColor="#fee2e2"; div.style.border="1px solid #ef4444"; div.style.color="#991b1b"; }
-  else { styleMilleOrderBox(div, milleStatus); }
+  if (milleStatus === "cancelled_by_kitchen") {
+    div.style.backgroundColor = "#fee2e2";
+    div.style.border = "1px solid #ef4444";
+    div.style.color = "#991b1b";
+  } else {
+    styleMilleOrderBox(div, milleStatus);
+  }
 
-const paidBtn = document.createElement("button");
+  const paidBtn = document.createElement("button");
   paidBtn.className = "btn paid";
   paidBtn.textContent = "✅ Have Paid";
   paidBtn.onclick = () => markPaid(id);
@@ -115,7 +192,6 @@ const paidBtn = document.createElement("button");
   receiveBtn.textContent = "📥 Receive";
   receiveBtn.onclick = () => markReceived(id);
 
-  // Disable payment/kitchen actions for QRIS orders waiting for proof
   if (method.includes("qris") && paymentStatus === "awaiting-proof") {
     paidBtn.disabled = true;
     receiveBtn.disabled = true;
@@ -125,23 +201,13 @@ const paidBtn = document.createElement("button");
     receiveBtn.title = "Disabled until QRIS proof is uploaded";
   }
 
-  // If the order is by Mille (mille 1/2/3) — prevent kitchen status changes (per request)
-  if (isMilleTable) {
-    // disable kitchen-related actions so kitchen cannot change status from the staff page
+  if (kitchenStatus !== "served") {
     receiveBtn.disabled = true;
     receiveBtn.style.opacity = "0.5";
-    receiveBtn.title = "Kitchen status cannot be changed from this view for Mille tables";
-  } else {
-    // non-Mille tables: allow receive button only when kitchenStatus === 'served'
-    if (kitchenStatus !== "served") {
-      receiveBtn.disabled = true;
-      receiveBtn.style.opacity = "0.5";
-      receiveBtn.title = "Disabled until kitchen serves";
-    }
+    receiveBtn.title = "Disabled until kitchen serves";
   }
 
   if (milleStatus === "cancelled_by_kitchen") {
-    // ❌ Cancelled → no actions allowed
     paidBtn.disabled = true;
     receiveBtn.disabled = true;
     paidBtn.style.opacity = "0.5";
@@ -149,28 +215,88 @@ const paidBtn = document.createElement("button");
   }
 
   const waBtn = document.createElement("a");
-  waBtn.className = "btn"; waBtn.style.background="#25D366"; waBtn.style.color="#fff";
-  waBtn.href = `https://wa.me/6282188884663?text=Hello%20Cafe,%20please%20check%20order%20${id}%20(${data.table || "Mille 2"})`;
-  waBtn.target = "_blank"; waBtn.textContent = "💬 Contact Cafe";
+  waBtn.className = "btn";
+  waBtn.style.background = "#25D366";
+  waBtn.style.color = "#fff";
+  waBtn.href = `https://wa.me/6282166664663?text=Hello%20Cafe,%20please%20check%20order%20${id}%20(${data.table || "Mille 2"})`;
+  waBtn.target = "_blank";
+  waBtn.textContent = "💬 Contact Cafe";
 
-  div.innerHTML = `<p><strong>Table:</strong> ${data.table||"?"}</p><p><strong>Items:</strong> ${(data.items||[]).map(i=>`${i.qty}× ${i.name}`).join(", ")}</p><p><strong>Grand Total:</strong> Rp ${total.toLocaleString("id-ID")}</p><p><strong>Payment:</strong> ${data.paymentMethod||"Unspecified"} (${data.paymentStatus||"pending"})</p><p><strong>Time:</strong> ${time} | <strong>Date:</strong> ${date}</p><p class="status">Mille Status: ${milleStatus.replace("_"," ")}<br/>Kitchen Status: ${kitchenStatus||"—"}</p>`;
-  div.appendChild(paidBtn); div.appendChild(receiveBtn); div.appendChild(waBtn);
+  div.innerHTML = `
+    <p><strong>Table:</strong> ${data.table || "?"}</p>
+    <p><strong>Items:</strong> ${(data.items || []).map(i => `${i.qty}× ${i.name}`).join(", ")}</p>
+    <p><strong>Grand Total:</strong> Rp ${total.toLocaleString("id-ID")}</p>
+    <p><strong>Payment:</strong> ${data.paymentMethod || "Unspecified"} (${paymentStatus})</p>
+    <p><strong>Time:</strong> ${time} | <strong>Date:</strong> ${date}</p>
+    <p class="status">
+      Mille Status: ${milleStatus.replace("_", " ")} <br/>
+      Kitchen Status: ${kitchenStatus || "—"}
+    </p>
+  `;
+  div.appendChild(paidBtn);
+  div.appendChild(receiveBtn);
+  div.appendChild(waBtn);
 
-  if (milleStatus==="pending" && kitchenStatus!=="cancelled" && !shownModals.has(id)) { modal.style.display="flex"; modalText.textContent=`New order from ${data.table||"unknown table"} with total Rp ${total.toLocaleString("id-ID")}`; shownModals.add(id); if(method.includes("cash")){if(!ringingIntervals[id]){chime.play(); ringingIntervals[id]=setInterval(()=>chime.play(),5000);}} else if(method.includes("qris")){chime.play();} }
+  if (milleStatus === "pending" && kitchenStatus !== "cancelled" && !shownModals.has(id)) {
+    modal.style.display = "flex";
+    modalText.textContent = `New order from ${data.table || "unknown table"} with total Rp ${total.toLocaleString("id-ID")}`;
+    shownModals.add(id);
+    if (method.includes("cash")) {
+      if (!ringingIntervals[id]) {
+        chime.play();
+        ringingIntervals[id] = setInterval(() => chime.play(), 5000);
+      }
+    } else if (method.includes("qris")) {
+      chime.play();
+    }
+  }
+
   return div;
 }
 
-async function markPaid(id){ await db.collection("orders").doc(id).update({milleStatus:"paid",paymentStatus:"success"}); if(ringingIntervals[id]){clearInterval(ringingIntervals[id]); delete ringingIntervals[id];} alert("✅ Order marked as Paid"); }
-async function markReceived(id){ await db.collection("orders").doc(id).update({milleStatus:"received"}); alert("📥 Order marked as Received"); }
+async function markPaid(id) {
+  await db.collection("orders").doc(id).update({
+    milleStatus: "paid",
+    paymentStatus: "success"
+  });
+  if (ringingIntervals[id]) {
+    clearInterval(ringingIntervals[id]);
+    delete ringingIntervals[id];
+  }
+  alert("✅ Order marked as Paid");
+}
+
+async function markReceived(id) {
+  await db.collection("orders").doc(id).update({ milleStatus: "received" });
+  alert("📥 Order marked as Received");
+}
 
 function loadOrders() {
   const yyyyMmDd = new Date(orderDate.value).toISOString().split("T")[0];
-  db.collection("orders").where("date","==",yyyyMmDd).orderBy("timestamp","desc").onSnapshot(snapshot=>{
-    orderList.innerHTML=""; snapshot.forEach(doc=>{const data=doc.data(); if(data.table && /mille\s*2/i.test(data.table)){ const card=renderOrder(doc.id,data); if(currentFilter==="all"||card.dataset.status===currentFilter){ orderList.appendChild(card);} }});
-  });
+  db.collection("orders")
+    .where("date", "==", yyyyMmDd)
+    .orderBy("timestamp", "desc")
+    .onSnapshot(snapshot => {
+      orderList.innerHTML = "";
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.table && /mille\s*2/i.test(data.table)) {
+          const card = renderOrder(doc.id, data);
+          if (currentFilter === "all" || card.dataset.status === currentFilter) {
+            orderList.appendChild(card);
+          }
+        }
+      });
+    });
 }
 
-function filterOrders(status){ currentFilter=status; document.querySelectorAll("#orderFilters .btn").forEach(btn=>btn.classList.remove("active")); const activeBtn=[...document.querySelectorAll("#orderFilters .btn")].find(b=>b.textContent.toLowerCase().includes(status)); if(activeBtn) activeBtn.classList.add("active"); loadOrders(); }
+function filterOrders(status) {
+  currentFilter = status;
+  document.querySelectorAll("#orderFilters .btn").forEach(btn => btn.classList.remove("active"));
+  const activeBtn = [...document.querySelectorAll("#orderFilters .btn")].find(b => b.textContent.toLowerCase().includes(status));
+  if (activeBtn) activeBtn.classList.add("active");
+  loadOrders();
+}
 
 orderDate.addEventListener("change", loadOrders);
 loadOrders();

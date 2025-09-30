@@ -25,26 +25,12 @@
       color: #2c3e50;
       margin-bottom: 20px;
     }
-    .summary p, .summary ul {
-      margin: 8px 0;
-      font-size: 1em;
-    }
-    ul#itemsList {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    ul#itemsList li {
-      padding: 6px 0;
-      border-bottom: 1px solid #eee;
-    }
-    .label {
-      font-weight: 600;
-      color: #555;
-    }
+    .summary p, .summary ul { margin: 8px 0; font-size: 1em; }
+    ul#itemsList { list-style: none; padding: 0; margin: 0; }
+    ul#itemsList li { padding: 6px 0; border-bottom: 1px solid #eee; }
+    .label { font-weight: 600; color: #555; }
     #subtotalDisplay, #discountDisplay, #taxDisplay, #totalDisplay, #deliveryFeeDisplay, #grandTotalDisplay {
-      float: right;
-      font-weight: 500;
+      float: right; font-weight: 500;
     }
     p#grandTotalRow {
       font-size: 1.1em;
@@ -55,58 +41,39 @@
       margin-top: 10px;
       display: none;
     }
+    #voucherNotice {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border: 1px solid #4caf50;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.95em;
+      margin: 10px 0;
+      display: none;
+    }
     #confirmBtn {
-      margin-top: 20px;
-      padding: 12px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      font-size: 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      width: 100%;
+      margin-top: 20px; padding: 12px;
+      background-color: #4CAF50; color: white;
+      border: none; font-size: 16px;
+      border-radius: 8px; cursor: pointer; width: 100%;
       transition: 0.3s;
     }
     #confirmBtn:hover { background-color: #45a049; }
     #confirmBtn:disabled { background-color: #a5d6a7; cursor: not-allowed; }
-
     #voucherSection input {
-      width: 100%;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      margin: 6px 0;
-      font-size: 0.95em;
+      width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc;
+      margin: 6px 0; font-size: 0.95em;
     }
     #voucherSection button {
-      padding: 10px;
-      border-radius: 8px;
-      border: none;
-      background-color: #3498db;
-      color: white;
-      cursor: pointer;
-      margin-top: 6px;
+      padding: 10px; border-radius: 8px; border: none;
+      background-color: #3498db; color: white; cursor: pointer; margin-top: 6px;
       transition: 0.3s;
     }
     #voucherSection button:hover { background-color: #2980b9; }
-    #voucherMsg {
-      font-size: 0.9em;
-      margin-top: 4px;
-      min-height: 18px;
-    }
-    #paymentSection {
-      margin: 20px 0;
-      padding-top: 10px;
-      border-top: 1px solid #eee;
-    }
-    #paymentSection label {
-      font-weight: 600;
-    }
-    #paymentSection .cash-instruction {
-      margin-top: 8px;
-      color: #555;
-      font-size: 0.95em;
-    }
+    #voucherMsg { font-size: 0.9em; margin-top: 4px; min-height: 18px; }
+    #paymentSection { margin: 20px 0; padding-top: 10px; border-top: 1px solid #eee; }
+    #paymentSection label { font-weight: 600; }
+    #paymentSection .cash-instruction { margin-top: 8px; color: #555; font-size: 0.95em; }
     @media(max-width: 480px){
       body { padding: 10px; }
       .summary { padding: 15px; }
@@ -131,6 +98,8 @@
       <span class="label">Delivery Fee:</span> <span id="deliveryFeeDisplay"></span>
     </p>
     <p id="grandTotalRow"><span class="label">Grand Total:</span> <span id="grandTotalDisplay"></span></p>
+
+    <div id="voucherNotice"></div>
 
     <div id="voucherSection">
       <label for="voucherInput" class="label">Voucher Code:</label>
@@ -157,13 +126,13 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <script>
-// Initialize Firebase
+// Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
   authDomain: "e-loyalty-12563.firebaseapp.com",
   projectId: "e-loyalty-12563",
 };
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // URL params
@@ -171,7 +140,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const orderId = urlParams.get("orderId");
 let status = urlParams.get("status");
 
-// DOM elements
+// DOM
 const tableDisplay = document.getElementById("tableDisplay");
 const guestDisplay = document.getElementById("guestDisplay");
 const itemsList = document.getElementById("itemsList");
@@ -187,12 +156,13 @@ const confirmBtn = document.getElementById("confirmBtn");
 const voucherInput = document.getElementById("voucherInput");
 const applyVoucherBtn = document.getElementById("applyVoucherBtn");
 const voucherMsg = document.getElementById("voucherMsg");
+const voucherNotice = document.getElementById("voucherNotice");
 const payCash = document.getElementById("payCash");
 const payQRIS = document.getElementById("payQRIS");
 const cashInstruction = document.getElementById("cashInstruction");
 const paymentSection = document.getElementById("paymentSection");
 
-// Order variables
+// Vars
 let table = "unknown";
 let guestName = "Guest";
 let items = [];
@@ -201,12 +171,12 @@ let discount = 0;
 let tax = 0;
 let deliveryFee = 0;
 let paymentMethod = "";
-let qrisOrderCreated = null; // store docRef for QRIS order
+let qrisOrderCreated = null;
 
-// Initialize page
 document.addEventListener("DOMContentLoaded", async () => {
   try {
-    // Fetch order from Firestore if orderId exists
+    let existingVoucherId = null;
+
     if (orderId) {
       const doc = await db.collection("orders").doc(orderId).get();
       if (doc.exists) {
@@ -219,20 +189,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         tax = data.tax || 0;
         deliveryFee = data.deliveryFee || 0;
         paymentMethod = data.paymentMethod || "";
+        existingVoucherId = data.voucherId || null;
         if (data.paymentStatus === "success") status = "success";
       }
     } else {
-      // Get from URL params
       table = urlParams.get("table") || table;
       guestName = urlParams.get("guestName") || guestName;
-      try { items = JSON.parse(decodeURIComponent(urlParams.get("items") || "[]")); } 
-      catch(e){ console.error(e); }
+      try { items = JSON.parse(decodeURIComponent(urlParams.get("items") || "[]")); } catch(e){}
       subtotal = Number(urlParams.get("subtotal")) || 0;
       discount = Number(urlParams.get("discount")) || 0;
       tax = Number(urlParams.get("tax")) || 0;
     }
 
-    // Update DOM
+    // DOM update
     tableDisplay.textContent = table;
     guestDisplay.textContent = guestName;
     itemsList.innerHTML = "";
@@ -242,28 +211,38 @@ document.addEventListener("DOMContentLoaded", async () => {
       itemsList.appendChild(li);
     });
 
-    // Handle delivery fee for certain tables
+    // Delivery fee (Mille 1 & 3 only)
     if (/mille\s*1/i.test(table) || /mille\s*3/i.test(table)) {
       deliveryFee = 10000;
       deliveryRow.style.display = "block";
       deliveryFeeDisplay.textContent = `Rp${deliveryFee.toLocaleString("id-ID")}`;
     }
 
-    // Pre-select payment method if available
+    // Show voucher if already applied
+    if (existingVoucherId) {
+      const voucherDoc = await db.collection("vouchers").doc(existingVoucherId).get();
+      if (voucherDoc.exists) {
+        voucherNotice.textContent = `🎟 Voucher applied: ${voucherDoc.data().code}`;
+        voucherNotice.style.display = "block";
+      }
+    }
+
+    // Pre-select payment
     if (paymentMethod === "cash") payCash.checked = true;
     if (paymentMethod === "qris") payQRIS.checked = true;
     if (paymentMethod === "cash") cashInstruction.style.display = "block";
 
-    // Disable UI if order already successful
+    // Lock UI if order already success
     if (status === "success") {
       confirmBtn.disabled = true;
       confirmBtn.textContent = "✅ Order Successful";
       voucherInput.disabled = true;
       applyVoucherBtn.disabled = true;
-      paymentSection.style.display = "none";
+      payCash.disabled = true;
+      payQRIS.disabled = true;
+      paymentSection.style.opacity = "0.6";
     }
 
-    // Initial summary render
     renderSummary();
 
     // Payment selection
@@ -276,13 +255,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     payQRIS.addEventListener("change", async () => {
       paymentMethod = "qris";
       cashInstruction.style.display = "none";
-      if (qrisOrderCreated) return;
+      if (qrisOrderCreated || status === "success") return;
       try {
         const memberPhone = urlParams.get("memberPhone") || "";
         const memberId = urlParams.get("memberId") || "";
         const { finalTotal, grandTotal } = renderSummary();
-
-        confirmBtn.disabled = true; // disable immediately
+        confirmBtn.disabled = true;
         const docRef = await db.collection("orders").add({
           subtotal, discount, tax, deliveryFee,
           total: finalTotal, grandTotal,
@@ -294,33 +272,26 @@ document.addEventListener("DOMContentLoaded", async () => {
           paymentMethod: "qris",
           paymentStatus: "awaiting-proof"
         });
-        qrisOrderCreated = docRef; // store the created order document reference
+        qrisOrderCreated = docRef;
         confirmBtn.style.display = "none";
         window.open(`qris.html?orderId=${docRef.id}`, "_blank");
       } catch (err) {
         console.error(err);
         confirmBtn.disabled = false;
-        alert("⚠️ Failed to prepare QRIS payment. Please try again.");
+        alert("⚠️ Failed to prepare QRIS payment.");
       }
     });
 
-    // Voucher application
+    // Voucher
     applyVoucherBtn.addEventListener("click", async () => {
+      if (status === "success") return;
       const code = voucherInput.value.trim().toUpperCase();
       voucherMsg.style.color = "#d33";
-      if (!code) { 
-        voucherMsg.textContent = "⚠️ Please enter a voucher code."; 
-        setTimeout(() => voucherMsg.textContent = "", 5000);
-        return; 
-      }
+      if (!code) { voucherMsg.textContent = "⚠️ Please enter a voucher code."; return; }
 
       try {
         const snap = await db.collection("vouchers").where("code", "==", code).limit(1).get();
-        if (snap.empty) { 
-          voucherMsg.textContent = "❌ Invalid voucher code."; 
-          setTimeout(() => voucherMsg.textContent = "", 5000);
-          return; 
-        }
+        if (snap.empty) { voucherMsg.textContent = "❌ Invalid voucher code."; return; }
         const voucherDoc = snap.docs[0];
         const voucherRef = db.collection("vouchers").doc(voucherDoc.id);
 
@@ -328,90 +299,61 @@ document.addEventListener("DOMContentLoaded", async () => {
           const today = new Date(); today.setHours(0,0,0,0);
           const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
           const redemptionSnap = await tx.get(
-            voucherRef.collection("redemptions")
-              .where("timestamp", ">=", today)
-              .where("timestamp", "<", tomorrow)
+            voucherRef.collection("redemptions").where("timestamp", ">=", today).where("timestamp", "<", tomorrow)
           );
-
           if (voucherDoc.data().limitPerDay && redemptionSnap.size >= voucherDoc.data().limitPerDay)
             throw new Error("DAILY_LIMIT_REACHED");
-
-          // Remove previous redemption
-          if (orderId) {
-            const orderDoc = await tx.get(db.collection("orders").doc(orderId));
-            if (orderDoc.exists && orderDoc.data().voucherId) {
-              const prevRedemptions = await tx.get(
-                db.collection("vouchers").doc(orderDoc.data().voucherId)
-                  .collection("redemptions").where("orderId", "==", orderId)
-              );
-              prevRedemptions.forEach(doc => tx.delete(doc.ref));
-            }
-          }
 
           // Calculate discount
           let orderDiscount = 0;
           if (voucherDoc.data().type === "percent") orderDiscount = Math.floor(subtotal * (voucherDoc.data().value / 100));
           else if (voucherDoc.data().type === "fixed") orderDiscount = voucherDoc.data().value;
 
-// Determine redemption doc ID and store voucher
-        let redemptionDocRef;
-        if (orderId) {
-          redemptionDocRef = voucherRef.collection("redemptions").doc(orderId);
-          tx.set(redemptionDocRef, {
-            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-            table,
-            guestName,
-            orderId
-          });
-          tx.update(db.collection("orders").doc(orderId), {
-            voucherId: voucherDoc.id,
-            discount: orderDiscount
-          });
-} else if (qrisOrderCreated) {
-  const qrisOrderRef = qrisOrderCreated; // already docRef
-  const qrisOrderId = qrisOrderRef.id;
-  redemptionDocRef = voucherRef.collection("redemptions").doc(qrisOrderId);
-  tx.set(redemptionDocRef, {
-    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-    table,
-    guestName,
-    orderId: qrisOrderId
-  });
-  tx.update(qrisOrderRef, {
-    voucherId: voucherDoc.id,
-    discount: orderDiscount
-          });
-        } else {
-          // fallback: generate temporary doc ID
-          redemptionDocRef = voucherRef.collection("redemptions").doc(`${Date.now()}-${Math.random().toString(36).substr(2,5)}`);
-          tx.set(redemptionDocRef, {
-            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-            table,
-            guestName,
-            orderId: null
-          });
-        }
-        discount = orderDiscount;
+          // Save redemption + update order
+          let redemptionDocRef;
+          if (orderId) {
+            redemptionDocRef = voucherRef.collection("redemptions").doc(orderId);
+            tx.set(redemptionDocRef, {
+              timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+              table, guestName, orderId
+            });
+            tx.update(db.collection("orders").doc(orderId), {
+              voucherId: voucherDoc.id,
+              discount: orderDiscount
+            });
+          } else if (qrisOrderCreated) {
+            const qrisOrderId = qrisOrderCreated.id;
+            redemptionDocRef = voucherRef.collection("redemptions").doc(qrisOrderId);
+            tx.set(redemptionDocRef, {
+              timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+              table, guestName, orderId: qrisOrderId
+            });
+            tx.update(qrisOrderCreated, {
+              voucherId: voucherDoc.id,
+              discount: orderDiscount
+            });
+          }
+          discount = orderDiscount;
         });
 
         voucherMsg.style.color = "green";
         voucherMsg.textContent = `✅ Voucher applied: ${code}`;
-        setTimeout(() => voucherMsg.textContent = "", 5000);
+        voucherNotice.textContent = `🎟 Voucher applied: ${code}`;
+        voucherNotice.style.display = "block";
         renderSummary();
       } catch (err) {
-        if (err.message === "DAILY_LIMIT_REACHED") voucherMsg.textContent = "❌ This voucher has reached its daily limit.";
-        else { console.error(err); voucherMsg.textContent = "⚠️ Failed to apply voucher. Try again."; }
-        setTimeout(() => voucherMsg.textContent = "", 5000);
+        if (err.message === "DAILY_LIMIT_REACHED") voucherMsg.textContent = "❌ Voucher daily limit reached.";
+        else { console.error(err); voucherMsg.textContent = "⚠️ Failed to apply voucher."; }
       }
     });
 
-    // Confirm button
+    // Confirm
     confirmBtn.addEventListener("click", async () => {
       if (!paymentMethod) { alert("⚠️ Please select a payment method."); return; }
-      if (paymentMethod === "qris") { alert("✅ QRIS order already created. Please check the new tab."); return; }
-
+      if (paymentMethod === "qris") { alert("✅ QRIS order already created."); return; }
+      if (status === "success") return;
       try {
-        confirmBtn.disabled = true; // prevent double submission
+        confirmBtn.disabled = true;
         const memberPhone = urlParams.get("memberPhone") || "";
         const memberId = urlParams.get("memberId") || "";
         const { finalTotal, grandTotal } = renderSummary();
@@ -429,34 +371,32 @@ document.addEventListener("DOMContentLoaded", async () => {
         alert("✅ Order confirmed! Please pay at the receptionist.");
       } catch (err) {
         console.error(err);
-        alert("❌ Failed to confirm order. Please try again.");
-        confirmBtn.disabled = false; // re-enable on failure
+        alert("❌ Failed to confirm order.");
+        confirmBtn.disabled = false;
       }
     });
 
   } catch (err) {
-    console.error("Error initializing summary:", err);
+    console.error("Init summary error:", err);
   }
 });
 
-// Render summary remains the same
+// Render summary
 function renderSummary() {
   subtotalDisplay.textContent = `Rp${subtotal.toLocaleString("id-ID")}`;
   discountDisplay.textContent = `Rp${discount.toLocaleString("id-ID")}`;
   taxDisplay.textContent = `Rp${tax.toLocaleString("id-ID")}`;
-
   const finalTotal = subtotal - discount + tax;
   totalDisplay.textContent = `Rp${finalTotal.toLocaleString("id-ID")}`;
-
   const grandTotal = finalTotal + deliveryFee;
   if (deliveryFee > 0) {
     grandTotalDisplay.textContent = `Rp${grandTotal.toLocaleString("id-ID")}`;
     grandTotalRow.style.display = "block";
-  } else grandTotalRow.style.display = "none";
-
+  } else {
+    grandTotalRow.style.display = "none";
+  }
   return { finalTotal, grandTotal };
 }
 </script>
-
 </body>
 </html>
