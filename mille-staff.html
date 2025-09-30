@@ -197,13 +197,19 @@ function renderOrder(id, data) {
   }
 
   // Disable kitchen updates for Mille tables
-  if (isMilleTable) {
-    receiveBtn.disabled = true;
-    receiveBtn.style.opacity = "0.5";
-  } else if (kitchenStatus !== "served") {
+// Disable kitchen updates
+if (isMilleTable) {
+  if (kitchenStatus !== "served") {
     receiveBtn.disabled = true;
     receiveBtn.style.opacity = "0.5";
   }
+} else {
+  if (kitchenStatus !== "served") {
+    receiveBtn.disabled = true;
+    receiveBtn.style.opacity = "0.5";
+  }
+}
+
 
   if (milleStatus === "cancelled_by_kitchen") {
     paidBtn.disabled = true;
