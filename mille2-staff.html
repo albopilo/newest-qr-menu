@@ -78,10 +78,13 @@ function styleMilleOrderBox(el, status) {
 }
 
 function renderOrder(id, data) {
-  const total = data.grandTotal ?? data.total ?? 0;
+const total = data.grandTotal ?? data.total ?? 0;
   const method = (data.paymentMethod || "Unspecified").toLowerCase();
-  let milleStatus = data.milleStatus || "pending";
-  const kitchenStatus = (data.status || "").toLowerCase();
+  let milleStatus = data.milleStatus || "pending"; // local variable so we can override
+  const paymentStatus = (data.paymentStatus || "pending").toLowerCase();
+  const kitchenStatus = ((data.status || data.kitchenStatus) || "").toLowerCase(); // kitchen status (normalize field names)
+  const tableLower = (data.table || "").toLowerCase();
+  const isMilleTable = /mille\s*[1-3]/i.test(data.table || "");
   const time = data.timestamp?.toDate?.().toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'}) || "—";
   const date = data.date || "—";
 
@@ -94,14 +97,48 @@ function renderOrder(id, data) {
   if (milleStatus === "cancelled_by_kitchen") { div.style.backgroundColor="#fee2e2"; div.style.border="1px solid #ef4444"; div.style.color="#991b1b"; }
   else { styleMilleOrderBox(div, milleStatus); }
 
-  const paidBtn = document.createElement("button");
-  paidBtn.className = "btn paid"; paidBtn.textContent = "✅ Have Paid"; paidBtn.onclick = () => markPaid(id);
-  if (method.includes("qris")) { paidBtn.disabled = true; paidBtn.style.opacity="0.5"; }
+const paidBtn = document.createElement("button");
+  paidBtn.className = "btn paid";
+  paidBtn.textContent = "✅ Have Paid";
+  paidBtn.onclick = () => markPaid(id);
 
   const receiveBtn = document.createElement("button");
-  receiveBtn.className = "btn receive"; receiveBtn.textContent = "📥 Receive"; receiveBtn.onclick = () => markReceived(id);
-  if (kitchenStatus !== "served") { receiveBtn.disabled = true; receiveBtn.style.opacity="0.5"; }
-  if (milleStatus === "cancelled_by_kitchen") { paidBtn.disabled = true; receiveBtn.disabled = true; }
+  receiveBtn.className = "btn receive";
+  receiveBtn.textContent = "📥 Receive";
+  receiveBtn.onclick = () => markReceived(id);
+
+  // Disable payment/kitchen actions for QRIS orders waiting for proof
+  if (method.includes("qris") && paymentStatus === "awaiting-proof") {
+    paidBtn.disabled = true;
+    receiveBtn.disabled = true;
+    paidBtn.style.opacity = "0.5";
+    receiveBtn.style.opacity = "0.5";
+    paidBtn.title = "Disabled until QRIS proof is uploaded";
+    receiveBtn.title = "Disabled until QRIS proof is uploaded";
+  }
+
+  // If the order is by Mille (mille 1/2/3) — prevent kitchen status changes (per request)
+  if (isMilleTable) {
+    // disable kitchen-related actions so kitchen cannot change status from the staff page
+    receiveBtn.disabled = true;
+    receiveBtn.style.opacity = "0.5";
+    receiveBtn.title = "Kitchen status cannot be changed from this view for Mille tables";
+  } else {
+    // non-Mille tables: allow receive button only when kitchenStatus === 'served'
+    if (kitchenStatus !== "served") {
+      receiveBtn.disabled = true;
+      receiveBtn.style.opacity = "0.5";
+      receiveBtn.title = "Disabled until kitchen serves";
+    }
+  }
+
+  if (milleStatus === "cancelled_by_kitchen") {
+    // ❌ Cancelled → no actions allowed
+    paidBtn.disabled = true;
+    receiveBtn.disabled = true;
+    paidBtn.style.opacity = "0.5";
+    receiveBtn.style.opacity = "0.5";
+  }
 
   const waBtn = document.createElement("a");
   waBtn.className = "btn"; waBtn.style.background="#25D366"; waBtn.style.color="#fff";

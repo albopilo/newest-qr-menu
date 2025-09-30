@@ -134,6 +134,9 @@ if ('serviceWorker' in navigator) {
     .catch(err => console.error("SW registration failed:", err));
 }
 
+const isMilleTable = /mille\s*[123]/i.test(data.table || "");
+
+
 // Request permission for notifications
 async function initFCM() {
   try {

@@ -137,6 +137,87 @@ const AudioChime = (() => {
   return { requestChime, primeMutedAutoplay, attachGestureUnlock, unlockByGesture, isUnlocked: () => unlocked };
 })();
 
+// ------- repeating chime manager (for staff modal) -------
+// Keeps playing the chime every 5s until staff dismisses.
+const RepeatingChime = (() => {
+  const intervals = new Map();
+  const getAudio = () => document.getElementById("newOrderSound");
+  function start(id) {
+    if (!id || intervals.has(id)) return;
+    const audio = getAudio();
+    if (!audio) return;
+    // play immediately once (best-effort)
+    try { audio.currentTime = 0; audio.play(); } catch {}
+    const iv = setInterval(() => {
+      try { audio.currentTime = 0; audio.play(); } catch {}
+    }, 5000);
+    intervals.set(id, iv);
+  }
+  function stop(id) {
+    const iv = intervals.get(id);
+    if (iv) { clearInterval(iv); intervals.delete(id); }
+  }
+  function stopAll() {
+    for (const iv of intervals.values()) clearInterval(iv);
+    intervals.clear();
+  }
+  return { start, stop, stopAll };
+})();
+
+// small helper set to avoid re-alerting same order (staff modal)
+const staffShownModals = new Set();
+
+// Create a lightweight staff modal/banner (if page doesn't have one)
+function showStaffModalForOrder(orderId, data) {
+  let modal = document.getElementById("staffChimeModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "staffChimeModal";
+    modal.style.position = "fixed";
+    modal.style.left = "12px";
+    modal.style.right = "12px";
+    modal.style.bottom = "12px";
+    modal.style.zIndex = 2000;
+    modal.style.background = "#fff";
+    modal.style.border = "1px solid rgba(0,0,0,0.08)";
+    modal.style.boxShadow = "0 8px 24px rgba(0,0,0,0.12)";
+    modal.style.padding = "12px";
+    modal.style.borderRadius = "8px";
+    modal.style.display = "flex";
+    modal.style.justifyContent = "space-between";
+    modal.style.alignItems = "center";
+    modal.style.gap = "12px";
+    modal.innerHTML = `
+      <div id="staffChimeText"></div>
+      <div>
+        <button id="staffStopChime" style="margin-right:8px;padding:8px;border-radius:6px;border:none;background:#3b82f6;color:#fff;cursor:pointer;">Stop Alert</button>
+        <button id="staffOpenOrder" style="padding:8px;border-radius:6px;border:none;background:#25D366;color:#fff;cursor:pointer;">Open</button>
+      </div>`;
+    document.body.appendChild(modal);
+    document.getElementById("staffStopChime").addEventListener("click", () => {
+      RepeatingChime.stop(orderId);
+      staffShownModals.add(orderId);
+      modal.remove();
+    });
+    document.getElementById("staffOpenOrder").addEventListener("click", () => {
+      // open detail view if you have one (example summary.html?orderId=)
+      window.open(`summary.html?orderId=${orderId}`, "_blank");
+      RepeatingChime.stop(orderId);
+      staffShownModals.add(orderId);
+      modal.remove();
+    });
+  }
+  const text = document.getElementById("staffChimeText");
+  text.innerHTML = `🚨 New order <strong>${data.table || "?"}</strong> • Rp ${((data.grandTotal||data.total)||0).toLocaleString("id-ID")}`;
+  modal.style.display = "flex";
+}
+
+function hideStaffModal() {
+  const m = document.getElementById("staffChimeModal");
+  if (m) m.remove();
+  RepeatingChime.stopAll();
+}
+
 /***********************
  * Session timeout (customer pages only)
  ***********************/
@@ -1136,7 +1217,8 @@ let currentFilter = "all";
 function filterOrders(status) {
   currentFilter = status;
   document.querySelectorAll(".order").forEach(el => {
-    const orderStatus = (el.dataset.kitchenStatus || "").toLowerCase();
+    // use kitchenStatus if available, otherwise fall back to mille/order status
+    const orderStatus = ((el.dataset.kitchenStatus || el.dataset.status) || "").toLowerCase();
     const isIncoming = status === "incoming" && ["pending", "preparing"].includes(orderStatus);
     el.style.display = (status === "all" || isIncoming || orderStatus === status) ? "" : "none";
   });
@@ -1462,7 +1544,8 @@ function listenForOrders(selectedDate) {
   if (!ordersContainer) return;
 
   const prevStatuses = new Map();
-  const INCOMING_STATUSES = ["pending"];
+  // consider a broader set of statuses as "incoming" for staff chime/filter
+  const INCOMING_STATUSES = ["pending","incoming","preparing","awaiting","awaiting-proof","awaiting_proof"];
   let initialProcessed = false;
 
   unsubscribeOrders = db.collection("orders")
@@ -1497,12 +1580,30 @@ function listenForOrders(selectedDate) {
         // Controls
         const statusControls = document.createElement("div");
         statusControls.className = "status-controls";
+// derive protective flags (disable kitchen controls for two cases)
+        const tableText = String(order.table || "").toLowerCase();
+        const isMilleTable = /mille\s*[123]/i.test(tableText); // true for "Mille 1/2/3"
+        const isQrisAwaiting = ((order.paymentMethod||"").toLowerCase().includes("qris"))
+                              && ((order.paymentStatus||"").toLowerCase() === "awaiting-proof");
+
         ["preparing","served","cancelled"].forEach(newStatus => {
           const btn = document.createElement("button");
           btn.textContent = newStatus;
           btn.className = "btn minimal";
+
+          // If this is a Mille table OR QRIS awaiting-proof, disable kitchen action buttons
+          if (isMilleTable || isQrisAwaiting) {
+            btn.disabled = true;
+            btn.title = isQrisAwaiting
+              ? "Disabled while waiting for QRIS proof"
+              : "Disabled for Mille tables on this view";
+            btn.style.opacity = "0.6";
+          }
+
           btn.addEventListener("click", async () => {
             if (statusControls.dataset.busy === "1") return;
+            // double-check server-side rules (optimistic guard)
+            if (btn.disabled) return;
             statusControls.dataset.busy = "1";
             const buttons = statusControls.querySelectorAll("button");
             const originalTexts = [];
@@ -1567,7 +1668,36 @@ function listenForOrders(selectedDate) {
           }
         });
       }
-      if (shouldChime) AudioChime.requestChime();
+      if (shouldChime) {
+        // prefer first unseen incoming order to target repeating chime & modal
+        const candidate = snapshot.docs.find(d => {
+          const doc = d.data();
+          const now = ((doc.kitchenStatus || doc.status || doc.milleStatus || "")).toLowerCase();
+          return INCOMING_STATUSES.includes(now) && !staffShownModals.has(d.id);
+        });
+        if (candidate) {
+          const id = candidate.id;
+          const doc = candidate.data();
+          // if QRIS awaiting-proof: play a single notification but do NOT start repeating chime
+          const method = (doc.paymentMethod || "").toLowerCase();
+          const paymentStatus = (doc.paymentStatus || "").toLowerCase();
+          if (method.includes("qris") && paymentStatus === "awaiting-proof") {
+            // single play (foreground)
+            AudioChime.requestChime();
+            // still show a non-repeating banner/modal so staff sees it
+            showStaffModalForOrder(id, doc);
+            staffShownModals.add(id);
+          } else {
+            // normal case: start repeating chime until staff stops it
+            RepeatingChime.start(id);
+            showStaffModalForOrder(id, doc);
+            staffShownModals.add(id);
+          }
+        } else {
+          // fallback: single chime
+          AudioChime.requestChime();
+        }
+      }
 
       // Update prevStatuses
       snapshot.forEach(docSnap => {
