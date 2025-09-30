@@ -171,13 +171,14 @@ initFCM();
 
 function renderOrder(id, data) {
   const table = (data.table || "").toLowerCase();
-  const status = data.status || "incoming";
+  const status = (data.kitchenStatus || data.status || "pending").toLowerCase();
   const time = data.timestamp?.toDate?.().toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'}) || "—";
 
   const div = document.createElement("div");
   div.className = "order";
   div.dataset.status = status;
 
+  // === Basic info ===
   div.innerHTML = `
     <p><strong>Table:</strong> ${data.table || "?"}</p>
     <p><strong>Items:</strong> ${(data.items || []).map(i => `${i.qty}× ${i.name}`).join(", ")}</p>
@@ -185,21 +186,21 @@ function renderOrder(id, data) {
     <p><strong>Time:</strong> ${time}</p>
   `;
 
-  // === Add status control buttons ===
+  // === Status control buttons ===
   const statusControls = document.createElement("div");
   statusControls.className = "status-controls";
+
+  const isMilleTable = /mille\s*[123]/i.test(table);
+  const isQrisAwaiting = ((data.paymentMethod || "").toLowerCase().includes("qris")) &&
+                         ((data.paymentStatus || "").toLowerCase() === "awaiting-proof");
 
   ["preparing", "served", "cancelled"].forEach(newStatus => {
     const btn = document.createElement("button");
     btn.textContent = newStatus;
     btn.className = "btn minimal";
 
-    // Disable if Mille table or QRIS awaiting proof
-    const isMille = /mille\s*[123]/i.test(table);
-    const isQrisAwaiting = ((data.paymentMethod||"").toLowerCase().includes("qris")) &&
-                           ((data.paymentStatus||"").toLowerCase() === "awaiting-proof");
-
-    if (isMille || isQrisAwaiting) {
+    // disable logic
+    if (isMilleTable || isQrisAwaiting) {
       btn.disabled = true;
       btn.style.opacity = "0.6";
       btn.title = isQrisAwaiting
@@ -214,7 +215,7 @@ function renderOrder(id, data) {
         });
       } catch (err) {
         console.error("Failed to update:", err);
-        alert("Could not update status");
+        alert("❌ Could not update status");
       }
     });
 
@@ -223,7 +224,7 @@ function renderOrder(id, data) {
 
   div.appendChild(statusControls);
 
-  // ✅ Contact Mille button
+  // === Contact Mille button ===
   let phone = null;
   if (table.includes("mille 1")) phone = phoneMap["mille 1"];
   else if (table.includes("mille 2")) phone = phoneMap["mille 2"];
@@ -240,6 +241,7 @@ function renderOrder(id, data) {
 
   return div;
 }
+
 
 function loadOrders() {
   const yyyyMmDd = new Date(orderDate.value).toISOString().split("T")[0];
