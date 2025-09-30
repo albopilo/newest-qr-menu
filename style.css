@@ -543,3 +543,7 @@ body.staff .icon-btn {
   }
 }
 
+.status-controls .btn.minimal {
+  display: inline-block !important;
+}
+
