@@ -13,6 +13,41 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+// ---------------------------------
+// small helpers (insert near top)
+// ---------------------------------
+/**
+ * Format number to Indonesian Rupiah, safe for missing values.
+ * Usage: formatRp(15000) -> "Rp15.000"
+ */
+function formatRp(n) {
+  try {
+    const val = Number(n || 0);
+    return "Rp" + val.toLocaleString("id-ID");
+  } catch (e) {
+    return "Rp0";
+  }
+}
+
+/**
+ * Normalize Google Drive share links to a direct view URL.
+ * Accepts: "https://drive.google.com/file/d/ID/view?..." or "...?id=ID"
+ * Returns: "https://drive.google.com/uc?export=view&id=ID" or original string.
+ */
+function normalizeDriveUrl(raw) {
+  if (!raw) return "";
+  const s = String(raw).trim();
+  // /d/FILEID pattern
+  let m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+  if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  // ?id=FILEID or &id=FILEID
+  m = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+  if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  // return raw (might already be a direct image URL)
+  return s;
+}
+
+
 // app.js — minimal product rendering (compatible with firebase v8)
 (function(){
   // Assumes firebase app already initialized on the page
@@ -41,26 +76,30 @@ const db = firebase.firestore();
   function formatRp(n){ return `Rp${Number(n||0).toLocaleString('id-ID')}`; }
 
 // Render a single product card
+/**
+ * Render a single product card DOM from a Firestore product document (doc)
+ * Returns: HTMLElement (card) or null (hidden)
+ */
 function renderProductCard(doc) {
-  const p = doc.data();
+  const p = doc.data ? doc.data() : doc; // accept either doc or raw object
   // hide if pos_hidden == 1
   if (Number(p.pos_hidden || 0) === 1) return null;
 
   const card = document.createElement("div");
   card.className = "product-card";
 
-  // === IMAGE / PLACEHOLDER ===
-  const raw = normalizeDriveUrl((p.photo_1 || "").trim());
+  // --- media (image or "No Image" box) ---
+  const rawUrl = normalizeDriveUrl((p.photo_1 || "").trim());
   let mediaEl;
 
-  if (raw) {
+  if (rawUrl) {
     const img = document.createElement("img");
     img.className = "media";
     img.loading = "lazy";
     img.alt = p.name || "Product";
-    img.src = raw;
+    img.src = rawUrl;
 
-    // fallback if broken URL
+    // If image can't load, replace with the "No Image" box
     img.onerror = () => {
       const placeholder = document.createElement("div");
       placeholder.className = "media";
@@ -70,7 +109,8 @@ function renderProductCard(doc) {
       placeholder.style.color = "#999";
       placeholder.style.fontSize = "0.9rem";
       placeholder.textContent = "No Image";
-      img.replaceWith(placeholder);
+      // replace only if element still in DOM
+      if (img.parentNode) img.parentNode.replaceChild(placeholder, img);
     };
 
     mediaEl = img;
@@ -88,19 +128,27 @@ function renderProductCard(doc) {
 
   card.appendChild(mediaEl);
 
-  // === CONTENT ===
+  // --- content ---
   const content = document.createElement("div");
   content.className = "content";
 
   const titleEl = document.createElement("div");
   titleEl.className = "title";
-  titleEl.textContent = p.name || "Untitled";
+  titleEl.textContent = p.name || "Unnamed";
 
-  const descEl = document.createElement("div");
-  descEl.className = "desc";
-  descEl.textContent = p.variant_label
-    ? p.variant_label + ": " + (p.variant_names || "")
-    : "";
+  content.appendChild(titleEl);
+
+  if (p.variant_label) {
+    const descEl = document.createElement("div");
+    descEl.className = "desc";
+    descEl.textContent = `${p.variant_label}: ${p.variant_names || ""}`;
+    content.appendChild(descEl);
+  } else if (p.description) {
+    const descEl = document.createElement("div");
+    descEl.className = "desc";
+    descEl.textContent = p.description;
+    content.appendChild(descEl);
+  }
 
   const priceRow = document.createElement("div");
   priceRow.className = "priceRow";
@@ -111,32 +159,25 @@ function renderProductCard(doc) {
 
   const addBtn = document.createElement("button");
   addBtn.className = "addBtn small";
-  addBtn.textContent = "Add";
+  addBtn.textContent = (p.variants && p.variants.length > 1) ? "Select variation" : "Add";
   addBtn.addEventListener("click", () => {
-    // Hook into your cart logic
-    const event = new CustomEvent("product-add", {
-      detail: { id: doc.id, product: p }
-    });
-    window.dispatchEvent(event);
-
+    // integrate with your existing cart logic:
+    const evt = new CustomEvent("product-add", { detail: { id: doc.id ?? p.id, product: p }});
+    window.dispatchEvent(evt);
     // quick feedback
     const prev = addBtn.textContent;
     addBtn.textContent = "Added ✓";
-    setTimeout(() => (addBtn.textContent = prev), 900);
+    setTimeout(() => { addBtn.textContent = prev; }, 900);
   });
 
   priceRow.appendChild(priceEl);
   priceRow.appendChild(addBtn);
 
-  content.appendChild(titleEl);
-  content.appendChild(descEl);
   content.appendChild(priceRow);
-
   card.appendChild(content);
 
   return card;
 }
-
 
   function clearProducts() {
     productListEl.innerHTML = "";
