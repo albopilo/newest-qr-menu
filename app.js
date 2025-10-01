@@ -575,12 +575,25 @@ async function renderProducts(selectedCategory = "") {
       const card = document.createElement("div");
       card.className = "product-card";
 
-      // image
-      const img = document.createElement("img");
-      img.className = "media";
-      img.src = normalizeDriveUrl(prod.photo_1 || "") || "/assets/placeholder.png";
-      img.alt = prod.name;
-      card.appendChild(img);
+// image (always render something)
+if (prod.photo_1) {
+  const img = document.createElement("img");
+  img.className = "media";
+  img.src = normalizeDriveUrl(prod.photo_1);
+  img.alt = prod.name;
+  card.appendChild(img);
+} else {
+  const placeholder = document.createElement("div");
+  placeholder.className = "media";
+  placeholder.style.display = "flex";
+  placeholder.style.alignItems = "center";
+  placeholder.style.justifyContent = "center";
+  placeholder.style.color = "#999";
+  placeholder.style.fontSize = "0.9rem";
+  placeholder.textContent = "No Image";
+  card.appendChild(placeholder);
+}
+
 
       // content
       const content = document.createElement("div");
