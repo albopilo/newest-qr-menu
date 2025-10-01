@@ -41,6 +41,24 @@
   const FILE_INPUT_ID = "__importFileInput";
   const BATCH_LIMIT = 500;
 
+// normalize a Google Drive share URL into a direct image URL usable in <img src="">
+function normalizeDriveUrlForSave(url) {
+  if (!url) return url;
+  const s = String(url).trim();
+  // If it already looks like a proper image host, return as-is
+  if (/^https?:\/\/(https?:)?\/\//.test(s) || /^data:image\//.test(s) || /^https?:\/\/(lh3|drive|docs)\./i.test(s)) {
+    // detect drive /d/ link
+    const m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+    if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+    const q = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+    if (q && q[1]) return `https://drive.google.com/uc?export=view&id=${q[1]}`;
+    return s;
+  }
+  // fallback
+  return s;
+}
+
+
   /***********************
    * Banner helper
    ***********************/
@@ -424,12 +442,13 @@
     openModal("promoModal");
   }
 
-  function collectPhotosInto(payload) {
-    for (let i = 1; i <= 10; i++) {
-      const val = (document.getElementById(`photo_${i}`)?.value || "").trim();
-      payload[`photo_${i}`] = val;
-    }
+function collectPhotosInto(payload) {
+  for (let i = 1; i <= 10; i++) {
+    const raw = (document.getElementById(`photo_${i}`)?.value || "").trim();
+    payload[`photo_${i}`] = normalizeDriveUrlForSave(raw);
   }
+}
+
 
   async function saveCurrentForm() {
     try {
@@ -1024,12 +1043,14 @@
     });
     const photo1Input = document.getElementById("photo_1");
     if (photo1Input) {
-      photo1Input.addEventListener("input", () => {
-        const prev = document.getElementById("photoPreview");
-        const u = (photo1Input.value || "").trim();
-        if (!prev) return;
-        if (u) { prev.src = u; prev.classList.remove("hidden"); } else prev.classList.add("hidden");
-      });
+photo1Input.addEventListener("input", () => {
+  const prev = document.getElementById("photoPreview");
+  const raw = (photo1Input.value || "").trim();
+  const u = normalizeDriveUrlForSave(raw);
+  if (!prev) return;
+  if (u) { prev.src = u; prev.classList.remove("hidden"); }
+  else prev.classList.add("hidden");
+});
     }
 
     // click outside to close modals
@@ -1048,6 +1069,7 @@
     document.getElementById("savePromoBtn")?.addEventListener("click", savePromoForm);
     document.getElementById("cancelPromoBtn")?.addEventListener("click", () => closeModal("promoModal"));
   }
+
 
   /***********************
    * Bootstrap

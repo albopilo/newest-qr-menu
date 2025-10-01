@@ -547,3 +547,63 @@ body.staff .icon-btn {
   display: inline-block !important;
 }
 
+/* product card styles (paste into style.css or inside <style> in index.html) */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin: 16px 8px;
+}
+.product-card {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+}
+.product-card .media {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  background: linear-gradient(180deg,#f4f6f8,#fff);
+}
+.product-card .content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.product-card .title {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #111827;
+}
+.product-card .desc {
+  font-size: 0.88rem;
+  color: #6b7280;
+  min-height: 30px;
+}
+.product-card .priceRow {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 8px;
+}
+.product-card .price {
+  font-weight:700;
+  color: #0f172a;
+}
+.product-card .addBtn {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.product-card .addBtn.small { padding:6px 10px; font-size:0.9rem; }
+.product-card .meta { font-size: 0.82rem; color:#6b7280; }
+@media (max-width:480px){
+  .product-card .media { height: 140px; }
+}

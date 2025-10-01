@@ -13,6 +13,127 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+// app.js — minimal product rendering (compatible with firebase v8)
+(function(){
+  // Assumes firebase app already initialized on the page
+  const db = firebase.firestore();
+
+  const productListEl = document.getElementById("productList");
+  if (!productListEl) throw new Error("#productList missing");
+
+  // Convert common Google Drive share links to direct-access URL
+  function normalizeDriveUrl(url) {
+    if (!url) return url;
+    url = String(url).trim();
+    // already a direct link?
+    if (/^https?:\/\/(lh3\.googleusercontent\.com|drive\.googleusercontent\.com|docs\.googleusercontent\.com)\/.+/i.test(url)) return url;
+    // common 'drive.google.com/file/d/FILE_ID/view?usp=sharing' form
+    const m = url.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+    if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+    // or url param id=...
+    const q = url.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+    if (q && q[1]) return `https://drive.google.com/uc?export=view&id=${q[1]}`;
+    // if it looks like a googleusercontent already, return as-is:
+    return url;
+  }
+
+  // Format price
+  function formatRp(n){ return `Rp${Number(n||0).toLocaleString('id-ID')}`; }
+
+  // Render a single product card
+  function renderProductCard(doc) {
+    const p = doc.data();
+    // hide if pos_hidden == 1
+    if (Number(p.pos_hidden || 0) === 1) return null;
+
+    const photo = normalizeDriveUrl((p.photo_1 || "").trim()) || "/assets/placeholder.png";
+    const title = p.name || "Untitled";
+    const variant = p.variant_names || "";
+    const price = p.pos_sell_price ?? p.price ?? p.market_price ?? 0;
+    const description = p.category || "";
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "product-card";
+
+    const img = document.createElement("img");
+    img.className = "media";
+    img.loading = "lazy";
+    img.alt = title;
+    img.src = photo;
+    // fallback if image fails to load
+    img.onerror = () => { img.src = "/assets/placeholder.png"; };
+
+    const content = document.createElement("div");
+    content.className = "content";
+
+    const titleEl = document.createElement("div");
+    titleEl.className = "title";
+    titleEl.textContent = title;
+
+    const descEl = document.createElement("div");
+    descEl.className = "desc";
+    descEl.textContent = variant || description || "";
+
+    const priceRow = document.createElement("div");
+    priceRow.className = "priceRow";
+
+    const priceEl = document.createElement("div");
+    priceEl.className = "price";
+    priceEl.textContent = formatRp(price);
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "addBtn small";
+    addBtn.textContent = "Add";
+    addBtn.addEventListener("click", () => {
+      // TODO: integrate with your existing cart.add(...) logic
+      // Example placeholder:
+      const event = new CustomEvent("product-add", { detail: { id: doc.id, product: p }});
+      window.dispatchEvent(event);
+      // show quick feedback
+      const prev = addBtn.textContent;
+      addBtn.textContent = "Added ✓";
+      setTimeout(()=> addBtn.textContent = prev, 900);
+    });
+
+    priceRow.appendChild(priceEl);
+    priceRow.appendChild(addBtn);
+
+    content.appendChild(titleEl);
+    content.appendChild(descEl);
+    content.appendChild(priceRow);
+
+    wrapper.appendChild(img);
+    wrapper.appendChild(content);
+
+    return wrapper;
+  }
+
+  function clearProducts() {
+    productListEl.innerHTML = "";
+  }
+
+  function renderProductsSnapshot(snap) {
+    clearProducts();
+    const grid = document.createElement("div");
+    grid.className = "product-grid";
+    snap.forEach(doc => {
+      const card = renderProductCard(doc);
+      if (card) grid.appendChild(card);
+    });
+    productListEl.appendChild(grid);
+  }
+
+  // listen to all products ordered by name
+  db.collection("products").orderBy("name").onSnapshot(snap => {
+    renderProductsSnapshot(snap);
+  }, err => {
+    console.error("Products listen error:", err);
+    productListEl.textContent = "Failed to load products.";
+  });
+
+})();
+
+
 /***********************
  * Globals
  ***********************/
@@ -406,9 +527,9 @@ async function renderProducts(selectedCategory = "") {
     categoryMap[cat].push(prod);
   });
 
-  // Sort with case-insensitive match to preferred order
+  // Sort categories with preferred order
   const preferredOrder = [
-    'Special Today', 'Snacks','Western','Ricebowl','Nasi','Nasi Goreng',
+    'Special Today','Snacks','Western','Ricebowl','Nasi','Nasi Goreng',
     'Mie','Matcha','Coffee','Non coffee','Tea & Juices'
   ];
   const norm = s => s.toLowerCase();
@@ -438,32 +559,62 @@ async function renderProducts(selectedCategory = "") {
   const list = document.getElementById("productList");
   if (list) {
     list.innerHTML = "";
-    const heading = document.createElement("h3");
+    const heading = document.createElement("h4");
     heading.textContent = selectedCategory || "Select a Category";
     list.appendChild(heading);
 
     if (!selectedCategory || !categoryMap[selectedCategory]) return;
+
+    const grid = document.createElement("div");
+    grid.className = "product-grid";
+    list.appendChild(grid);
+
     categoryMap[selectedCategory].forEach(prod => {
       const hasVariants = prod.variants.length > 1 || !!prod.variants[0]?.variant;
-      const div = document.createElement("div");
-      div.style.marginBottom = "1em";
 
-      const nameEl = document.createElement("strong");
-      nameEl.textContent = prod.name;
-      div.appendChild(nameEl);
-      div.appendChild(document.createElement("br"));
+      const card = document.createElement("div");
+      card.className = "product-card";
 
-      const priceEl = document.createTextNode(`Rp${Number(prod.basePrice).toLocaleString()}`);
-      div.appendChild(priceEl);
-      div.appendChild(document.createElement("br"));
+      // image
+      const img = document.createElement("img");
+      img.className = "media";
+      img.src = normalizeDriveUrl(prod.photo_1 || "") || "/assets/placeholder.png";
+      img.alt = prod.name;
+      card.appendChild(img);
+
+      // content
+      const content = document.createElement("div");
+      content.className = "content";
+
+      const title = document.createElement("div");
+      title.className = "title";
+      title.textContent = prod.name;
+      content.appendChild(title);
+
+      if (prod.variant_label) {
+        const desc = document.createElement("div");
+        desc.className = "desc";
+        desc.textContent = prod.variant_label + ": " + prod.variant_names;
+        content.appendChild(desc);
+      }
+
+      const priceRow = document.createElement("div");
+      priceRow.className = "priceRow";
+
+      const price = document.createElement("div");
+      price.className = "price";
+      price.textContent = formatRp(prod.pos_sell_price ?? prod.price ?? 0);
+      priceRow.appendChild(price);
 
       const btn = document.createElement("button");
-      btn.className = "add-to-cart";
+      btn.className = "addBtn";
       btn.dataset.productName = prod.name;
       btn.textContent = hasVariants ? "Select variation" : "Add to cart";
-      div.appendChild(btn);
+      priceRow.appendChild(btn);
 
-      list.appendChild(div);
+      content.appendChild(priceRow);
+      card.appendChild(content);
+      grid.appendChild(card);
     });
   }
 }
