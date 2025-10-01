@@ -40,73 +40,103 @@ const db = firebase.firestore();
   // Format price
   function formatRp(n){ return `Rp${Number(n||0).toLocaleString('id-ID')}`; }
 
-  // Render a single product card
-  function renderProductCard(doc) {
-    const p = doc.data();
-    // hide if pos_hidden == 1
-    if (Number(p.pos_hidden || 0) === 1) return null;
+// Render a single product card
+function renderProductCard(doc) {
+  const p = doc.data();
+  // hide if pos_hidden == 1
+  if (Number(p.pos_hidden || 0) === 1) return null;
 
-    const photo = normalizeDriveUrl((p.photo_1 || "").trim()) || "/assets/placeholder.png";
-    const title = p.name || "Untitled";
-    const variant = p.variant_names || "";
-    const price = p.pos_sell_price ?? p.price ?? p.market_price ?? 0;
-    const description = p.category || "";
+  const card = document.createElement("div");
+  card.className = "product-card";
 
-    const wrapper = document.createElement("div");
-    wrapper.className = "product-card";
+  // === IMAGE / PLACEHOLDER ===
+  const raw = normalizeDriveUrl((p.photo_1 || "").trim());
+  let mediaEl;
 
+  if (raw) {
     const img = document.createElement("img");
     img.className = "media";
     img.loading = "lazy";
-    img.alt = title;
-    img.src = photo;
-    // fallback if image fails to load
-    img.onerror = () => { img.src = "/assets/placeholder.png"; };
+    img.alt = p.name || "Product";
+    img.src = raw;
 
-    const content = document.createElement("div");
-    content.className = "content";
+    // fallback if broken URL
+    img.onerror = () => {
+      const placeholder = document.createElement("div");
+      placeholder.className = "media";
+      placeholder.style.display = "flex";
+      placeholder.style.alignItems = "center";
+      placeholder.style.justifyContent = "center";
+      placeholder.style.color = "#999";
+      placeholder.style.fontSize = "0.9rem";
+      placeholder.textContent = "No Image";
+      img.replaceWith(placeholder);
+    };
 
-    const titleEl = document.createElement("div");
-    titleEl.className = "title";
-    titleEl.textContent = title;
-
-    const descEl = document.createElement("div");
-    descEl.className = "desc";
-    descEl.textContent = variant || description || "";
-
-    const priceRow = document.createElement("div");
-    priceRow.className = "priceRow";
-
-    const priceEl = document.createElement("div");
-    priceEl.className = "price";
-    priceEl.textContent = formatRp(price);
-
-    const addBtn = document.createElement("button");
-    addBtn.className = "addBtn small";
-    addBtn.textContent = "Add";
-    addBtn.addEventListener("click", () => {
-      // TODO: integrate with your existing cart.add(...) logic
-      // Example placeholder:
-      const event = new CustomEvent("product-add", { detail: { id: doc.id, product: p }});
-      window.dispatchEvent(event);
-      // show quick feedback
-      const prev = addBtn.textContent;
-      addBtn.textContent = "Added ✓";
-      setTimeout(()=> addBtn.textContent = prev, 900);
-    });
-
-    priceRow.appendChild(priceEl);
-    priceRow.appendChild(addBtn);
-
-    content.appendChild(titleEl);
-    content.appendChild(descEl);
-    content.appendChild(priceRow);
-
-    wrapper.appendChild(img);
-    wrapper.appendChild(content);
-
-    return wrapper;
+    mediaEl = img;
+  } else {
+    const placeholder = document.createElement("div");
+    placeholder.className = "media";
+    placeholder.style.display = "flex";
+    placeholder.style.alignItems = "center";
+    placeholder.style.justifyContent = "center";
+    placeholder.style.color = "#999";
+    placeholder.style.fontSize = "0.9rem";
+    placeholder.textContent = "No Image";
+    mediaEl = placeholder;
   }
+
+  card.appendChild(mediaEl);
+
+  // === CONTENT ===
+  const content = document.createElement("div");
+  content.className = "content";
+
+  const titleEl = document.createElement("div");
+  titleEl.className = "title";
+  titleEl.textContent = p.name || "Untitled";
+
+  const descEl = document.createElement("div");
+  descEl.className = "desc";
+  descEl.textContent = p.variant_label
+    ? p.variant_label + ": " + (p.variant_names || "")
+    : "";
+
+  const priceRow = document.createElement("div");
+  priceRow.className = "priceRow";
+
+  const priceEl = document.createElement("div");
+  priceEl.className = "price";
+  priceEl.textContent = formatRp(p.pos_sell_price ?? p.price ?? 0);
+
+  const addBtn = document.createElement("button");
+  addBtn.className = "addBtn small";
+  addBtn.textContent = "Add";
+  addBtn.addEventListener("click", () => {
+    // Hook into your cart logic
+    const event = new CustomEvent("product-add", {
+      detail: { id: doc.id, product: p }
+    });
+    window.dispatchEvent(event);
+
+    // quick feedback
+    const prev = addBtn.textContent;
+    addBtn.textContent = "Added ✓";
+    setTimeout(() => (addBtn.textContent = prev), 900);
+  });
+
+  priceRow.appendChild(priceEl);
+  priceRow.appendChild(addBtn);
+
+  content.appendChild(titleEl);
+  content.appendChild(descEl);
+  content.appendChild(priceRow);
+
+  card.appendChild(content);
+
+  return card;
+}
+
 
   function clearProducts() {
     productListEl.innerHTML = "";
