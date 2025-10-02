@@ -75,20 +75,13 @@ function renderProductCard(doc) {
   if (rawUrl) {
     const img = document.createElement("img");
     img.className = "media";
-    img.loading = "lazy";
-    img.alt = p.name || "Product";
+// Chrome lazy-load causes issues with Drive links, disable:
+ // img.loading = "lazy";    img.alt = p.name || "Product";
     img.src = rawUrl;
     img.onerror = () => {
-      const placeholder = document.createElement("div");
-      placeholder.className = "media";
-      placeholder.style.display = "flex";
-      placeholder.style.alignItems = "center";
-      placeholder.style.justifyContent = "center";
-      placeholder.style.color = "#999";
-      placeholder.style.fontSize = "0.9rem";
-      placeholder.textContent = "No Image";
-      if (img.parentNode) img.parentNode.replaceChild(placeholder, img);
-    };
+   console.warn("Image failed once, retrying:", img.src);
+   setTimeout(() => { img.src = img.src; }, 800); // retry once
+ };
     mediaEl = img;
   } else {
     const placeholder = document.createElement("div");
@@ -646,21 +639,14 @@ categoryMap[selectedCategory].forEach(prod => {
       if (imgUrl) {
         const img = document.createElement("img");
         img.className = "media";
-        img.loading = "lazy";
-        img.alt = prod.name || "Product";
+// Chrome lazy-load causes issues with Drive links, disable:
+ // img.loading = "lazy";        img.alt = prod.name || "Product";
         console.log("📷 Loading image:", prod.name, imgUrl);
         img.src = imgUrl;
         img.onerror = () => {
-          const ph = document.createElement("div");
-          ph.className = "media";
-          ph.style.display = "flex";
-          ph.style.alignItems = "center";
-          ph.style.justifyContent = "center";
-          ph.style.color = "#999";
-          ph.style.fontSize = "0.9rem";
-          ph.textContent = "No Image";
-          if (img.parentNode) img.parentNode.replaceChild(ph, img);
-        };
+   console.warn("Image failed once, retrying:", img.src);
+   setTimeout(() => { img.src = img.src; }, 800); // retry once
+ };
         card.appendChild(img);
       } else {
         const ph = document.createElement("div");
