@@ -1240,8 +1240,7 @@ const nameSpan = document.createElement("span");
     nameSpan.dataset.productName = item.name;
     nameSpan.dataset.index = String(idx);
     nameSpan.dataset.promoFree = item.isPromoFree ? "1" : "0";
-    nameSpan.textContent = item.name  (item.variant ? ` — ${item.variant}` : "");
-
+nameSpan.textContent = String(item.name || "Unnamed") + (item.variant ? ` — ${item.variant}` : "");
     // If this line is a promo free item, show a small label and allow clicking to choose variant
     if (item.isPromoFree) {
       nameSpan.style.cursor = "pointer";
