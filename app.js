@@ -24,22 +24,26 @@ const db = firebase.firestore();
     We assign to window.normalizeDriveUrl so it overrides duplicate defs.
  */
 window.normalizeDriveUrl = function(raw) {
-  if (!raw) return "";
-  const s = String(raw).trim();
+   if (!raw) return "";
+   const s = String(raw).trim();
 
-// Extract file ID from any Drive link
-  let m = s.match(/id=([a-zA-Z0-9_-]{10,})/);
-  if (!m) m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+   // ✅ if already a GitHub Pages asset (e.g. /assets/images/...), leave unchanged
+   if (s.includes("/assets/images/") || s.includes("github.io/")) {
+     return s;
+   }
 
-  if (m && m[1]) {
-    // Always use export=view form (works reliably for <img>)
-    return `https://drive.google.com/uc?export=view&id=${m[1]}`;
-  }
+   // Extract Google Drive file ID from various formats
+   let m = s.match(/id=([a-zA-Z0-9_-]{10,})/);
+   if (!m) m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
 
-  return s;
-};
+   if (m && m[1]) {
+     // Always normalize to export=view form
+     return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+   }
 
-
+   // fallback: return as-is
+   return s;
+ };
 /**
  * Format number to Indonesian Rupiah, safe for missing values.
  * Usage: formatRp(15000) -> "Rp15.000"
