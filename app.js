@@ -24,18 +24,25 @@ const db = firebase.firestore();
     We assign to window.normalizeDriveUrl so it overrides duplicate defs.
  */
 window.normalizeDriveUrl = function(raw) {
-   if (!raw) return "";
-   const s = String(raw).trim();
-// Try to extract Google Drive file ID explicitly
-   let m = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
-   if (m && m[1]) return `https://drive.google.com/uc?id=${m[1]}`;
-   m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
-   if (m && m[1]) return `https://drive.google.com/uc?id=${m[1]}`;
-   // If already in uc?export=view&id= format, just rewrite to uc?id
-   m = s.match(/id=([a-zA-Z0-9_-]{10,})/);
-   if (m && m[1]) return `https://drive.google.com/uc?id=${m[1]}`;
-   return s; // fallback
- };
+  if (!raw) return "";
+  const s = String(raw).trim();
+
+  // Already in uc?id form → just return
+  if (/https:\/\/drive\.google\.com\/uc\?id=/.test(s)) {
+    return s;
+  }
+
+  // Handle uc?export=view&id=...
+  let m = s.match(/id=([a-zA-Z0-9_-]{10,})/);
+  if (m) return `https://drive.google.com/uc?id=${m[1]}`;
+
+  // Handle /d/<id>/
+  m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+  if (m) return `https://drive.google.com/uc?id=${m[1]}`;
+
+  return s;
+};
+
 
 /**
  * Format number to Indonesian Rupiah, safe for missing values.
@@ -641,6 +648,7 @@ categoryMap[selectedCategory].forEach(prod => {
         img.className = "media";
         img.loading = "lazy";
         img.alt = prod.name || "Product";
+        console.log("📷 Loading image:", prod.name, imgUrl);
         img.src = imgUrl;
         img.onerror = () => {
           const ph = document.createElement("div");
