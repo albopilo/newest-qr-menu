@@ -17,32 +17,39 @@ window.normalizeDriveUrl = function(raw) {
   if (!raw) return "";
   let s = String(raw).trim();
 
-  // 1️⃣ GitHub blob → raw conversion
-  const githubBlobMatch = s.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/);
+  // --- 1️⃣ GitHub blob → raw conversion ---
+  const githubBlobMatch = s.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/i);
   if (githubBlobMatch) {
     const user = githubBlobMatch[1];
     const repo = githubBlobMatch[2];
     const path = githubBlobMatch[3];
-    return `https://raw.githubusercontent.com/${user}/${repo}/main/${path}`;
+    return `https://raw.githubusercontent.com/${user}/${repo}/main/${encodeURI(path)}`;
   }
 
-  // 2️⃣ Already a raw GitHub asset or github.io? Return as-is
-  if (s.includes("/assets/images/") || s.includes("github.io/") || s.includes("raw.githubusercontent.com")) {
-    return s;
+  // --- 2️⃣ Already a raw GitHub or github.io asset? Return as-is ---
+  if (/^(https?:\/\/)?(raw\.githubusercontent\.com|.*\.github\.io|.*\/assets\/images\/)/i.test(s)) {
+    return encodeURI(s);
   }
 
-  // 3️⃣ Google Drive ID extraction
-  let idMatch = s.match(/id=([a-zA-Z0-9_-]{10,})/);
-  if (!idMatch) idMatch = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
-  if (!idMatch) idMatch = s.match(/\/file\/d\/([a-zA-Z0-9_-]{10,})/);
-
+  // --- 3️⃣ Google Drive link detection ---
+  let idMatch = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/)  // id=XXX
+              || s.match(/\/d\/([a-zA-Z0-9_-]{10,})/)   // /d/XXX
+              || s.match(/\/file\/d\/([a-zA-Z0-9_-]{10,})/); // /file/d/XXX
   if (idMatch && idMatch[1]) {
-    return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
+    return `https://drive.google.com/uc?export=view&id=${encodeURIComponent(idMatch[1])}`;
   }
 
-  // 4️⃣ fallback: return original URL
-  return s;
+  // --- 4️⃣ fallback: encode and return original URL ---
+  try {
+    // Attempt to encode spaces and unsafe characters safely
+    const urlObj = new URL(s);
+    return urlObj.origin + urlObj.pathname.split('/').map(encodeURIComponent).join('/') + (urlObj.search || '');
+  } catch {
+    // If not a valid URL, just encode the string loosely
+    return encodeURI(s);
+  }
 };
+
 
 /**
  * Format number to Indonesian Rupiah, safe for missing values.
