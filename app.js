@@ -26,10 +26,15 @@ const db = firebase.firestore();
 window.normalizeDriveUrl = function(raw) {
    if (!raw) return "";
    const s = String(raw).trim();
-   // Always extract the file ID and rewrite to uc?id= format (works in <img>)
-   const m = s.match(/[-\w]{10,}/);
-   if (m && m[0]) return `https://drive.google.com/uc?id=${m[0]}`;
-   return s;
+// Try to extract Google Drive file ID explicitly
+   let m = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+   if (m && m[1]) return `https://drive.google.com/uc?id=${m[1]}`;
+   m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+   if (m && m[1]) return `https://drive.google.com/uc?id=${m[1]}`;
+   // If already in uc?export=view&id= format, just rewrite to uc?id
+   m = s.match(/id=([a-zA-Z0-9_-]{10,})/);
+   if (m && m[1]) return `https://drive.google.com/uc?id=${m[1]}`;
+   return s; // fallback
  };
 
 /**
