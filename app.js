@@ -16,13 +16,38 @@ const db = firebase.firestore();
 // ---------------------------------
 // small helpers (insert near top)
 // ---------------------------------
+/* === PATCH: robust normalizeDriveUrl (overwrite earlier defs) ===
+    This central function handles:
+    - drive.com /d/<id>/ links
+    - links with ?id=<id>
+    - already-direct uc?export=view&id=... and uc?id=...
+    We assign to window.normalizeDriveUrl so it overrides duplicate defs.
+ */
+window.normalizeDriveUrl = function(raw) {
+  if (!raw) return "";
+  const s = String(raw).trim();
+  // If it already looks like a direct uc URL, return as-is
+  if (/drive\.google\.com\/uc\?/.test(s) || /drive\.google\.com\/uc\?export=/.test(s)) return s;
+  // /d/<ID>/ pattern
+  let m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+  if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  // open?id=<ID> or ?id=<ID>
+  m = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+  if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  // fallback: if it is already an http(s) url (maybe external host) return it
+  if (/^https?:\/\//i.test(s)) return s;
+  // otherwise return raw
+  return s;
+};
+
 /**
  * Format number to Indonesian Rupiah, safe for missing values.
  * Usage: formatRp(15000) -> "Rp15.000"
  */
-function formatRp(value) {
-  return "Rp" + Number(value).toLocaleString("id-ID");
-}
+ function formatRp(value) {
+   return "Rp" + Number(value || 0).toLocaleString("id-ID");
+ }
+
 
 // app.js — minimal product rendering (compatible with firebase v8)
 (function(){
@@ -33,16 +58,24 @@ function formatRp(value) {
   if (!productListEl) throw new Error("#productList missing");
 
   // Convert common Google Drive share links to direct-access URL
-function normalizeDriveUrl(url) {
-  if (!url) return "";
-  // Handle /d/<id>/ style links
-  const m1 = url.match(/\/d\/([^/]+)\//);
-  if (m1 && m1[1]) return `https://drive.google.com/uc?id=${m1[1]}`;
-  // Handle ?id=<id> style links
-  const m2 = url.match(/[?&]id=([^&]+)/);
-  if (m2 && m2[1]) return `https://drive.google.com/uc?id=${m2[1]}`;
-  return url;
+// Replace / insert this helper near the top
+function normalizeDriveUrl(raw) {
+  if (!raw) return "";
+  const s = String(raw).trim();
+  // If already a direct 'uc' URL or googleusercontent, return it (keeps export=view if present)
+  if (s.includes('/uc?') || s.includes('googleusercontent.com')) return s;
+  // /d/FILEID pattern
+  let m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+  if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  // ?id=FILEID or &id=FILEID
+  m = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+  if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+ // return raw if it's already a remote http(s) URL
+  if (/^https?:\/\//i.test(s)) return s;
+  // otherwise return empty so fallback (No Image) is used
+  return "";
 }
+
 
 function renderProductCard(doc) {
   const p = doc.data ? doc.data() : doc;
@@ -95,10 +128,12 @@ function renderProductCard(doc) {
   content.appendChild(titleEl);
 
   if (p.description) {
-    const descEl = document.createElement("div");
-    descEl.className = "desc";
-    descEl.textContent = p.description;
-    content.appendChild(descEl);
+if (p.variant_label || p.variant_names) {
+   const descEl = document.createElement("div");
+   descEl.className = "desc";
+   descEl.textContent = p.variant_label || p.variant_names;
+   content.appendChild(descEl);
+ }
   }
 
   // --- price + button ---
@@ -176,84 +211,22 @@ const urlParams = new URLSearchParams(window.location.search);
 const tableNumber = urlParams.get("table") || "unknown";
 
 let currentUser = null;
-/***********************
- * Cart Manager
- ***********************/
-const cart = {
-  items: [],
+// keep internal cart as an Array but expose .add() shorthand so existing code that
+// attaches click handlers to call `cart.add(...)` (like product cards) will work.
+let cart = [];
 
-  add(entry) {
-    // entry: { id, product, variant?, price? }
-    const price = entry.price ??
-                  entry.product?.pos_sell_price ??
-                  entry.product?.price ??
-                  0;
-
-    this.items.push({
-      ...entry,
-      price
-    });
-
-    this.save();
-    this.render();
-  },
-
-  remove(index) {
-    if (index >= 0 && index < this.items.length) {
-      this.items.splice(index, 1);
-      this.save();
-      this.render();
-    }
-  },
-
-  clear() {
-    this.items = [];
-    this.save();
-    this.render();
-  },
-
-  getTotal() {
-    return this.items.reduce((sum, it) => sum + (Number(it.price) || 0), 0);
-  },
-
-  save() {
-    localStorage.setItem("cart", JSON.stringify(this.items));
-    localStorage.setItem("cartSavedAt", Date.now());
-  },
-
-  load() {
-    try {
-      const raw = JSON.parse(localStorage.getItem("cart") || "[]");
-      if (Array.isArray(raw)) this.items = raw;
-    } catch {
-      this.items = [];
-    }
-  },
-
-  render() {
-    const list = document.querySelector(".cart-list");
-    const totalEl = document.getElementById("cart-total");
-    if (!list || !totalEl) return;
-
-    list.innerHTML = "";
-    this.items.forEach((it, idx) => {
-      const li = document.createElement("li");
-      li.textContent = `${it.product?.name || "Item"} – ${formatRp(it.price)}`;
-      const rm = document.createElement("button");
-      rm.textContent = "×";
-      rm.className = "removeBtn";
-      rm.addEventListener("click", () => this.remove(idx));
-      li.appendChild(rm);
-      list.appendChild(li);
-    });
-
-    totalEl.textContent = formatRp(this.getTotal());
+// ensure cart.add is available early; it will call addToCart() at click time.
+// (addToCart is defined later; that's fine because the function is invoked on click).
+cart.add = function(product) {
+  try { if (typeof addToCart === "function") return addToCart(product); }
+  catch (e) { console.warn("cart.add wrapper: addToCart not ready yet"); }
+  // as a fallback push directly (safe minimal behavior)
+  if (product && typeof product === "object") {
+    cart.push({ ...product, qty: 1 });
+    saveCartToStorage?.();
+    renderCart?.();
   }
 };
-
-// Initialize cart from localStorage
-cart.load();
-cart.render();
 let sessionTimer = null;
 let unsubscribeOrders = null;
 let activePromos = [];
@@ -568,50 +541,49 @@ function buildVariantsFromDoc(p) {
 }
 
 async function fetchGroupedProducts() {
+  // Keep original behavior but preserve the first available photo_1 for the group
   const raw = await fetchProductsRaw();
   const grouped = {};
 
   for (const p of raw) {
-    const isHidden = Number(p.pos_hidden ?? 0) !== 0; // handles 0, "0", 1, "1"
+    const isHidden = Number(p.pos_hidden ?? 0) !== 0;
     const category = (p.category || "").trim();
     const nameKey = (p.name || "").trim() || "Unnamed";
 
-    // Skip hidden or uncategorized products, but log them for auditing
     if (isHidden || !category) {
-      console.warn("⏭ Skipped product (hidden or missing category):", {
-        id: p.id,
-        name: nameKey,
-        category: category || "(none)",
-        pos_hidden: p.pos_hidden
-      });
+      console.warn("⏭ Skipped product (hidden or missing category):", { id: p.id, name: nameKey, category: category || "(none)" });
       continue;
     }
 
-    // Initialize group by product name
-    if (!grouped[nameKey]) {
-      grouped[nameKey] = {
+if (!grouped[nameKey]) {
+     grouped[nameKey] = {
+        id: p.id, // keep a reference to first doc
         name: nameKey,
         category: category, // guaranteed non-empty here
         basePrice: p.pos_sell_price ?? p.price ?? 0,
         variants: [],
-        variant_label: p.variant_label || null
+        variant_label: p.variant_label || null,
+        // store the first available photo_1 so the grouped card can show an image
+        photo_1: (p.photo_1 || "").trim() || ""
       };
+    } else {
+      // If we haven't captured a photo for the group yet, prefer the first found photo_1
+      if (!grouped[nameKey].photo_1 && (p.photo_1 || "").trim()) grouped[nameKey].photo_1 = (p.photo_1 || "").trim();
     }
 
-    // Build variants and update basePrice to the minimum
     const variants = buildVariantsFromDoc(p);
     grouped[nameKey].variants.push(...variants);
     const minPrice = Math.min(grouped[nameKey].basePrice, ...variants.map(v => Number(v.price) || 0));
-    grouped[nameKey].basePrice = isFinite(minPrice) ? minPrice : grouped[nameKey].basePrice;
+    grouped[nameKey].basePrice = Number.isFinite(minPrice) ? minPrice : grouped[nameKey].basePrice;
   }
 
-  // Deduplicate and sort variants within each group
+  // Deduplicate & sort
   Object.values(grouped).forEach(group => {
     const unique = new Map();
     group.variants.forEach(v => {
-      const keyVariant = (v.variant ?? "").trim().toLowerCase();
+      const keyVariant = (v.variant ?? "").toString().trim().toLowerCase();
       const k = `${keyVariant}::${Number(v.price) || 0}`;
-      if (!unique.has(k)) unique.set(k, { ...v, variant: v.variant?.trim() || v.variant || null });
+      if (!unique.has(k)) unique.set(k, { ...v, variant: v.variant ? v.variant.toString().trim() : null });
     });
     group.variants = Array.from(unique.values()).sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
   });
@@ -676,31 +648,44 @@ async function renderProducts(selectedCategory = "") {
     grid.className = "product-grid";
     list.appendChild(grid);
 
-    categoryMap[selectedCategory].forEach(prod => {
-      const hasVariants = prod.variants.length > 1 || !!prod.variants[0]?.variant;
+categoryMap[selectedCategory].forEach(prod => {
+      const hasVariants = prod.variants && prod.variants.length > 0 && prod.variants.some(v => v.variant);
 
       const card = document.createElement("div");
       card.className = "product-card";
 
-// image (always render something)
-if (prod.photo_1) {
-  const img = document.createElement("img");
-  img.className = "media";
-  img.src = normalizeDriveUrl(prod.photo_1);
-  img.alt = prod.name;
-  card.appendChild(img);
-} else {
-  const placeholder = document.createElement("div");
-  placeholder.className = "media";
-  placeholder.style.display = "flex";
-  placeholder.style.alignItems = "center";
-  placeholder.style.justifyContent = "center";
-  placeholder.style.color = "#999";
-  placeholder.style.fontSize = "0.9rem";
-  placeholder.textContent = "No Image";
-  card.appendChild(placeholder);
-}
-
+      // image: use grouped photo_1 (we set this in fetchGroupedProducts). fallback to placeholder box.
+      const rawPhoto = (prod.photo_1 || "").trim();
+      const imgUrl = rawPhoto ? normalizeDriveUrl(rawPhoto) : "";
+      if (imgUrl) {
+        const img = document.createElement("img");
+        img.className = "media";
+        img.loading = "lazy";
+        img.alt = prod.name || "Product";
+        img.src = imgUrl;
+        img.onerror = () => {
+          const ph = document.createElement("div");
+          ph.className = "media";
+          ph.style.display = "flex";
+          ph.style.alignItems = "center";
+          ph.style.justifyContent = "center";
+          ph.style.color = "#999";
+          ph.style.fontSize = "0.9rem";
+          ph.textContent = "No Image";
+          if (img.parentNode) img.parentNode.replaceChild(ph, img);
+        };
+        card.appendChild(img);
+      } else {
+        const ph = document.createElement("div");
+        ph.className = "media";
+        ph.style.display = "flex";
+        ph.style.alignItems = "center";
+        ph.style.justifyContent = "center";
+        ph.style.color = "#999";
+        ph.style.fontSize = "0.9rem";
+        ph.textContent = "No Image";
+        card.appendChild(ph);
+      }
 
       // content
       const content = document.createElement("div");
@@ -711,43 +696,30 @@ if (prod.photo_1) {
       title.textContent = prod.name;
       content.appendChild(title);
 
-if (prod.variant_label && prod.variants?.length > 0) {
-  const desc = document.createElement("div");
-  desc.className = "desc";
-  desc.textContent = prod.variant_label + ": " + prod.variants.map(v => v.variant).filter(Boolean).join(", ");
-  content.appendChild(desc);
-}
+      // don't show variant_label in the list — user requested variants only when selecting
+      if (prod.description) {
+        const desc = document.createElement("div");
+        desc.className = "desc";
+        desc.textContent = prod.description;
+        content.appendChild(desc);
+      }
 
-
+      // price + button
       const priceRow = document.createElement("div");
       priceRow.className = "priceRow";
 
       const price = document.createElement("div");
       price.className = "price";
-price.textContent = formatRp(prod.basePrice ?? prod.pos_sell_price ?? prod.price ?? 0);
+      price.textContent = formatRp(prod.basePrice ?? 0);
       priceRow.appendChild(price);
 
-const btn = document.createElement("button");
-btn.className = "addBtn";
-btn.dataset.productName = prod.name;
-
-if (hasVariants) {
-  btn.textContent = "Select variation";
-  btn.addEventListener("click", () => {
-    openVariantModal(prod);
-  });
-} else {
-  btn.textContent = "Add";
-  btn.addEventListener("click", () => {
-    cart.add({ id: prod.id, product: prod });
-    const prev = btn.textContent;
-    btn.textContent = "Added ✓";
-    setTimeout(() => { btn.textContent = prev; }, 900);
-  });
-}
-
-priceRow.appendChild(btn);
-
+      // keep a class 'add-to-cart' and data-product-name so the delegated click handler
+      // already attached to #productList catches these and calls handleAddToCartByName().
+      const btn = document.createElement("button");
+      btn.className = "add-to-cart addBtn";
+      btn.dataset.productName = prod.name;
+      btn.textContent = (hasVariants ? "Select variation" : "Add to cart");
+      priceRow.appendChild(btn);
 
       content.appendChild(priceRow);
       card.appendChild(content);
@@ -1263,21 +1235,39 @@ function renderCart() {
     const li = document.createElement("li");
     li.className = "cart-item";
 
-    const nameSpan = document.createElement("span");
+const nameSpan = document.createElement("span");
     nameSpan.className = "cart-item-name";
     nameSpan.dataset.productName = item.name;
-    nameSpan.dataset.index = String(idx);          // <-- index for in-place update
+    nameSpan.dataset.index = String(idx);
     nameSpan.dataset.promoFree = item.isPromoFree ? "1" : "0";
-    nameSpan.textContent = item.name + (item.variant ? ` — ${item.variant}` : "");
-  if (item.isPromoFree) {
-    nameSpan.style.cursor = "pointer";
-    nameSpan.title = "Click to choose free item variant";
-    nameSpan.addEventListener("click", () => {
-      const group = window.groupedProducts[item.name];
-      if (group) showVariantSelector(group, true, idx);
-    });
-  }
+    nameSpan.textContent = item.name  (item.variant ? ` — ${item.variant}` : "");
+
+    // If this line is a promo free item, show a small label and allow clicking to choose variant
+    if (item.isPromoFree) {
+      nameSpan.style.cursor = "pointer";
+      nameSpan.title = "Click to choose free item variant";
+      nameSpan.addEventListener("click", () => {
+        const group = window.groupedProducts?.[item.name];
+        if (group) showVariantSelector(group, true, idx);
+      });
+    }
+
     li.appendChild(nameSpan);
+
+    // 'Promo Free' badge immediately after name (light styling inline to avoid depending on external CSS)
+    if (item.isPromoFree) {
+      const badge = document.createElement("span");
+      badge.className = "promo-free-badge";
+      badge.textContent = "Promo Free";
+      badge.style.marginLeft = "8px";
+      badge.style.background = "#28a745";
+      badge.style.color = "#fff";
+      badge.style.fontSize = "11px";
+      badge.style.padding = "2px 6px";
+      badge.style.borderRadius = "999px";
+      badge.style.verticalAlign = "middle";
+      li.appendChild(badge);
+    }
 
     const qtyWrap = document.createElement("div");
     qtyWrap.className = "qty-adjuster";
