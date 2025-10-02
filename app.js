@@ -24,21 +24,13 @@ const db = firebase.firestore();
     We assign to window.normalizeDriveUrl so it overrides duplicate defs.
  */
 window.normalizeDriveUrl = function(raw) {
-  if (!raw) return "";
-  const s = String(raw).trim();
-  // If it already looks like a direct uc URL, return as-is
-  if (/drive\.google\.com\/uc\?/.test(s) || /drive\.google\.com\/uc\?export=/.test(s)) return s;
-  // /d/<ID>/ pattern
-  let m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
-  if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
-  // open?id=<ID> or ?id=<ID>
-  m = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
-  if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
-  // fallback: if it is already an http(s) url (maybe external host) return it
-  if (/^https?:\/\//i.test(s)) return s;
-  // otherwise return raw
-  return s;
-};
+   if (!raw) return "";
+   const s = String(raw).trim();
+   // Always extract the file ID and rewrite to uc?id= format (works in <img>)
+   const m = s.match(/[-\w]{10,}/);
+   if (m && m[0]) return `https://drive.google.com/uc?id=${m[0]}`;
+   return s;
+ };
 
 /**
  * Format number to Indonesian Rupiah, safe for missing values.
@@ -636,8 +628,9 @@ categoryMap[selectedCategory].forEach(prod => {
       card.className = "product-card";
 
       // image: use grouped photo_1 (we set this in fetchGroupedProducts). fallback to placeholder box.
-      const rawPhoto = (prod.photo_1 || "").trim();
-      const imgUrl = rawPhoto ? normalizeDriveUrl(rawPhoto) : "";
+      // Prefer photo_1, but also fallback to legacy field 'photo' if needed
+ const rawPhoto = (prod.photo_1 || prod.photo || "").trim();
+ const imgUrl = rawPhoto ? normalizeDriveUrl(rawPhoto) : "";
       if (imgUrl) {
         const img = document.createElement("img");
         img.className = "media";
