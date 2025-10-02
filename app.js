@@ -13,38 +13,34 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// ---------------------------------
-// small helpers (insert near top)
-// ---------------------------------
-/* === PATCH: robust normalizeDriveUrl (overwrite earlier defs)
-   Handles:
-   - Google Drive links (/d/<id>/, ?id=<id>, uc?id=..., uc?export=view&id=...)
-   - GitHub raw URLs (raw.githubusercontent.com/... or github.io/... assets)
-   Always returns a usable direct URL.
-*/
 window.normalizeDriveUrl = function(raw) {
   if (!raw) return "";
-  const s = String(raw).trim();
+  let s = String(raw).trim();
 
-  // 1️⃣ Already a GitHub asset/raw file? Return as-is
-  if (
-    s.includes("/assets/images/") ||
-    s.includes("github.io/") ||
-    s.includes("raw.githubusercontent.com")
-  ) {
+  // 1️⃣ GitHub blob → raw conversion
+  const githubBlobMatch = s.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/);
+  if (githubBlobMatch) {
+    const user = githubBlobMatch[1];
+    const repo = githubBlobMatch[2];
+    const path = githubBlobMatch[3];
+    return `https://raw.githubusercontent.com/${user}/${repo}/main/${path}`;
+  }
+
+  // 2️⃣ Already a raw GitHub asset or github.io? Return as-is
+  if (s.includes("/assets/images/") || s.includes("github.io/") || s.includes("raw.githubusercontent.com")) {
     return s;
   }
 
-  // 2️⃣ Google Drive ID extraction
-  let idMatch = s.match(/id=([a-zA-Z0-9_-]{10,})/);      // ?id=...
-  if (!idMatch) idMatch = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/); // /d/.../
-  if (!idMatch) idMatch = s.match(/\/file\/d\/([a-zA-Z0-9_-]{10,})/); // /file/d/.../
+  // 3️⃣ Google Drive ID extraction
+  let idMatch = s.match(/id=([a-zA-Z0-9_-]{10,})/);
+  if (!idMatch) idMatch = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+  if (!idMatch) idMatch = s.match(/\/file\/d\/([a-zA-Z0-9_-]{10,})/);
 
   if (idMatch && idMatch[1]) {
     return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
   }
 
-  // 3️⃣ fallback: return original URL
+  // 4️⃣ fallback: return original URL
   return s;
 };
 
