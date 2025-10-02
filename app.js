@@ -176,7 +176,84 @@ const urlParams = new URLSearchParams(window.location.search);
 const tableNumber = urlParams.get("table") || "unknown";
 
 let currentUser = null;
-let cart = [];
+/***********************
+ * Cart Manager
+ ***********************/
+const cart = {
+  items: [],
+
+  add(entry) {
+    // entry: { id, product, variant?, price? }
+    const price = entry.price ??
+                  entry.product?.pos_sell_price ??
+                  entry.product?.price ??
+                  0;
+
+    this.items.push({
+      ...entry,
+      price
+    });
+
+    this.save();
+    this.render();
+  },
+
+  remove(index) {
+    if (index >= 0 && index < this.items.length) {
+      this.items.splice(index, 1);
+      this.save();
+      this.render();
+    }
+  },
+
+  clear() {
+    this.items = [];
+    this.save();
+    this.render();
+  },
+
+  getTotal() {
+    return this.items.reduce((sum, it) => sum + (Number(it.price) || 0), 0);
+  },
+
+  save() {
+    localStorage.setItem("cart", JSON.stringify(this.items));
+    localStorage.setItem("cartSavedAt", Date.now());
+  },
+
+  load() {
+    try {
+      const raw = JSON.parse(localStorage.getItem("cart") || "[]");
+      if (Array.isArray(raw)) this.items = raw;
+    } catch {
+      this.items = [];
+    }
+  },
+
+  render() {
+    const list = document.querySelector(".cart-list");
+    const totalEl = document.getElementById("cart-total");
+    if (!list || !totalEl) return;
+
+    list.innerHTML = "";
+    this.items.forEach((it, idx) => {
+      const li = document.createElement("li");
+      li.textContent = `${it.product?.name || "Item"} – ${formatRp(it.price)}`;
+      const rm = document.createElement("button");
+      rm.textContent = "×";
+      rm.className = "removeBtn";
+      rm.addEventListener("click", () => this.remove(idx));
+      li.appendChild(rm);
+      list.appendChild(li);
+    });
+
+    totalEl.textContent = formatRp(this.getTotal());
+  }
+};
+
+// Initialize cart from localStorage
+cart.load();
+cart.render();
 let sessionTimer = null;
 let unsubscribeOrders = null;
 let activePromos = [];
@@ -634,19 +711,20 @@ if (prod.photo_1) {
       title.textContent = prod.name;
       content.appendChild(title);
 
-      if (prod.variant_label) {
-        const desc = document.createElement("div");
-        desc.className = "desc";
-        desc.textContent = prod.variant_label + ": " + prod.variant_names;
-        content.appendChild(desc);
-      }
+if (prod.variant_label && prod.variants?.length > 0) {
+  const desc = document.createElement("div");
+  desc.className = "desc";
+  desc.textContent = prod.variant_label + ": " + prod.variants.map(v => v.variant).filter(Boolean).join(", ");
+  content.appendChild(desc);
+}
+
 
       const priceRow = document.createElement("div");
       priceRow.className = "priceRow";
 
       const price = document.createElement("div");
       price.className = "price";
-      price.textContent = formatRp(prod.pos_sell_price ?? prod.price ?? 0);
+price.textContent = formatRp(prod.basePrice ?? prod.pos_sell_price ?? prod.price ?? 0);
       priceRow.appendChild(price);
 
 const btn = document.createElement("button");
