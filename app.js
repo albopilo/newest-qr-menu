@@ -16,34 +16,38 @@ const db = firebase.firestore();
 // ---------------------------------
 // small helpers (insert near top)
 // ---------------------------------
-/* === PATCH: robust normalizeDriveUrl (overwrite earlier defs) ===
-    This central function handles:
-    - drive.com /d/<id>/ links
-    - links with ?id=<id>
-    - already-direct uc?export=view&id=... and uc?id=...
-    We assign to window.normalizeDriveUrl so it overrides duplicate defs.
- */
+/* === PATCH: robust normalizeDriveUrl (overwrite earlier defs)
+   Handles:
+   - Google Drive links (/d/<id>/, ?id=<id>, uc?id=..., uc?export=view&id=...)
+   - GitHub raw URLs (raw.githubusercontent.com/... or github.io/... assets)
+   Always returns a usable direct URL.
+*/
 window.normalizeDriveUrl = function(raw) {
-   if (!raw) return "";
-   const s = String(raw).trim();
+  if (!raw) return "";
+  const s = String(raw).trim();
 
-   // ✅ if already a GitHub Pages asset (e.g. /assets/images/...), leave unchanged
-   if (s.includes("/assets/images/") || s.includes("github.io/")) {
-     return s;
-   }
+  // 1️⃣ Already a GitHub asset/raw file? Return as-is
+  if (
+    s.includes("/assets/images/") ||
+    s.includes("github.io/") ||
+    s.includes("raw.githubusercontent.com")
+  ) {
+    return s;
+  }
 
-   // Extract Google Drive file ID from various formats
-   let m = s.match(/id=([a-zA-Z0-9_-]{10,})/);
-   if (!m) m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+  // 2️⃣ Google Drive ID extraction
+  let idMatch = s.match(/id=([a-zA-Z0-9_-]{10,})/);      // ?id=...
+  if (!idMatch) idMatch = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/); // /d/.../
+  if (!idMatch) idMatch = s.match(/\/file\/d\/([a-zA-Z0-9_-]{10,})/); // /file/d/.../
 
-   if (m && m[1]) {
-     // Always normalize to export=view form
-     return `https://drive.google.com/uc?export=view&id=${m[1]}`;
-   }
+  if (idMatch && idMatch[1]) {
+    return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
+  }
 
-   // fallback: return as-is
-   return s;
- };
+  // 3️⃣ fallback: return original URL
+  return s;
+};
+
 /**
  * Format number to Indonesian Rupiah, safe for missing values.
  * Usage: formatRp(15000) -> "Rp15.000"
