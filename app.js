@@ -20,33 +20,9 @@ const db = firebase.firestore();
  * Format number to Indonesian Rupiah, safe for missing values.
  * Usage: formatRp(15000) -> "Rp15.000"
  */
-function formatRp(n) {
-  try {
-    const val = Number(n || 0);
-    return "Rp" + val.toLocaleString("id-ID");
-  } catch (e) {
-    return "Rp0";
-  }
+function formatRp(value) {
+  return "Rp" + Number(value).toLocaleString("id-ID");
 }
-
-/**
- * Normalize Google Drive share links to a direct view URL.
- * Accepts: "https://drive.google.com/file/d/ID/view?..." or "...?id=ID"
- * Returns: "https://drive.google.com/uc?export=view&id=ID" or original string.
- */
-function normalizeDriveUrl(raw) {
-  if (!raw) return "";
-  const s = String(raw).trim();
-  // /d/FILEID pattern
-  let m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
-  if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
-  // ?id=FILEID or &id=FILEID
-  m = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
-  if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
-  // return raw (might already be a direct image URL)
-  return s;
-}
-
 
 // app.js — minimal product rendering (compatible with firebase v8)
 (function(){
@@ -59,17 +35,14 @@ function normalizeDriveUrl(raw) {
   // Convert common Google Drive share links to direct-access URL
 function normalizeDriveUrl(url) {
   if (!url) return "";
-  // Match /d/<id>/ or id=... style
-  const fileIdMatch = url.match(/\/d\/([^/]+)\//) || url.match(/[?&]id=([^&]+)/);
-  if (fileIdMatch && fileIdMatch[1]) {
-    return `https://drive.google.com/uc?id=${fileIdMatch[1]}`;
-  }
-  return url; // fallback (maybe it's already a direct link)
+  // Handle /d/<id>/ style links
+  const m1 = url.match(/\/d\/([^/]+)\//);
+  if (m1 && m1[1]) return `https://drive.google.com/uc?id=${m1[1]}`;
+  // Handle ?id=<id> style links
+  const m2 = url.match(/[?&]id=([^&]+)/);
+  if (m2 && m2[1]) return `https://drive.google.com/uc?id=${m2[1]}`;
+  return url;
 }
-
-
-  // Format price
-  function formatRp(n){ return `Rp${Number(n||0).toLocaleString('id-ID')}`; }
 
 function renderProductCard(doc) {
   const p = doc.data ? doc.data() : doc;
@@ -133,6 +106,7 @@ function renderProductCard(doc) {
   priceRow.className = "priceRow";
 
   const priceVal = p.pos_sell_price ?? p.price ?? p.basePrice ?? p.market_price ?? 0;
+
   const priceEl = document.createElement("div");
   priceEl.className = "price";
   priceEl.textContent = formatRp(priceVal);
@@ -163,7 +137,6 @@ function renderProductCard(doc) {
   card.appendChild(content);
   return card;
 }
-
 
   function clearProducts() {
     productListEl.innerHTML = "";
@@ -676,11 +649,27 @@ if (prod.photo_1) {
       price.textContent = formatRp(prod.pos_sell_price ?? prod.price ?? 0);
       priceRow.appendChild(price);
 
-      const btn = document.createElement("button");
-      btn.className = "addBtn";
-      btn.dataset.productName = prod.name;
-      btn.textContent = hasVariants ? "Select variation" : "Add to cart";
-      priceRow.appendChild(btn);
+const btn = document.createElement("button");
+btn.className = "addBtn";
+btn.dataset.productName = prod.name;
+
+if (hasVariants) {
+  btn.textContent = "Select variation";
+  btn.addEventListener("click", () => {
+    openVariantModal(prod);
+  });
+} else {
+  btn.textContent = "Add";
+  btn.addEventListener("click", () => {
+    cart.add({ id: prod.id, product: prod });
+    const prev = btn.textContent;
+    btn.textContent = "Added ✓";
+    setTimeout(() => { btn.textContent = prev; }, 900);
+  });
+}
+
+priceRow.appendChild(btn);
+
 
       content.appendChild(priceRow);
       card.appendChild(content);
@@ -2173,6 +2162,53 @@ if (savedUser && sessionStart) {
 
   renderCart();
 }
+
+/***********************
+ * Variant modal logic
+ ***********************/
+function openVariantModal(prod) {
+  const modal = document.getElementById("variantModal");
+  const optionsEl = document.getElementById("variantOptions");
+  if (!modal || !optionsEl) return;
+
+  optionsEl.innerHTML = "";
+
+  // build variant buttons
+  if (prod.variants && prod.variants.length > 0) {
+    prod.variants.forEach(v => {
+      const btn = document.createElement("button");
+      btn.textContent = v.variant ? `${v.variant} – ${formatRp(v.price)}` : formatRp(v.price);
+      btn.style.display = "block";
+      btn.style.margin = "6px auto";
+      btn.addEventListener("click", () => {
+        cart.add({ id: prod.id, product: prod, variant: v.variant, price: v.price });
+        closeVariantModal();
+        showBanner(`${prod.name} (${v.variant || "Default"}) added ✓`, 2000);
+      });
+      optionsEl.appendChild(btn);
+    });
+  } else {
+    const msg = document.createElement("p");
+    msg.textContent = "No variants available.";
+    optionsEl.appendChild(msg);
+  }
+
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closeVariantModal() {
+  const modal = document.getElementById("variantModal");
+  if (modal) {
+    modal.classList.add("hidden");
+    modal.setAttribute("aria-hidden", "true");
+  }
+}
+
+// Cancel button
+const cancelBtn = document.getElementById("cancelVariant");
+if (cancelBtn) cancelBtn.addEventListener("click", closeVariantModal);
+
 
 /***********************
  * Unified DOMContentLoaded bootstrap
