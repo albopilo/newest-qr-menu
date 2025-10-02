@@ -57,25 +57,6 @@ window.normalizeDriveUrl = function(raw) {
   const productListEl = document.getElementById("productList");
   if (!productListEl) throw new Error("#productList missing");
 
-  // Convert common Google Drive share links to direct-access URL
-// Replace / insert this helper near the top
-function normalizeDriveUrl(raw) {
-  if (!raw) return "";
-  const s = String(raw).trim();
-  // If already a direct 'uc' URL or googleusercontent, return it (keeps export=view if present)
-  if (s.includes('/uc?') || s.includes('googleusercontent.com')) return s;
-  // /d/FILEID pattern
-  let m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
-  if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
-  // ?id=FILEID or &id=FILEID
-  m = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
-  if (m && m[1]) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
- // return raw if it's already a remote http(s) URL
-  if (/^https?:\/\//i.test(s)) return s;
-  // otherwise return empty so fallback (No Image) is used
-  return "";
-}
-
 
 function renderProductCard(doc) {
   const p = doc.data ? doc.data() : doc;
@@ -1241,6 +1222,7 @@ const nameSpan = document.createElement("span");
     nameSpan.dataset.index = String(idx);
     nameSpan.dataset.promoFree = item.isPromoFree ? "1" : "0";
 nameSpan.textContent = String(item.name || "Unnamed") + (item.variant ? ` — ${item.variant}` : "");
+
     // If this line is a promo free item, show a small label and allow clicking to choose variant
     if (item.isPromoFree) {
       nameSpan.style.cursor = "pointer";
