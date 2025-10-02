@@ -27,18 +27,14 @@ window.normalizeDriveUrl = function(raw) {
   if (!raw) return "";
   const s = String(raw).trim();
 
-  // Already in uc?id form → just return
-  if (/https:\/\/drive\.google\.com\/uc\?id=/.test(s)) {
-    return s;
-  }
-
-  // Handle uc?export=view&id=...
+// Extract file ID from any Drive link
   let m = s.match(/id=([a-zA-Z0-9_-]{10,})/);
-  if (m) return `https://drive.google.com/uc?id=${m[1]}`;
+  if (!m) m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
 
-  // Handle /d/<id>/
-  m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
-  if (m) return `https://drive.google.com/uc?id=${m[1]}`;
+  if (m && m[1]) {
+    // Always use export=view form (works reliably for <img>)
+    return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  }
 
   return s;
 };
