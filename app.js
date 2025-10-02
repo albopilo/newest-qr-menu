@@ -23,12 +23,21 @@ window.normalizeDriveUrl = function(raw) {
     const user = githubBlobMatch[1];
     const repo = githubBlobMatch[2];
     const path = githubBlobMatch[3];
-    return `https://raw.githubusercontent.com/${user}/${repo}/main/${encodeURI(path)}`;
+    return `https://raw.githubusercontent.com/${user}/${repo}/main/${encodeURI(decodeURIComponent(path))}`;
   }
 
-  // --- 2️⃣ Already a raw GitHub or github.io asset? Return as-is ---
+  // --- 2️⃣ Already a raw GitHub or github.io asset? Fix double-encoding ---
   if (/^(https?:\/\/)?(raw\.githubusercontent\.com|.*\.github\.io|.*\/assets\/images\/)/i.test(s)) {
-    return encodeURI(s);
+    try {
+      const urlObj = new URL(s);
+      const fixedPath = urlObj.pathname
+        .split('/')
+        .map(p => encodeURIComponent(decodeURIComponent(p))) // decode first, then encode
+        .join('/');
+      return urlObj.origin + fixedPath + (urlObj.search || '');
+    } catch {
+      return encodeURI(decodeURIComponent(s)); // fallback
+    }
   }
 
   // --- 3️⃣ Google Drive link detection ---
@@ -39,14 +48,16 @@ window.normalizeDriveUrl = function(raw) {
     return `https://drive.google.com/uc?export=view&id=${encodeURIComponent(idMatch[1])}`;
   }
 
-  // --- 4️⃣ fallback: encode and return original URL ---
+  // --- 4️⃣ fallback: encode and return original URL safely ---
   try {
-    // Attempt to encode spaces and unsafe characters safely
     const urlObj = new URL(s);
-    return urlObj.origin + urlObj.pathname.split('/').map(encodeURIComponent).join('/') + (urlObj.search || '');
+    const fixedPath = urlObj.pathname
+      .split('/')
+      .map(p => encodeURIComponent(decodeURIComponent(p)))
+      .join('/');
+    return urlObj.origin + fixedPath + (urlObj.search || '');
   } catch {
-    // If not a valid URL, just encode the string loosely
-    return encodeURI(s);
+    return encodeURI(decodeURIComponent(s));
   }
 };
 
