@@ -115,6 +115,33 @@ button:disabled {
   font-weight: 500;
 }
 
+/* === Category Tabs (desktop/base) === */
+#categoryTabs button {
+  display: inline-block;
+  font-size: 0.85em;
+  padding: 6px 10px;
+  margin-right: 6px;
+  border-radius: 20px;
+  white-space: nowrap;
+  width: auto;
+  background-color: #eee;
+  color: #333;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s; /* ✅ add transform for press feedback */
+}
+
+#categoryTabs button.active {
+  background-color: #333;
+  color: #fff;
+  font-weight: 500;
+}
+
+#categoryTabs button:active {
+  transform: scale(0.95); /* ✅ consistent touch feedback with other buttons */
+}
+
+
 /* === Product List === */
 #productList h4 {
   font-size: 1.2em;
@@ -547,13 +574,16 @@ body.staff .icon-btn {
   display: inline-block !important;
 }
 
-/* product card styles (paste into style.css or inside <style> in index.html) */
+/* === Product Grid Enhancements === */
 .product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
+  gap: 16px;                  /* ✅ consistent spacing */
   margin: 16px 8px;
+  padding: 0;                 /* ✅ consistent spacing reset */
 }
+
+/* Product Card */
 .product-card {
   background: #fff;
   border-radius: 12px;
@@ -561,39 +591,66 @@ body.staff .icon-btn {
   box-shadow: 0 6px 18px rgba(0,0,0,0.06);
   display: flex;
   flex-direction: column;
+  transition: transform 0.15s ease, box-shadow 0.15s ease; /* ✅ touch feedback */
 }
+
+.product-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+/* Product images inside cards */
 .product-card .media {
   width: 100%;
-  height: 160px;
-  object-fit: cover;
-  background: linear-gradient(180deg,#f4f6f8,#fff);
+  aspect-ratio: var(--aspect-ratio, 4 / 3); /* ✅ flexible ratio, default 4:3 */
+  max-height: 240px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb; /* subtle placeholder */
 }
+
+.product-card .media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;   
+  object-position: center;
+  display: block;
+}
+
+/* Content */
 .product-card .content {
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
+
 .product-card .title {
   font-weight: 600;
   font-size: 1rem;
   color: #111827;
 }
+
 .product-card .desc {
   font-size: 0.88rem;
   color: #6b7280;
   min-height: 30px;
 }
+
 .product-card .priceRow {
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap: 8px;
 }
+
 .product-card .price {
   font-weight:700;
   color: #0f172a;
 }
+
 .product-card .addBtn {
   background: #ef4444;
   color: #fff;
@@ -601,9 +658,27 @@ body.staff .icon-btn {
   padding: 8px 12px;
   border-radius: 8px;
   cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease; /* ✅ touch feedback */
 }
-.product-card .addBtn.small { padding:6px 10px; font-size:0.9rem; }
-.product-card .meta { font-size: 0.82rem; color:#6b7280; }
+
+.product-card .addBtn:hover {
+  background: #dc2626;
+}
+
+.product-card .addBtn:active {
+  transform: scale(0.95);
+}
+
+.product-card .addBtn.small { 
+  padding:6px 10px; 
+  font-size:0.9rem; 
+}
+
+.product-card .meta { 
+  font-size: 0.82rem; 
+  color:#6b7280; 
+}
+
 @media (max-width:480px){
   .product-card .media { height: 140px; }
 }
