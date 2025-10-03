@@ -17,13 +17,20 @@ window.normalizeDriveUrl = function(raw) {
   if (!raw) return "";
   let s = String(raw).trim();
 
-  // --- 1️⃣ GitHub blob → raw conversion ---
-  const githubBlobMatch = s.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/i);
+  // --- 0️⃣ If already a GitHub ?raw=true link, prefer it as-is ---
+  if (/^https:\/\/github\.com\/.+\/blob\/.+\?raw=true$/i.test(s)) {
+    return s;
+  }
+
+  // --- 1️⃣ GitHub blob → raw conversion (fallback if no ?raw=true) ---
+  const githubBlobMatch = s.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/i);
   if (githubBlobMatch) {
     const user = githubBlobMatch[1];
     const repo = githubBlobMatch[2];
-    const path = githubBlobMatch[3];
-    return `https://raw.githubusercontent.com/${user}/${repo}/main/${encodeURI(decodeURIComponent(path))}`;
+    const branch = githubBlobMatch[3];
+    const path = githubBlobMatch[4];
+
+    return `https://raw.githubusercontent.com/${user}/${repo}/${branch}/${encodeURI(decodeURIComponent(path))}`;
   }
 
   // --- 2️⃣ Already a raw GitHub or github.io asset? Fix double-encoding ---
@@ -32,7 +39,7 @@ window.normalizeDriveUrl = function(raw) {
       const urlObj = new URL(s);
       const fixedPath = urlObj.pathname
         .split('/')
-        .map(p => encodeURIComponent(decodeURIComponent(p))) // decode first, then encode
+        .map(p => encodeURIComponent(decodeURIComponent(p)))
         .join('/');
       return urlObj.origin + fixedPath + (urlObj.search || '');
     } catch {
@@ -48,7 +55,7 @@ window.normalizeDriveUrl = function(raw) {
     return `https://drive.google.com/uc?export=view&id=${encodeURIComponent(idMatch[1])}`;
   }
 
-  // --- 4️⃣ fallback: encode and return original URL safely ---
+  // --- 4️⃣ Fallback: encode and return original URL safely ---
   try {
     const urlObj = new URL(s);
     const fixedPath = urlObj.pathname
@@ -60,7 +67,6 @@ window.normalizeDriveUrl = function(raw) {
     return encodeURI(decodeURIComponent(s));
   }
 };
-
 
 /**
  * Format number to Indonesian Rupiah, safe for missing values.
