@@ -562,26 +562,12 @@ body.staff .icon-btn {
   display: flex;
   flex-direction: column;
 }
-/* Product images inside cards */
 .product-card .media {
   width: 100%;
-  aspect-ratio: 4 / 3; /* or 1/1 for square, 16/9 for wide */
-  max-height: 240px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f9fafb; /* subtle placeholder */
+  height: 160px;
+  object-fit: cover;
+  background: linear-gradient(180deg,#f4f6f8,#fff);
 }
-
-.product-card .media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;   /* fill box, crop edges */
-  object-position: center;
-  display: block;
-}
-
 .product-card .content {
   padding: 12px;
   display: flex;
