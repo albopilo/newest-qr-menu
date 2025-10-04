@@ -562,26 +562,25 @@ body.staff .icon-btn {
   display: flex;
   flex-direction: column;
 }
-/* === Product Card Image Handling === */
 .product-card .media {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;              /* keeps consistent shape */
+  aspect-ratio: 4 / 3;       /* consistent shape */
   overflow: hidden;
-  background: #f9fafb;              /* subtle fallback bg */
+  background: #f9fafb;
 }
 
 .product-card .media img {
   width: 100%;
   height: 100%;
-  object-fit: cover;                /* ✅ still fills box */
-  object-position: center;
-  transform: scale(0.9);            /* ✅ zoomed out a little */
+  object-fit: cover;         /* preserves aspect ratio, no stretch */
+  object-position: center;   /* keeps food centered */
+  transform: scale(0.95);    /* ✅ zoom out slightly while still covering */
   transition: transform 0.3s ease;
 }
 
 .product-card:hover .media img {
-  transform: scale(1);              /* smooth zoom-in on hover */
+  transform: scale(1);       /* hover zoom-in for nice effect */
 }
 
 .product-card .content {
