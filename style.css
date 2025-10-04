@@ -612,9 +612,16 @@ body.staff .icon-btn {
 
 .product-card .media img {
   width: 100%;
-  height: auto;        /* ✅ keep natural ratio */
-  object-fit: contain; /* show full dish, no cropping */
+  height: 100%;
+  object-fit: cover;    /* ✅ fills the card nicely */
+  border-bottom: 1px solid #f0f0f0;
+  transition: transform 0.3s ease;
 }
+
+.product-card .media img:hover {
+  transform: scale(1.05); /* ✅ subtle zoom effect */
+}
+
 
 /* Content */
 .product-card .content {
