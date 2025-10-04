@@ -563,24 +563,23 @@ body.staff .icon-btn {
   flex-direction: column;
 }
 .product-card .media {
-  position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  height: 160px;
   overflow: hidden;
   background: linear-gradient(180deg,#f4f6f8,#fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .product-card .media img {
-  width: 100%;          /* fill width */
-  height: auto;         /* preserve aspect ratio */
-  object-fit: cover;    /* crop instead of stretch */
+  height: 100%;
+  width: auto;
+  object-fit: cover;
   object-position: center;
   transition: transform 0.3s ease;
 }
 
-.product-card:hover .media img {
-  transform: scale(1.05);
-}
 
 .product-card .content {
   padding: 12px;

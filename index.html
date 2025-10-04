@@ -118,16 +118,16 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
 
   <!-- Monday-closure logic: toggles UI, does NOT overwrite body -->
+    <!-- Monday-closure logic + adaptive product image zoom -->
   <script>
     (function() {
-      // Determine local day of week: 0 = Sun, 1 = Mon, ...
+      // --- Monday closure check ---
       const today = new Date();
-      const day = today.getDay();
+      const day = today.getDay(); // 0 = Sun, 1 = Mon, ...
 
-      // Expose a global flag so app.js can read it if needed
+      // Expose global flag
       window.IS_CLOSED_ON_MONDAY = (day === 1);
 
-      // Show closed message and hide the app container (do not replace body)
       const closedEl = document.getElementById('closedMessage');
       const appEl = document.getElementById('app');
 
@@ -135,12 +135,40 @@
         if (closedEl) closedEl.classList.add('visible');
         if (appEl) appEl.classList.add('hidden');
       } else {
-        // Ensure closed message is hidden and app visible on other days
         if (closedEl) closedEl.classList.remove('visible');
         if (appEl) appEl.classList.remove('hidden');
       }
+
+      // --- Adaptive zoom for product images ---
+      document.querySelectorAll('.product-card .media img').forEach(img => {
+        img.style.transition = "transform 0.3s ease"; // smooth zoom
+
+        const applyScale = () => {
+          const aspectRatio = img.naturalWidth / img.naturalHeight;
+          if (aspectRatio < 1) {
+            // Portrait → zoom out more
+            img.style.transform = "scale(0.8)";
+          } else if (aspectRatio > 1.6) {
+            // Very wide → slight zoom out
+            img.style.transform = "scale(0.95)";
+          } else {
+            // Square-ish → medium zoom out
+            img.style.transform = "scale(0.9)";
+          }
+        };
+
+        // Run when image loads
+        img.addEventListener("load", applyScale);
+
+        // Hover: zoom to natural size
+        img.parentElement.addEventListener("mouseenter", () => {
+          img.style.transform = "scale(1)";
+        });
+        img.parentElement.addEventListener("mouseleave", applyScale);
+      });
     })();
   </script>
+
 
   <!-- Your app script should be loaded after the DOM markup above.
        Use 'defer' if you prefer placing it in head, but here it is included at the end. -->
