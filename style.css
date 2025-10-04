@@ -568,6 +568,13 @@ body.staff .icon-btn {
   object-fit: cover;
   background: linear-gradient(180deg,#f4f6f8,#fff);
 }
+.product-card .media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;   /* ✅ fills the box without distortion */
+  display: block;
+}
+
 .product-card .content {
   padding: 12px;
   display: flex;
