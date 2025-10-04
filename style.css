@@ -562,17 +562,26 @@ body.staff .icon-btn {
   display: flex;
   flex-direction: column;
 }
+/* === Product Card Image Handling === */
 .product-card .media {
+  position: relative;
   width: 100%;
-  height: 160px;
-  object-fit: cover;
-  background: linear-gradient(180deg,#f4f6f8,#fff);
+  aspect-ratio: 4 / 3;              /* keeps consistent shape */
+  overflow: hidden;
+  background: #f9fafb;              /* subtle fallback bg */
 }
+
 .product-card .media img {
   width: 100%;
   height: 100%;
-  object-fit: cover;   /* ✅ fills the box without distortion */
-  display: block;
+  object-fit: cover;                /* ✅ still fills box */
+  object-position: center;
+  transform: scale(0.9);            /* ✅ zoomed out a little */
+  transition: transform 0.3s ease;
+}
+
+.product-card:hover .media img {
+  transform: scale(1);              /* smooth zoom-in on hover */
 }
 
 .product-card .content {
