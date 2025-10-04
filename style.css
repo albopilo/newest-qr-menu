@@ -565,23 +565,22 @@ body.staff .icon-btn {
 .product-card .media {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;      /* keeps a nice box ratio */
+  aspect-ratio: 4 / 3;     /* adjust ratio as you like (4:3, 1:1, etc.) */
   overflow: hidden;
   background: #f9fafb;
 }
 
 .product-card .media img {
-  width: auto;              /* no forced width */
-  height: 100%;             /* always fill vertically */
-  min-width: 100%;          /* ensures coverage horizontally if landscape */
-  object-fit: cover;        /* crop instead of stretch */
-  object-position: center;  /* center focus */
-  transform: scale(0.9);    /* zoomed out a little */
+  width: 100%;
+  height: 100%;
+  object-fit: cover;       /* no stretching, crops if needed */
+  object-position: center;
+  transform: scale(0.9);   /* zoomed out a little */
   transition: transform 0.3s ease;
 }
 
 .product-card:hover .media img {
-  transform: scale(1);      /* smooth zoom-in on hover */
+  transform: scale(1);     /* smooth zoom on hover */
 }
 
 .product-card .content {
