@@ -1504,15 +1504,31 @@ window.filterOrders = filterOrders;
 /***********************
  * Persistent chime repeater
 ***********************/
+// -------------------- safer repeating chime manager --------------------
 let chimeRepeatTimer = null;
 let repeatOrderIds = new Set();
 
 function startRepeatingChimes() {
   if (chimeRepeatTimer) return; // already running
+
   chimeRepeatTimer = setInterval(() => {
-    if (repeatOrderIds.size > 0) {
-      console.log("🔁 Repeating chime for pending orders:", [...repeatOrderIds]);
-      AudioChime.requestChime();
+    try {
+      if (repeatOrderIds.size === 0) return; // nothing to do
+
+      // safe logging: convert Set -> Array for console
+      console.log("🔁 Repeating chime for pending orders:", Array.from(repeatOrderIds));
+
+      // Use AudioChime.requestChime() (gesture-aware). It will queue the play
+      // if the audio is not yet unlocked. This keeps consistent behavior across browsers.
+      try {
+        AudioChime.requestChime();
+      } catch (err) {
+        // Defensive: if AudioChime isn't present or throws, log but don't break the interval
+        console.warn("AudioChime.requestChime() failed in repeater:", err);
+      }
+    } catch (err) {
+      // Protect the interval from any unforeseen exception so it keeps running
+      console.error("Repeating chime interval error:", err);
     }
   }, 7000);
 }
@@ -1522,8 +1538,24 @@ function stopRepeatingChimes() {
     clearInterval(chimeRepeatTimer);
     chimeRepeatTimer = null;
   }
+  // keep the set cleared so next start is clean
   repeatOrderIds.clear();
 }
+
+// When the page becomes visible again, attempt to re-prime/chime once:
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    try {
+      // prime or attempt a single chime (no-op if locked)
+      AudioChime.primeMutedAutoplay?.();
+      // If there are pending orders and a timer isn't running, start it
+      if (repeatOrderIds.size > 0 && !chimeRepeatTimer) startRepeatingChimes();
+    } catch (err) {
+      console.debug("visibilitychange chime attempt failed:", err);
+    }
+  }
+});
+
 
 /***********************
  * Order card styling
