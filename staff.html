@@ -107,6 +107,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
+<!-- ✅ Load orders script -->
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
@@ -150,9 +151,7 @@ function styleOrderBox(el, status) {
 
 // ✅ Firestore update function
 async function updateOrderStatus(id, newStatus) {
-  await db.collection("orders").doc(id).update({
-    kitchenStatus: newStatus
-  });
+  await db.collection("orders").doc(id).update({ kitchenStatus: newStatus });
   alert(`✅ Order updated to ${newStatus}`);
 }
 
@@ -183,7 +182,6 @@ function renderOrder(id, data) {
     <p class="status">Kitchen Status: ${kitchenStatus}</p>
   `;
 
-  // ✅ Action buttons
   const statusControls = document.createElement("div");
   statusControls.className = "status-controls";
 
@@ -204,7 +202,6 @@ function renderOrder(id, data) {
 
   div.appendChild(statusControls);
 
-  // ✅ Contact Mille button
   const lowerTable = table.toLowerCase();
   let phone = null;
   if (lowerTable.includes("mille 1")) phone = phoneMap["mille 1"];
@@ -243,7 +240,6 @@ function loadOrders() {
 // ✅ Filter orders
 function filterOrders(status) {
   currentFilter = status;
-
   document.querySelectorAll("#orderFilters .btn").forEach(btn => btn.classList.remove("active"));
   const activeBtn = [...document.querySelectorAll("#orderFilters .btn")]
     .find(b => b.textContent.toLowerCase().includes(status));
@@ -259,5 +255,21 @@ function filterOrders(status) {
 orderDate.addEventListener("change", loadOrders);
 loadOrders();
 </script>
+
+<!-- ✅ Load shared app logic (includes AudioChime + repeating chime) -->
+<script src="app.js"></script>
+
+<!-- ✅ Optional: ensure AudioChime is ready -->
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  if (typeof AudioChime !== "undefined") {
+    console.log("🔔 Staff chime system ready");
+    AudioChime.primeMutedAutoplay();
+  } else {
+    console.warn("⚠️ AudioChime not found — check app.js load order");
+  }
+});
+</script>
+
 </body>
 </html>
