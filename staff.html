@@ -107,169 +107,154 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-<!-- ✅ Load orders script -->
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
-  authDomain: "e-loyalty-12563.firebaseapp.com",
-  projectId: "e-loyalty-12563",
-  storageBucket: "e-loyalty-12563.appspot.com",
-  messagingSenderId: "3887061029",
-  appId: "1:3887061029:web:f9c238731d7e6dd5fb47cc",
-  measurementId: "G-966P8W06W2"
-};
-if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+  <!-- ✅ Load shared app logic (contains Firebase init + AudioChime + repeating chime) -->
+  <script src="app.js"></script>
 
-const orderList = document.getElementById("orderList");
-const orderDate = document.getElementById("orderDate");
-orderDate.valueAsDate = new Date();
+  <!-- ✅ Staff-specific logic -->
+  <script>
+  const orderList = document.getElementById("orderList");
+  const orderDate = document.getElementById("orderDate");
+  orderDate.valueAsDate = new Date();
 
-let currentFilter = "all";
+  let currentFilter = "all";
 
-// 📱 Define phone numbers for each Mille
-const phoneMap = {
-  "mille 1": "6282217091699",
-  "mille 2": "6281220039853",
-  "mille 3": "6282261863984",
-};
-
-// ✅ Style order cards by kitchen status
-function styleOrderBox(el, status) {
-  const palette = {
-    pending:   { bg: "#fff7ed", border: "#f97316", text: "#7c2d12" },
-    preparing: { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a" },
-    served:    { bg: "#ecfdf5", border: "#10b981", text: "#064e3b" },
-    cancelled: { bg: "#fee2e2", border: "#ef4444", text: "#991b1b" },
-    default:   { bg: "#f9fafb", border: "#e5e7eb", text: "#111827" }
+  // 📱 Define phone numbers for each Mille
+  const phoneMap = {
+    "mille 1": "6282217091699",
+    "mille 2": "6281220039853",
+    "mille 3": "6282261863984",
   };
-  const c = palette[status] || palette.default;
-  el.style.backgroundColor = c.bg;
-  el.style.border = `1px solid ${c.border}`;
-  el.style.color = c.text;
-}
 
-// ✅ Firestore update function
-async function updateOrderStatus(id, newStatus) {
-  await db.collection("orders").doc(id).update({ kitchenStatus: newStatus });
-  alert(`✅ Order updated to ${newStatus}`);
-}
-
-// ✅ Render each order card
-function renderOrder(id, data) {
-  const table = data.table || "?";
-  const kitchenStatus = (data.kitchenStatus || data.status || "pending").toLowerCase();
-  const paymentStatus = (data.paymentStatus || "unknown").toLowerCase();
-  const method = (data.paymentMethod || "unspecified").toLowerCase();
-  const time = data.timestamp?.toDate?.().toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'}) || "—";
-  const date = data.date || "—";
-
-  const div = document.createElement("div");
-  div.className = "order";
-  div.dataset.status = kitchenStatus;
-  styleOrderBox(div, kitchenStatus);
-
-  let paymentInfo = `<p><strong>Payment:</strong> ${method} (${paymentStatus})</p>`;
-  if (method.includes("qris") && paymentStatus === "awaiting-proof") {
-    paymentInfo += `<p style="color:#b91c1c;font-size:0.9rem;">⚠ Please check manually in BCA merchant app if guest has paid.</p>`;
+  // ✅ Style order cards by kitchen status
+  function styleOrderBox(el, status) {
+    const palette = {
+      pending:   { bg: "#fff7ed", border: "#f97316", text: "#7c2d12" },
+      preparing: { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a" },
+      served:    { bg: "#ecfdf5", border: "#10b981", text: "#064e3b" },
+      cancelled: { bg: "#fee2e2", border: "#ef4444", text: "#991b1b" },
+      default:   { bg: "#f9fafb", border: "#e5e7eb", text: "#111827" }
+    };
+    const c = palette[status] || palette.default;
+    el.style.backgroundColor = c.bg;
+    el.style.border = `1px solid ${c.border}`;
+    el.style.color = c.text;
   }
 
-  div.innerHTML = `
-    <p><strong>Table:</strong> ${table}</p>
-    <p><strong>Items:</strong> ${(data.items || []).map(i => `${i.qty}× ${i.name}`).join(", ")}</p>
-    ${paymentInfo}
-    <p><strong>Time:</strong> ${time} | <strong>Date:</strong> ${date}</p>
-    <p class="status">Kitchen Status: ${kitchenStatus}</p>
-  `;
-
-  const statusControls = document.createElement("div");
-  statusControls.className = "status-controls";
-
-  ["preparing","served","cancelled"].forEach(newStatus => {
-    const btn = document.createElement("button");
-    btn.textContent = newStatus;
-    btn.className = "btn minimal";
-    btn.addEventListener("click", async () => {
-      try {
-        await updateOrderStatus(id, newStatus);
-      } catch (err) {
-        console.error("❌ Failed to update:", err);
-        alert("Failed to update order status.");
-      }
-    });
-    statusControls.appendChild(btn);
-  });
-
-  div.appendChild(statusControls);
-
-  const lowerTable = table.toLowerCase();
-  let phone = null;
-  if (lowerTable.includes("mille 1")) phone = phoneMap["mille 1"];
-  else if (lowerTable.includes("mille 2")) phone = phoneMap["mille 2"];
-  else if (lowerTable.includes("mille 3")) phone = phoneMap["mille 3"];
-
-  if (phone) {
-    const waBtn = document.createElement("a");
-    waBtn.className = "btn contact";
-    waBtn.href = `https://wa.me/${phone}?text=Hello,%20please%20check%20order%20${id}%20(${table})`;
-    waBtn.target = "_blank";
-    waBtn.textContent = "💬 Contact Mille";
-    div.appendChild(waBtn);
+  // ✅ Firestore update function
+  async function updateOrderStatus(id, newStatus) {
+    await db.collection("orders").doc(id).update({ kitchenStatus: newStatus });
+    alert(`✅ Order updated to ${newStatus}`);
   }
 
-  return div;
-}
+  // ✅ Render each order card
+  function renderOrder(id, data) {
+    const table = data.table || "?";
+    const kitchenStatus = (data.kitchenStatus || data.status || "pending").toLowerCase();
+    const paymentStatus = (data.paymentStatus || "unknown").toLowerCase();
+    const method = (data.paymentMethod || "unspecified").toLowerCase();
+    const time = data.timestamp?.toDate?.().toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'}) || "—";
+    const date = data.date || "—";
 
-// ✅ Load orders of selected date
-function loadOrders() {
-  const yyyyMmDd = new Date(orderDate.value).toISOString().split("T")[0];
-  db.collection("orders")
-    .where("date", "==", yyyyMmDd)
-    .orderBy("timestamp", "desc")
-    .onSnapshot(snapshot => {
-      orderList.innerHTML = "";
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        const card = renderOrder(doc.id, data);
-        orderList.appendChild(card);
+    const div = document.createElement("div");
+    div.className = "order";
+    div.dataset.status = kitchenStatus;
+    styleOrderBox(div, kitchenStatus);
+
+    let paymentInfo = `<p><strong>Payment:</strong> ${method} (${paymentStatus})</p>`;
+    if (method.includes("qris") && paymentStatus === "awaiting-proof") {
+      paymentInfo += `<p style="color:#b91c1c;font-size:0.9rem;">⚠ Please check manually in BCA merchant app if guest has paid.</p>`;
+    }
+
+    div.innerHTML = `
+      <p><strong>Table:</strong> ${table}</p>
+      <p><strong>Items:</strong> ${(data.items || []).map(i => `${i.qty}× ${i.name}`).join(", ")}</p>
+      ${paymentInfo}
+      <p><strong>Time:</strong> ${time} | <strong>Date:</strong> ${date}</p>
+      <p class="status">Kitchen Status: ${kitchenStatus}</p>
+    `;
+
+    const statusControls = document.createElement("div");
+    statusControls.className = "status-controls";
+
+    ["preparing","served","cancelled"].forEach(newStatus => {
+      const btn = document.createElement("button");
+      btn.textContent = newStatus;
+      btn.className = "btn minimal";
+      btn.addEventListener("click", async () => {
+        try {
+          await updateOrderStatus(id, newStatus);
+        } catch (err) {
+          console.error("❌ Failed to update:", err);
+          alert("Failed to update order status.");
+        }
       });
-      filterOrders(currentFilter);
+      statusControls.appendChild(btn);
     });
-}
 
-// ✅ Filter orders
-function filterOrders(status) {
-  currentFilter = status;
-  document.querySelectorAll("#orderFilters .btn").forEach(btn => btn.classList.remove("active"));
-  const activeBtn = [...document.querySelectorAll("#orderFilters .btn")]
-    .find(b => b.textContent.toLowerCase().includes(status));
-  if (activeBtn) activeBtn.classList.add("active");
+    div.appendChild(statusControls);
 
-  document.querySelectorAll(".order").forEach(el => {
-    const orderStatus = (el.dataset.status || "").toLowerCase();
-    const isIncoming = status === "incoming" && ["pending", "preparing"].includes(orderStatus);
-    el.style.display = (status === "all" || isIncoming || orderStatus === status) ? "" : "none";
-  });
-}
+    const lowerTable = table.toLowerCase();
+    let phone = null;
+    if (lowerTable.includes("mille 1")) phone = phoneMap["mille 1"];
+    else if (lowerTable.includes("mille 2")) phone = phoneMap["mille 2"];
+    else if (lowerTable.includes("mille 3")) phone = phoneMap["mille 3"];
 
-orderDate.addEventListener("change", loadOrders);
-loadOrders();
-</script>
+    if (phone) {
+      const waBtn = document.createElement("a");
+      waBtn.className = "btn contact";
+      waBtn.href = `https://wa.me/${phone}?text=Hello,%20please%20check%20order%20${id}%20(${table})`;
+      waBtn.target = "_blank";
+      waBtn.textContent = "💬 Contact Mille";
+      div.appendChild(waBtn);
+    }
 
-<!-- ✅ Load shared app logic (includes AudioChime + repeating chime) -->
-<script src="app.js"></script>
-
-<!-- ✅ Optional: ensure AudioChime is ready -->
-<script>
-window.addEventListener("DOMContentLoaded", () => {
-  if (typeof AudioChime !== "undefined") {
-    console.log("🔔 Staff chime system ready");
-    AudioChime.primeMutedAutoplay();
-  } else {
-    console.warn("⚠️ AudioChime not found — check app.js load order");
+    return div;
   }
-});
-</script>
 
+  // ✅ Load orders of selected date
+  function loadOrders() {
+    const yyyyMmDd = new Date(orderDate.value).toISOString().split("T")[0];
+    db.collection("orders")
+      .where("date", "==", yyyyMmDd)
+      .orderBy("timestamp", "desc")
+      .onSnapshot(snapshot => {
+        orderList.innerHTML = "";
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const card = renderOrder(doc.id, data);
+          orderList.appendChild(card);
+        });
+        filterOrders(currentFilter);
+      });
+  }
+
+  // ✅ Filter orders
+  function filterOrders(status) {
+    currentFilter = status;
+    document.querySelectorAll("#orderFilters .btn").forEach(btn => btn.classList.remove("active"));
+    const activeBtn = [...document.querySelectorAll("#orderFilters .btn")]
+      .find(b => b.textContent.toLowerCase().includes(status));
+    if (activeBtn) activeBtn.classList.add("active");
+
+    document.querySelectorAll(".order").forEach(el => {
+      const orderStatus = (el.dataset.status || "").toLowerCase();
+      const isIncoming = status === "incoming" && ["pending", "preparing"].includes(orderStatus);
+      el.style.display = (status === "all" || isIncoming || orderStatus === status) ? "" : "none";
+    });
+  }
+
+  orderDate.addEventListener("change", loadOrders);
+  loadOrders();
+
+  // ✅ Ensure AudioChime is ready
+  window.addEventListener("DOMContentLoaded", () => {
+    if (typeof AudioChime !== "undefined") {
+      console.log("🔔 Staff chime system ready");
+      AudioChime.primeMutedAutoplay();
+    } else {
+      console.warn("⚠️ AudioChime not found — check app.js load order");
+    }
+  });
+  </script>
 </body>
 </html>
