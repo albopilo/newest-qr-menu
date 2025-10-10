@@ -214,13 +214,9 @@ let lastSnapshotCount = 0;
 
 // 🧠 Load Orders
 function loadOrders() {
-  let selectedDate = orderDate.valueAsDate;
-  if (!selectedDate || isNaN(selectedDate)) {
-    selectedDate = new Date();
-    orderDate.valueAsDate = selectedDate;
-  }
-
-  const yyyyMmDd = selectedDate.toISOString().split("T")[0];
+  let selectedDate = orderDate.valueAsDate || new Date();
+  orderDate.valueAsDate = selectedDate;
+  const yyyyMmDd = selectedDate?.toISOString().split("T")[0];
   if (!yyyyMmDd) {
     console.error("❌ Invalid date in loadOrders");
     return;
