@@ -156,7 +156,7 @@ function renderOrder(id, data) {
   const timestamp = data.timestamp?.toDate?.() || data.createdAt?.toDate?.() || null;
   const time = timestamp ? timestamp.toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'}) : "—";
 
-  const kitchenStatus = (data.kitchenStatus || data.status || "pending").toLowerCase();
+  const kitchenStatus = (data.kitchenStatus ?? "pending").toLowerCase();
   const paymentStatus = (data.paymentStatus || "unknown").toLowerCase();
   const method = (data.paymentMethod || "unspecified").toLowerCase();
 
@@ -226,14 +226,14 @@ function loadOrders() {
     .where("date", "==", yyyyMmDd)
     .orderBy("timestamp", "desc")
     .onSnapshot(snapshot => {
-      const currentCount = snapshot.size;
+// 🟢 Detect truly new docs only
+snapshot.docChanges().forEach(change => {
+  if (change.type === "added" && typeof AudioChime?.play === "function") {
+    console.log("🔔 New order added:", change.doc.id);
+    AudioChime.play();
+  }
+});
 
-      // 🟢 Play sound if new order arrives
-      if (currentCount > lastSnapshotCount && typeof AudioChime?.play === "function") {
-        console.log(`🔔 New order detected (${currentCount - lastSnapshotCount})`);
-        AudioChime.play();
-      }
-      lastSnapshotCount = currentCount;
 
       orderList.innerHTML = "";
       snapshot.forEach(doc => {
