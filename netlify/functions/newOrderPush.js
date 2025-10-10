@@ -22,13 +22,13 @@ export async function handler(event) {
         "Authorization": `Basic ${ONE_SIGNAL_REST_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        app_id: ONE_SIGNAL_APP_ID,
-        included_segments: ["All"],
-        headings: { en: title },
-        contents: { en: message },
-        url: "https://13e-menu.netlify.app/staff.html",
-      }),
+body: JSON.stringify({
+  app_id: ONESIGNAL_APP_ID,
+  included_segments: ["All"],
+  contents: { en: message },
+  headings: { en: title },
+  url: "https://13e-menu.netlify.app/staff.html"
+}),
     });
 
     const data = await res.json();
