@@ -1,330 +1,268 @@
-  <!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Staff Dashboard</title>
-    <link rel="manifest" href="/manifest.json" />
-    <link rel="stylesheet" href="style.css" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <style>
-      body.staff {
-        font-family: sans-serif;
-        background: #f9f9f9;
-        padding: 16px;
-      }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Staff Dashboard</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body.staff {
+      font-family: sans-serif;
+      background: #f9f9f9;
+      padding: 16px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.5em;
+      margin-bottom: 12px;
+    }
+    #orderFilters {
+      position: sticky;
+      top: 0;
+      background: #f9f9f9;
+      padding: 10px 0;
+      z-index: 10;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+    #orderFilters .btn.active {
+      background: #3b82f6;
+      color: white;
+    }
+    .order {
+      background: white;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      font-size: 0.95rem;
+      transition: box-shadow 0.3s, border-color 0.3s;
+    }
+    .status {
+      font-weight: bold;
+      margin-top: 6px;
+    }
+    .btn {
+      margin: 6px 4px 0 0;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    .btn.minimal {
+      background: #e5e7eb;
+    }
+    .btn.contact {
+      background: #25D366;
+      color: #fff;
+    }
+    #orderDate {
+      font-size: 1rem;
+      padding: 6px;
+      margin: 10px 0;
+      width: 100%;
+      max-width: 300px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    @media (max-width: 600px) {
+      h1 { font-size: 1.2rem; }
+      .btn { display: block; width: 100%; margin: 6px 0; }
+      .order { font-size: 0.9rem; padding: 10px; }
+    }
+  </style>
+</head>
 
-      h1 {
-        text-align: center;
-        font-size: 1.5em;
-        margin-bottom: 12px;
-      }
+<body class="staff">
+  <h1>📋 Incoming Orders</h1>
 
-      #orderFilters {
-        position: sticky;
-        top: 0;
-        background: #f9f9f9;
-        padding: 10px 0;
-        z-index: 10;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        justify-content: center;
-      }
+  <div id="orderFilters">
+    <button onclick="filterOrders('all')" class="btn active">All</button>
+    <button onclick="filterOrders('incoming')" class="btn">Incoming</button>
+    <button onclick="filterOrders('served')" class="btn">Served</button>
+    <button onclick="filterOrders('cancelled')" class="btn">Cancelled</button>
+  </div>
 
-      #orderFilters .btn.active {
-        background: #3b82f6;
-        color: white;
-      }
+  <h2 style="text-align:center;">Orders for <input type="date" id="orderDate" /></h2>
+  <div id="orderList"></div>
 
-      .order {
-        background: white;
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        font-size: 0.95rem;
-        transition: box-shadow 0.3s, border-color 0.3s;
-      }
+  <audio id="newOrderSound" src="https://albopilo.github.io/newest-qr-menu/assets/sound.mp3" preload="auto"></audio>
+  <button id="installBtn" style="display:none;">Install App</button>
 
-      .status {
-        font-weight: bold;
-        margin-top: 6px;
-      }
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-      .btn {
-        margin: 6px 4px 0 0;
-        padding: 8px 12px;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 0.95rem;
-      }
+  <!-- ✅ Load shared app logic (contains Firebase init + AudioChime + repeating chime) -->
+  <script src="app.js"></script>
 
-      .btn.minimal {
-        background: #e5e7eb;
-      }
-
-      .btn.contact {
-        background: #25D366;
-        color: #fff;
-      }
-
-      #orderDate {
-        font-size: 1rem;
-        padding: 6px;
-        margin: 10px 0;
-        width: 100%;
-        max-width: 300px;
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-      }
-
-      @media (max-width: 600px) {
-        h1 { font-size: 1.2rem; }
-        .btn { display: block; width: 100%; margin: 6px 0; }
-        .order { font-size: 0.9rem; padding: 10px; }
-      }
-    </style>
-  </head>
-  <body class="staff">
-    <h1>📋 Incoming Orders</h1>
-    
-    <div id="orderFilters">
-      <button onclick="filterOrders('all')" class="btn active">All</button>
-      <button onclick="filterOrders('incoming')" class="btn">Incoming</button>
-      <button onclick="filterOrders('served')" class="btn">Served</button>
-      <button onclick="filterOrders('cancelled')" class="btn">Cancelled</button>
-    </div>
-
-    <h2 style="text-align:center;">Orders for <input type="date" id="orderDate" /></h2>
-    <div id="orderList"></div>
-
-    <audio id="newOrderSound" src="https://albopilo.github.io/newest-qr-menu/assets/sound.mp3" preload="auto"></audio>
-    <button id="installBtn" style="display:none;">Install App</button>
-
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
-
-    <!-- ✅ Load shared app logic (contains Firebase init + AudioChime + repeating chime) -->
-    <script src="app.js"></script>
-    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-<script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "9d4e981e-3184-4ebb-9ac1-cdb4644b1ccd",
+  <!-- ✅ OneSignal push notification integration -->
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function(OneSignal) {
+      await OneSignal.init({
+        appId: "9d4e981e-3184-4ebb-9ac1-cdb4644b1ccd",
+      });
+      console.log("🔔 OneSignal initialized");
     });
-  });
-</script>
+  </script>
 
+  <!-- ✅ Staff Logic -->
+  <script>
+  const orderList = document.getElementById("orderList");
+  const orderDate = document.getElementById("orderDate");
+  orderDate.valueAsDate = new Date();
+  let staffCurrentFilter = "incoming";
 
-    <!-- ✅ Staff-specific logic -->
-    <script>
-    const orderList = document.getElementById("orderList");
-    const orderDate = document.getElementById("orderDate");
-    orderDate.valueAsDate = new Date();
+  const phoneMap = {
+    "mille 1": "6282217091699",
+    "mille 2": "6281220039853",
+    "mille 3": "6282261863984",
+  };
 
-    let staffCurrentFilter = "incoming";
-
-
-    // 📱 Define phone numbers for each Mille
-    const phoneMap = {
-      "mille 1": "6282217091699",
-      "mille 2": "6281220039853",
-      "mille 3": "6282261863984",
+  // Style order cards
+  function styleOrderBox(el, status) {
+    const palette = {
+      pending:   { bg: "#fff7ed", border: "#f97316", text: "#7c2d12" },
+      preparing: { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a" },
+      served:    { bg: "#ecfdf5", border: "#10b981", text: "#064e3b" },
+      cancelled: { bg: "#fee2e2", border: "#ef4444", text: "#991b1b" },
+      default:   { bg: "#f9fafb", border: "#e5e7eb", text: "#111827" }
     };
-
-    // ✅ Initialize Firebase Messaging (browser-side)
-  const messaging = firebase.messaging();
-
-  // Replace this with your real key from Firebase console:
-  const vapidKey = "BB46kklO696abLSqlK13UKbJh5zCJR-ZCjNa4j4NE08X7JOSJM_IpsJIjsLck4Aqx9QEnQ6Rid4gjLhk1cNjd2w ";
-
-  async function requestNotificationPermission() {
-    console.log("🔔 Requesting permission for push notifications...");
-    const permission = await Notification.requestPermission();
-    if (permission === "granted") {
-      console.log("✅ Notification permission granted.");
-
-      try {
-        const token = await messaging.getToken({ vapidKey });
-        console.log("📱 FCM token:", token);
-        alert("Push notifications enabled for this device!");
-        // TODO: Save token to Firestore if you want to send messages from Cloud Functions
-      } catch (err) {
-        console.error("❌ Failed to get FCM token:", err);
-      }
-    } else {
-      console.warn("🚫 Notification permission denied.");
-    }
+    const c = palette[status] || palette.default;
+    el.style.backgroundColor = c.bg;
+    el.style.border = `1px solid ${c.border}`;
+    el.style.color = c.text;
   }
 
-
-    // ✅ Style order cards by kitchen status
-    function styleOrderBox(el, status) {
-      const palette = {
-        pending:   { bg: "#fff7ed", border: "#f97316", text: "#7c2d12" },
-        preparing: { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a" },
-        served:    { bg: "#ecfdf5", border: "#10b981", text: "#064e3b" },
-        cancelled: { bg: "#fee2e2", border: "#ef4444", text: "#991b1b" },
-        default:   { bg: "#f9fafb", border: "#e5e7eb", text: "#111827" }
-      };
-      const c = palette[status] || palette.default;
-      el.style.backgroundColor = c.bg;
-      el.style.border = `1px solid ${c.border}`;
-      el.style.color = c.text;
-    }
-
-    // ✅ Firestore update function
-    async function updateOrderStatus(id, newStatus) {
-      await db.collection("orders").doc(id).update({ kitchenStatus: newStatus });
-      alert(`✅ Order updated to ${newStatus}`);
-    }
-
-    // ✅ Render each order card
-    function renderOrder(id, data) {
-      const table = data.table || "?";
-      const kitchenStatus = (data.kitchenStatus || data.status || "pending").toLowerCase();
-      const paymentStatus = (data.paymentStatus || "unknown").toLowerCase();
-      const method = (data.paymentMethod || "unspecified").toLowerCase();
-      const time = data.timestamp?.toDate?.().toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'}) || "—";
-      const date = data.date || "—";
-
-      const div = document.createElement("div");
-      div.className = "order";
-      div.dataset.status = kitchenStatus;
-      styleOrderBox(div, kitchenStatus);
-
-      let paymentInfo = `<p><strong>Payment:</strong> ${method} (${paymentStatus})</p>`;
-      if (method.includes("qris") && paymentStatus === "awaiting-proof") {
-        paymentInfo += `<p style="color:#b91c1c;font-size:0.9rem;">⚠ Please check manually in BCA merchant app if guest has paid.</p>`;
-      }
-
-      div.innerHTML = `
-        <p><strong>Table:</strong> ${table}</p>
-        <p><strong>Items:</strong> ${(data.items || []).map(i => `${i.qty}× ${i.name}`).join(", ")}</p>
-        ${paymentInfo}
-        <p><strong>Time:</strong> ${time} | <strong>Date:</strong> ${date}</p>
-        <p class="status">Kitchen Status: ${kitchenStatus}</p>
-      `;
-
-      const statusControls = document.createElement("div");
-      statusControls.className = "status-controls";
-
-      ["preparing","served","cancelled"].forEach(newStatus => {
-        const btn = document.createElement("button");
-        btn.textContent = newStatus;
-        btn.className = "btn minimal";
-        btn.addEventListener("click", async () => {
-          try {
-            await updateOrderStatus(id, newStatus);
-          } catch (err) {
-            console.error("❌ Failed to update:", err);
-            alert("Failed to update order status.");
-          }
-        });
-        statusControls.appendChild(btn);
-      });
-
-      div.appendChild(statusControls);
-
-      const lowerTable = table.toLowerCase();
-      let phone = null;
-      if (lowerTable.includes("mille 1")) phone = phoneMap["mille 1"];
-      else if (lowerTable.includes("mille 2")) phone = phoneMap["mille 2"];
-      else if (lowerTable.includes("mille 3")) phone = phoneMap["mille 3"];
-
-      if (phone) {
-        const waBtn = document.createElement("a");
-        waBtn.className = "btn contact";
-        waBtn.href = `https://wa.me/${phone}?text=Hello,%20please%20check%20order%20${id}%20(${table})`;
-        waBtn.target = "_blank";
-        waBtn.textContent = "💬 Contact Mille";
-        div.appendChild(waBtn);
-      }
-
-      return div;
-    }
-
-    // ✅ Load orders of selected date
-function loadOrders() {
-  const selectedDate = orderDate.valueAsDate || new Date();
-  const yyyyMmDd = selectedDate.toISOString().split("T")[0];
-
-  db.collection("orders")
-    .where("date", "==", yyyyMmDd)
-    .orderBy("timestamp", "desc")
-    .onSnapshot(snapshot => {
-      orderList.innerHTML = "";
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        const card = renderOrder(doc.id, data);
-        orderList.appendChild(card);
-      });
-      filterOrders(staffCurrentFilter);
-    }, err => console.error("🔥 loadOrders() error:", err));
-}
-
-
-    // ✅ Filter orders
-    function filterOrders(status) {
-      staffCurrentFilter = status;
-      document.querySelectorAll("#orderFilters .btn").forEach(btn => btn.classList.remove("active"));
-      const activeBtn = [...document.querySelectorAll("#orderFilters .btn")]
-        .find(b => b.textContent.toLowerCase().includes(status));
-      if (activeBtn) activeBtn.classList.add("active");
-
-      document.querySelectorAll(".order").forEach(el => {
-        const orderStatus = (el.dataset.status || "").toLowerCase();
-        const isIncoming = status === "incoming" && ["pending", "preparing"].includes(orderStatus);
-        el.style.display = (status === "all" || isIncoming || orderStatus === status) ? "" : "none";
-      });
-    }
-
-    orderDate.addEventListener("change", loadOrders);
-    loadOrders();
-
-    messaging.onMessage(payload => {
-  console.log("📩 Foreground message received:", payload);
-  const { title, body } = payload.notification || {};
-  if (Notification.permission === "granted") {
-    new Notification(title, { body });
+  async function updateOrderStatus(id, newStatus) {
+    await db.collection("orders").doc(id).update({ kitchenStatus: newStatus });
+    alert(`✅ Order updated to ${newStatus}`);
   }
-});
 
-// Allow sound after any click/tap
-document.body.addEventListener("click", () => {
-  try {
-    AudioChime.primeMutedAutoplay();
-    console.log("🎵 Audio autoplay unlocked");
-  } catch (e) {
-    console.warn("Could not prime audio:", e);
-  }
-}, { once: true });
+  function renderOrder(id, data) {
+    const table = data.table || "?";
+    const kitchenStatus = (data.kitchenStatus || data.status || "pending").toLowerCase();
+    const paymentStatus = (data.paymentStatus || "unknown").toLowerCase();
+    const method = (data.paymentMethod || "unspecified").toLowerCase();
+    const time = data.timestamp?.toDate?.().toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'}) || "—";
+    const date = data.date || "—";
 
+    const div = document.createElement("div");
+    div.className = "order";
+    div.dataset.status = kitchenStatus;
+    styleOrderBox(div, kitchenStatus);
 
-    
-    window.addEventListener("load", requestNotificationPermission);
+    let paymentInfo = `<p><strong>Payment:</strong> ${method} (${paymentStatus})</p>`;
+    if (method.includes("qris") && paymentStatus === "awaiting-proof") {
+      paymentInfo += `<p style="color:#b91c1c;font-size:0.9rem;">⚠ Please check manually in BCA merchant app if guest has paid.</p>`;
+    }
 
-    // ✅ Ensure AudioChime is ready
-    window.addEventListener("DOMContentLoaded", () => {
-      if (typeof AudioChime !== "undefined") {
-        console.log("🔔 Staff chime system ready");
-        AudioChime.primeMutedAutoplay();
-      } else {
-        console.warn("⚠️ AudioChime not found — check app.js load order");
-      }
+    div.innerHTML = `
+      <p><strong>Table:</strong> ${table}</p>
+      <p><strong>Items:</strong> ${(data.items || []).map(i => `${i.qty}× ${i.name}`).join(", ")}</p>
+      ${paymentInfo}
+      <p><strong>Time:</strong> ${time} | <strong>Date:</strong> ${date}</p>
+      <p class="status">Kitchen Status: ${kitchenStatus}</p>
+    `;
+
+    const statusControls = document.createElement("div");
+    ["preparing","served","cancelled"].forEach(newStatus => {
+      const btn = document.createElement("button");
+      btn.textContent = newStatus;
+      btn.className = "btn minimal";
+      btn.addEventListener("click", async () => {
+        try { await updateOrderStatus(id, newStatus); }
+        catch (err) { console.error("❌ Failed to update:", err); alert("Failed to update."); }
+      });
+      statusControls.appendChild(btn);
     });
-    if (typeof listenForOrders === "function") {
-  console.log("🎧 listenForOrders() available — starting listener");
-  listenForOrders();
-} else {
-  console.warn("🚫 listenForOrders() not found — check app.js load order");
-}
+    div.appendChild(statusControls);
 
-    </script>
-  </body>
-  </html>
+    const lowerTable = table.toLowerCase();
+    let phone = null;
+    if (lowerTable.includes("mille 1")) phone = phoneMap["mille 1"];
+    else if (lowerTable.includes("mille 2")) phone = phoneMap["mille 2"];
+    else if (lowerTable.includes("mille 3")) phone = phoneMap["mille 3"];
+
+    if (phone) {
+      const waBtn = document.createElement("a");
+      waBtn.className = "btn contact";
+      waBtn.href = `https://wa.me/${phone}?text=Hello,%20please%20check%20order%20${id}%20(${table})`;
+      waBtn.target = "_blank";
+      waBtn.textContent = "💬 Contact Mille";
+      div.appendChild(waBtn);
+    }
+
+    return div;
+  }
+
+  function loadOrders() {
+    const selectedDate = orderDate.valueAsDate || new Date();
+    const yyyyMmDd = selectedDate.toISOString().split("T")[0];
+
+    db.collection("orders")
+      .where("date", "==", yyyyMmDd)
+      .orderBy("timestamp", "desc")
+      .onSnapshot(snapshot => {
+        orderList.innerHTML = "";
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const card = renderOrder(doc.id, data);
+          orderList.appendChild(card);
+        });
+        filterOrders(staffCurrentFilter);
+      }, err => console.error("🔥 loadOrders() error:", err));
+  }
+
+  function filterOrders(status) {
+    staffCurrentFilter = status;
+    document.querySelectorAll("#orderFilters .btn").forEach(btn => btn.classList.remove("active"));
+    const activeBtn = [...document.querySelectorAll("#orderFilters .btn")]
+      .find(b => b.textContent.toLowerCase().includes(status));
+    if (activeBtn) activeBtn.classList.add("active");
+
+    document.querySelectorAll(".order").forEach(el => {
+      const orderStatus = (el.dataset.status || "").toLowerCase();
+      const isIncoming = status === "incoming" && ["pending", "preparing"].includes(orderStatus);
+      el.style.display = (status === "all" || isIncoming || orderStatus === status) ? "" : "none";
+    });
+  }
+
+  orderDate.addEventListener("change", loadOrders);
+  loadOrders();
+
+  // 🔊 Enable chime sound after any click
+  document.body.addEventListener("click", () => {
+    try {
+      AudioChime.primeMutedAutoplay();
+      console.log("🎵 Audio autoplay unlocked");
+    } catch (e) {
+      console.warn("Could not prime audio:", e);
+    }
+  }, { once: true });
+
+  window.addEventListener("DOMContentLoaded", () => {
+    if (typeof AudioChime !== "undefined") {
+      console.log("🔔 Staff chime system ready");
+      AudioChime.primeMutedAutoplay();
+    } else {
+      console.warn("⚠️ AudioChime not found — check app.js load order");
+    }
+  });
+
+  if (typeof listenForOrders === "function") {
+    console.log("🎧 listenForOrders() available — starting listener");
+    listenForOrders();
+  } else {
+    console.warn("🚫 listenForOrders() not found — check app.js load order");
+  }
+  </script>
+</body>
+</html>
