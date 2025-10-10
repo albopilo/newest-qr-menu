@@ -126,16 +126,14 @@ const phoneMap = {
   "mille 3": "6282261863984",
 };
 
-// 🎨 Style order cards
 function styleOrderBox(el, status) {
   const palette = {
     pending:   { bg: "#fff7ed", border: "#f97316", text: "#7c2d12" },
     preparing: { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a" },
     served:    { bg: "#ecfdf5", border: "#10b981", text: "#064e3b" },
     cancelled: { bg: "#fee2e2", border: "#ef4444", text: "#991b1b" },
-    default:   { bg: "#f9fafb", border: "#e5e7eb", text: "#111827" }
   };
-  const c = palette[status] || palette.default;
+  const c = palette[status] || palette.pending;
   el.style.backgroundColor = c.bg;
   el.style.border = `1px solid ${c.border}`;
   el.style.color = c.text;
@@ -146,148 +144,129 @@ async function updateOrderStatus(id, newStatus) {
   alert(`✅ Order updated to ${newStatus}`);
 }
 
-// 🧾 Render each order card
 function renderOrder(id, data) {
-  console.log("🧾 Order data:", id, data);
-
-  const table = data.table || data.tableName || data.table_no || "?";
-  const items = data.items || data.orderItems || [];
-  const date = data.date || data.orderDate || "—";
+  const table = data.table || data.tableName || data.table_no || "—";
+  const items = data.items || [];
+  const guest = data.guestName || "Guest";
+  const date = data.date || new Date().toISOString().split("T")[0];
   const timestamp = data.timestamp?.toDate?.() || data.createdAt?.toDate?.() || null;
-  const time = timestamp ? timestamp.toLocaleTimeString("id-ID",{hour:'2-digit',minute:'2-digit'}) : "—";
-
-  const kitchenStatus = (data.kitchenStatus ?? "pending").toLowerCase();
+  const time = timestamp ? timestamp.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "—";
+  const kitchenStatus = (data.kitchenStatus || data.status || "pending").toLowerCase();
   const paymentStatus = (data.paymentStatus || "unknown").toLowerCase();
   const method = (data.paymentMethod || "unspecified").toLowerCase();
+  const total = data.grandTotal || data.total || data.subtotal || 0;
 
   const div = document.createElement("div");
   div.className = "order";
   div.dataset.status = kitchenStatus;
   styleOrderBox(div, kitchenStatus);
 
-  let paymentInfo = `<p><strong>Payment:</strong> ${method} (${paymentStatus})</p>`;
-  if (method.includes("qris") && paymentStatus === "awaiting-proof") {
-    paymentInfo += `<p style="color:#b91c1c;font-size:0.9rem;">⚠ Please check manually in BCA merchant app if guest has paid.</p>`;
-  }
-
   div.innerHTML = `
     <p><strong>Table:</strong> ${table}</p>
-    <p><strong>Items:</strong> ${items.map(i => `${i.qty}× ${i.name}`).join(", ")}</p>
-    ${paymentInfo}
-    <p><strong>Time:</strong> ${time} | <strong>Date:</strong> ${date}</p>
-    <p class="status">Kitchen Status: ${kitchenStatus}</p>
+    <p><strong>Guest:</strong> ${guest}</p>
+    <p><strong>Items:</strong> ${items.map(i => `${i.qty || 1}× ${i.name || i.itemName || "?"}`).join(", ")}</p>
+    <p><strong>Total:</strong> Rp${total.toLocaleString("id-ID")}</p>
+    <p><strong>Payment:</strong> ${method} (${paymentStatus})</p>
+    <p><strong>Time:</strong> ${time}</p>
+    <p class="status">Status: ${kitchenStatus}</p>
   `;
 
-  const statusControls = document.createElement("div");
-  ["preparing","served","cancelled"].forEach(newStatus => {
+  const controls = document.createElement("div");
+  ["preparing", "served", "cancelled"].forEach(s => {
     const btn = document.createElement("button");
-    btn.textContent = newStatus;
+    btn.textContent = s;
     btn.className = "btn minimal";
-    btn.addEventListener("click", async () => {
-      try { await updateOrderStatus(id, newStatus); }
-      catch (err) { console.error("❌ Failed to update:", err); alert("Failed to update."); }
-    });
-    statusControls.appendChild(btn);
+    btn.onclick = () => updateOrderStatus(id, s);
+    controls.appendChild(btn);
   });
-  div.appendChild(statusControls);
+  div.appendChild(controls);
 
-  // 🔗 Optional WhatsApp contact
-  const lowerTable = table.toLowerCase();
-  let phone = null;
-  if (lowerTable.includes("mille 1")) phone = phoneMap["mille 1"];
-  else if (lowerTable.includes("mille 2")) phone = phoneMap["mille 2"];
-  else if (lowerTable.includes("mille 3")) phone = phoneMap["mille 3"];
-
+  // WhatsApp contact
+  const lower = table.toLowerCase();
+  const phone =
+    (lower.includes("mille 1") && phoneMap["mille 1"]) ||
+    (lower.includes("mille 2") && phoneMap["mille 2"]) ||
+    (lower.includes("mille 3") && phoneMap["mille 3"]);
   if (phone) {
-    const waBtn = document.createElement("a");
-    waBtn.className = "btn contact";
-    waBtn.href = `https://wa.me/${phone}?text=Hello,%20please%20check%20order%20${id}%20(${table})`;
-    waBtn.target = "_blank";
-    waBtn.textContent = "💬 Contact Mille";
-    div.appendChild(waBtn);
+    const wa = document.createElement("a");
+    wa.className = "btn contact";
+    wa.href = `https://wa.me/${phone}?text=Order ${id} (${table})`;
+    wa.target = "_blank";
+    wa.textContent = "💬 Contact Mille";
+    div.appendChild(wa);
   }
 
   return div;
 }
 
-let lastSnapshotCount = 0;
+let loadedOrders = new Map(); // prevent re-render on updates
 
-// 🧠 Load Orders
 function loadOrders() {
-  let selectedDate = orderDate.valueAsDate || new Date();
-  orderDate.valueAsDate = selectedDate;
-  const yyyyMmDd = selectedDate?.toISOString().split("T")[0];
-  if (!yyyyMmDd) {
-    console.error("❌ Invalid date in loadOrders");
-    return;
-  }
+  const selected = orderDate.valueAsDate || new Date();
+  const yyyyMmDd = selected.toISOString().split("T")[0];
+  if (!yyyyMmDd) return console.error("❌ Invalid date");
 
   db.collection("orders")
     .where("date", "==", yyyyMmDd)
     .orderBy("timestamp", "desc")
     .onSnapshot(snapshot => {
-// 🟢 Detect truly new docs only
-snapshot.docChanges().forEach(change => {
-  if (change.type === "added" && typeof AudioChime?.play === "function") {
-    console.log("🔔 New order added:", change.doc.id);
-    AudioChime.play();
-  }
-});
-
-
-      orderList.innerHTML = "";
-      snapshot.forEach(doc => {
+      snapshot.docChanges().forEach(change => {
+        const doc = change.doc;
         const data = doc.data();
-        const card = renderOrder(doc.id, data);
-        orderList.appendChild(card);
+
+        if (change.type === "added") {
+          console.log("🆕 Added order:", doc.id);
+          const card = renderOrder(doc.id, data);
+          orderList.prepend(card);
+          loadedOrders.set(doc.id, card);
+          if (typeof AudioChime?.play === "function") {
+            console.log("🔔 New order chime!");
+            AudioChime.play();
+          }
+        }
+
+        if (change.type === "modified") {
+          const card = loadedOrders.get(doc.id);
+          if (card) {
+            const updated = renderOrder(doc.id, data);
+            orderList.replaceChild(updated, card);
+            loadedOrders.set(doc.id, updated);
+          }
+        }
+
+        if (change.type === "removed") {
+          const card = loadedOrders.get(doc.id);
+          if (card) card.remove();
+          loadedOrders.delete(doc.id);
+        }
       });
+
       filterOrders(staffCurrentFilter);
-    }, err => console.error("🔥 loadOrders() error:", err));
+    }, err => console.error("🔥 Snapshot error:", err));
 }
 
-// 🧩 Filter UI
 function filterOrders(status) {
   staffCurrentFilter = status;
-  document.querySelectorAll("#orderFilters .btn").forEach(btn => btn.classList.remove("active"));
-  const activeBtn = [...document.querySelectorAll("#orderFilters .btn")]
-    .find(b => b.textContent.toLowerCase().includes(status));
-  if (activeBtn) activeBtn.classList.add("active");
+  document.querySelectorAll("#orderFilters .btn").forEach(btn =>
+    btn.classList.toggle("active", btn.textContent.toLowerCase().includes(status))
+  );
 
   document.querySelectorAll(".order").forEach(el => {
-    const orderStatus = (el.dataset.status || "").toLowerCase();
-    const isIncoming = status === "incoming" && ["pending", "preparing"].includes(orderStatus);
-    el.style.display = (status === "all" || isIncoming || orderStatus === status) ? "" : "none";
+    const st = (el.dataset.status || "").toLowerCase();
+    const incoming = status === "incoming" && ["pending", "preparing"].includes(st);
+    el.style.display = (status === "all" || incoming || st === status) ? "" : "none";
   });
 }
 
 orderDate.addEventListener("change", loadOrders);
-loadOrders();
-
-// 🎵 Unlock audio on first click
+window.addEventListener("DOMContentLoaded", () => {
+  if (typeof AudioChime !== "undefined") AudioChime.primeMutedAutoplay();
+});
 document.body.addEventListener("click", () => {
-  try {
-    AudioChime.primeMutedAutoplay();
-    console.log("🎵 Audio autoplay unlocked");
-  } catch (e) {
-    console.warn("Could not prime audio:", e);
-  }
+  try { AudioChime.primeMutedAutoplay(); } catch {}
 }, { once: true });
 
-window.addEventListener("DOMContentLoaded", () => {
-  if (typeof AudioChime !== "undefined") {
-    console.log("🔔 Staff chime system ready");
-    AudioChime.primeMutedAutoplay();
-  } else {
-    console.warn("⚠️ AudioChime not found — check app.js load order");
-  }
-});
-
-if (typeof listenForOrders === "function") {
-  console.log("🎧 listenForOrders() available — starting listener");
-  listenForOrders();
-} else {
-  console.warn("🚫 listenForOrders() not found — check app.js load order");
-}
+loadOrders();
 </script>
 
 </body>
