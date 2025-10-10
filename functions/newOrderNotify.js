@@ -18,7 +18,7 @@ export async function handler(event, context) {
       method: "POST",
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Authorization": `Basic ${os_v2_app_tvhjqhrrqrhlxgwbzw2gisy4zwcl73fy2ote7kegksxm6l3t24mihp7abvadd2f5zyazd7oc3byxhvq4wrfomimojwskwjkemy5eh3y}`,
+        "Authorization": `Basic ${ONE_SIGNAL_REST_KEY}`,
       },
       body: JSON.stringify({
         app_id: ONE_SIGNAL_APP_ID,
