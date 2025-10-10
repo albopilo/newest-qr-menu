@@ -18,16 +18,25 @@ exports.handler = async function (event) {
     const message = `🆕 New order from table ${table || "?"} — Rp${(total || 0).toLocaleString("id-ID")}`;
 
 // example payload change in netlify function
+// inside your Netlify function (Node)
 const payload = {
   app_id: process.env.ONESIGNAL_APP_ID,
   included_segments: ["All"],
-  headings: { en: "New Order Received" },
-  contents: { en: `Table ${table || "?"} • Rp${(total||0).toLocaleString("id-ID")}` },
-  url: "https://13e-menu.netlify.app/staff.html", // <--- staff page
-  data: { orderId }, // optional
+  headings: { en: "🆕 New Order Received" },
+  contents: { en: messageText },
+  url: `https://13e-menu.netlify.app/staff.html?orderId=${orderId}`, // <-- staff page
+  data: { orderId },
   priority: 10
 };
 
+await fetch("https://onesignal.com/api/v1/notifications", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Basic ${process.env.ONESIGNAL_REST_KEY}`
+  },
+  body: JSON.stringify(payload)
+});
 
     const response = await fetch("https://api.onesignal.com/notifications", {
       method: "POST",
