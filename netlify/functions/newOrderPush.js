@@ -20,14 +20,16 @@ exports.handler = async function (event) {
 // example payload change in netlify function
 // inside your Netlify function (Node)
 const payload = {
-  app_id: process.env.ONESIGNAL_APP_ID,
-  included_segments: ["All"],
-  headings: { en: "🆕 New Order Received" },
-  contents: { en: messageText },
-  url: `https://13e-menu.netlify.app/staff.html?orderId=${orderId}`, // <-- staff page
-  data: { orderId },
-  priority: 10
-};
+    app_id: ONESIGNAL_APP_ID,
+    headings: { en: body.title || "New order" },
+    contents: { en: body.message || "New order received" },
+    included_segments: ["Subscribed Users"],
+    // Prefer a staff-specific link; include orderId if present in the request body
+    url: body.url || (body.orderId ? `https://13e-menu.netlify.app/staff.html?orderId=${body.orderId}` : "https://13e-menu.netlify.app/staff.html"),
+    data: {
+      orderId: body.orderId || null
+    }
+  };
 
 await fetch("https://onesignal.com/api/v1/notifications", {
   method: "POST",
