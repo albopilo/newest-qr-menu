@@ -203,23 +203,47 @@
     return div;
   }
 
-  function loadOrders() {
-    const selectedDate = orderDate.valueAsDate || new Date();
-    const yyyyMmDd = selectedDate.toISOString().split("T")[0];
+let lastSnapshotCount = 0;
 
-    db.collection("orders")
-      .where("date", "==", yyyyMmDd)
-      .orderBy("timestamp", "desc")
-      .onSnapshot(snapshot => {
-        orderList.innerHTML = "";
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          const card = renderOrder(doc.id, data);
-          orderList.appendChild(card);
-        });
-        filterOrders(staffCurrentFilter);
-      }, err => console.error("🔥 loadOrders() error:", err));
+// Ensure db is defined (from app.js)
+if (typeof db === "undefined") {
+  console.error("❌ Firestore not initialized — check app.js");
+}
+
+function loadOrders() {
+  let selectedDate = orderDate.valueAsDate;
+  if (!selectedDate) {
+    selectedDate = new Date();
+    orderDate.valueAsDate = selectedDate;
   }
+
+  const yyyyMmDd = selectedDate.toISOString().split("T")[0];
+
+  db.collection("orders")
+    .where("date", "==", yyyyMmDd)
+    .orderBy("timestamp", "desc")
+    .onSnapshot(snapshot => {
+      const currentCount = snapshot.size;
+
+      // 🟢 Play chime when new order count increases
+      if (currentCount > lastSnapshotCount && typeof AudioChime?.play === "function") {
+      console.log(`🔔 New order detected — ${currentCount - lastSnapshotCount} new order(s)`);
+      AudioChime.play();
+      }
+
+      lastSnapshotCount = currentCount;
+
+      // Render orders
+      orderList.innerHTML = "";
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const card = renderOrder(doc.id, data);
+        orderList.appendChild(card);
+      });
+      filterOrders(staffCurrentFilter);
+    }, err => console.error("🔥 loadOrders() error:", err));
+}
+
 
   function filterOrders(status) {
     staffCurrentFilter = status;
