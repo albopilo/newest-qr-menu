@@ -250,21 +250,24 @@
     }
 
     // ✅ Load orders of selected date
-    function loadOrders() {
-      const yyyyMmDd = new Date(orderDate.value).toISOString().split("T")[0];
-      db.collection("orders")
-        .where("date", "==", yyyyMmDd)
-        .orderBy("timestamp", "desc")
-        .onSnapshot(snapshot => {
-          orderList.innerHTML = "";
-          snapshot.forEach(doc => {
-            const data = doc.data();
-            const card = renderOrder(doc.id, data);
-            orderList.appendChild(card);
-          });
-          filterOrders(staffCurrentFilter);
-        });
-    }
+function loadOrders() {
+  const selectedDate = orderDate.valueAsDate || new Date();
+  const yyyyMmDd = selectedDate.toISOString().split("T")[0];
+
+  db.collection("orders")
+    .where("date", "==", yyyyMmDd)
+    .orderBy("timestamp", "desc")
+    .onSnapshot(snapshot => {
+      orderList.innerHTML = "";
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const card = renderOrder(doc.id, data);
+        orderList.appendChild(card);
+      });
+      filterOrders(staffCurrentFilter);
+    }, err => console.error("🔥 loadOrders() error:", err));
+}
+
 
     // ✅ Filter orders
     function filterOrders(status) {
@@ -291,6 +294,17 @@
     new Notification(title, { body });
   }
 });
+
+// Allow sound after any click/tap
+document.body.addEventListener("click", () => {
+  try {
+    AudioChime.primeMutedAutoplay();
+    console.log("🎵 Audio autoplay unlocked");
+  } catch (e) {
+    console.warn("Could not prime audio:", e);
+  }
+}, { once: true });
+
 
     
     window.addEventListener("load", requestNotificationPermission);
