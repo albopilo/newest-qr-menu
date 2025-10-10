@@ -13,6 +13,13 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+// Disable Firebase messaging if it's not included
+if (typeof firebase.messaging !== "function") {
+  console.warn("⚠️ Firebase Messaging not available — skipping initStaffMessaging");
+  window.initStaffMessaging = () => {};
+}
+
+
 window.normalizeDriveUrl = function(raw) {
   if (!raw) return "";
   let s = String(raw).trim();
@@ -2048,9 +2055,13 @@ function initStaffUI() {
 }
 
 function initStaff() {
-  initStaffMessaging();
+  try { initStaffMessaging(); } catch (err) {
+  console.warn("Skipped initStaffMessaging:", err);
+}
+
   initStaffUI();
 }
+
 
 /***********************
  * Customer DOM bootstrap

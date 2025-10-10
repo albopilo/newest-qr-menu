@@ -277,6 +277,16 @@ document.addEventListener("DOMContentLoaded", async () => {
           paymentMethod: "qris",
           paymentStatus: "awaiting-proof"
         });
+        // ✅ Trigger push notification
+fetch("/.netlify/functions/newOrderPush", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    title: "🆕 New QRIS Order",
+    message: `Table ${table} placed a new QRIS order.`
+  })
+});
+
         qrisOrderCreated = docRef;
         confirmBtn.style.display = "none";
         window.open(`qris.html?orderId=${docRef.id}`, "_blank");
@@ -373,6 +383,16 @@ document.addEventListener("DOMContentLoaded", async () => {
           paymentMethod: "cash",
           paymentStatus: "pending"
         });
+        // ✅ Trigger push notification
+fetch("/.netlify/functions/newOrderPush", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    title: "🆕 New Cash Order",
+    message: `Table ${table} placed a new Cash order.`
+  })
+});
+
         alert("✅ Order confirmed! Please pay at the receptionist.");
       } catch (err) {
         console.error(err);
