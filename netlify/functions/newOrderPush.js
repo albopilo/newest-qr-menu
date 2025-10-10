@@ -17,15 +17,17 @@ exports.handler = async function (event) {
 
     const message = `🆕 New order from table ${table || "?"} — Rp${(total || 0).toLocaleString("id-ID")}`;
 
-    const payload = {
-      app_id: ONE_SIGNAL_APP_ID,
-      included_segments: ["All"], // send to all staff browsers subscribed
-      headings: { en: "New Order Received" },
-      contents: { en: message },
-      url: "https://13e-menu.netlify.app/staff.html", // ✅ opens staff dashboard directly
-      priority: 10,
-      ttl: 30,
-    };
+// example payload change in netlify function
+const payload = {
+  app_id: process.env.ONESIGNAL_APP_ID,
+  included_segments: ["All"],
+  headings: { en: "New Order Received" },
+  contents: { en: `Table ${table || "?"} • Rp${(total||0).toLocaleString("id-ID")}` },
+  url: "https://13e-menu.netlify.app/staff.html", // <--- staff page
+  data: { orderId }, // optional
+  priority: 10
+};
+
 
     const response = await fetch("https://api.onesignal.com/notifications", {
       method: "POST",
