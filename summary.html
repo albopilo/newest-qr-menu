@@ -272,20 +272,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         const { finalTotal, grandTotal } = renderSummary();
         confirmBtn.disabled = true;
 
-        // compute Jakarta date BEFORE creating the doc
-        const dateForOrder = jakartaDateString();
-
-        const docRef = await db.collection("orders").add({
-          subtotal, discount, tax, deliveryFee,
-          total: finalTotal, grandTotal,
-          table, guestName, items,
-          date: dateForOrder,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          status: "pending",
-          memberPhone, memberId,
-          paymentMethod: "qris",
-          paymentStatus: "awaiting-proof"
-        });
+       // ✅ Use Jakarta timezone date for correct staff-page filtering
+      const jakartaDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+      const docRef = await db.collection("orders").add({
+        subtotal, discount, tax, deliveryFee,
+        total: finalTotal, grandTotal,
+        table, guestName, items,
+        date: jakartaDate, // <-- Jakarta local date
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        status: "pending",
+        memberPhone, memberId,
+        paymentMethod: "qris",
+        paymentStatus: "awaiting-proof"
+      });
 
         // ✅ Trigger push notification (include orderId + url pointing to staff)
         fetch("/.netlify/functions/newOrderPush", {
@@ -385,22 +384,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         const memberId = urlParams.get("memberId") || "";
         const { finalTotal, grandTotal } = renderSummary();
 
-        // Jakarta date here too
-        const dateForOrder = jakartaDateString();
-
+        const jakartaDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
         const docRef = await db.collection("orders").add({
           subtotal, discount, tax, deliveryFee,
           total: finalTotal, grandTotal,
           table, guestName, items,
-          date: dateForOrder,
+          date: jakartaDate, // Jakarta local date
           timestamp: firebase.firestore.FieldValue.serverTimestamp(),
           status: "pending",
           memberPhone, memberId,
           paymentMethod: "cash",
           paymentStatus: "pending"
         });
-
-        // notify staff (include orderId + url to staff)
+        // notify staff (include orderId + staff URL)
         fetch("/.netlify/functions/newOrderPush", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

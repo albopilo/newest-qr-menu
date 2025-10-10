@@ -412,11 +412,11 @@ function showStaffModalForOrder(orderId, data) {
       staffShownModals.add(orderId);
       modal.remove();
     });
-    document.getElementById("staffOpenOrder").addEventListener("click", () => {
-      // open detail view if you have one (example summary.html?orderId=)
-      window.open(`summary.html?orderId=${orderId}`, "_blank");
+document.getElementById("staffOpenOrder").addEventListener("click", () => {
+      // open staff view (staff.html) with orderId so staff sees details and repeating chime stops
+      window.open(`staff.html?orderId=${orderId}`, "_blank");
       RepeatingChime.stop(orderId);
-      staffShownModals.add(orderId);
+      try { staffShownModals.add(orderId); } catch {}
       modal.remove();
     });
   }
@@ -2053,6 +2053,16 @@ function initStaffUI() {
     }
   }, 2000);
 }
+// if staff page was opened with an orderId param (e.g. OneSignal open), stop repeating chime for that order
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const incomingOrderId = urlParams.get('orderId');
+    if (incomingOrderId) {
+      RepeatingChime.stop(incomingOrderId);
+      window.staffShownModals = window.staffShownModals || new Set();
+      window.staffShownModals.add(incomingOrderId);
+    }
+  } catch (e) { /* ignore */ }
 
 function initStaff() {
   try { initStaffMessaging(); } catch (err) {

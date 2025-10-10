@@ -127,6 +127,19 @@ const phoneMap = {
   "mille 3": "6282261863984",
 };
 
+function jakartaDateStringFromInput() {
+  // ensure the selected calendar date is interpreted in Asia/Jakarta timezone
+  const d = orderDate.valueAsDate || new Date();
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }); // YYYY-MM-DD
+}
+
+function tsToJakartaTime(ts) {
+  if (!ts) return "—";
+  // Accepts Firestore timestamp or Date
+  const d = ts.toDate ? ts.toDate() : (ts instanceof Date ? ts : new Date(ts));
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
+}
+
 function styleOrderBox(el, status) {
   const palette = {
     pending:   { bg: "#fff7ed", border: "#f97316", text: "#7c2d12" },
@@ -142,33 +155,41 @@ function styleOrderBox(el, status) {
 
 async function updateOrderStatus(id, newStatus) {
   await db.collection("orders").doc(id).update({ kitchenStatus: newStatus });
+  showBanner(`✅ Order ${id} updated to ${newStatus}`, 2500);
 }
 
-// render a detailed order card
 function renderOrder(id, data) {
   const table = data.table || data.tableName || data.table_no || "—";
-  const items = Array.isArray(data.items) ? data.items : (data.orderItems || []);
-  const guest = data.guestName || "Guest";
-  const jakartaTime = tsToJakartaString(data.timestamp || data.createdAt);
+  const items = Array.isArray(data.items) ? data.items : [];
+  const guest = data.guestName || data.guest || "Guest";
+  const timestamp = data.timestamp?.toDate?.() || data.createdAt?.toDate?.() || null;
+  const time = tsToJakartaTime(timestamp);
   const kitchenStatus = (data.kitchenStatus || data.status || "pending").toLowerCase();
   const paymentStatus = (data.paymentStatus || "unknown").toLowerCase();
   const method = (data.paymentMethod || "unspecified").toLowerCase();
-  const total = data.grandTotal || data.total || data.subtotal || 0;
+  const total = Number(data.grandTotal || data.total || data.subtotal || 0);
 
   const div = document.createElement("div");
   div.className = "order";
   div.dataset.status = kitchenStatus;
-  div.dataset.id = id;
   styleOrderBox(div, kitchenStatus);
 
+  // Build item list (detailed)
+  const itemLines = items.map(i => {
+    const name = i.name || i.itemName || i.product || "Unnamed";
+    const qty = Number(i.qty || i.quantity || 1);
+    const price = Number(i.price || i.unitPrice || 0);
+    const lineTotal = price ? ` • Rp${(price * qty).toLocaleString("id-ID")}` : "";
+    return `${qty}× ${name}${lineTotal}`;
+  }).join("\n");
+
   div.innerHTML = `
-    <p><strong>Table:</strong> ${escapeHtml(table)}</p>
-    <p><strong>Guest:</strong> ${escapeHtml(guest)}</p>
-    <p><strong>Items:</strong> ${items.map(i => `${i.qty || 1}× ${escapeHtml(i.name || i.itemName || '?')}`).join(", ")}</p>
-    <p><strong>Total:</strong> Rp${Number(total).toLocaleString("id-ID")}</p>
-    <p><strong>Payment:</strong> ${escapeHtml(method)} (${escapeHtml(paymentStatus)})</p>
-    <p><strong>Time (JKT):</strong> ${jakartaTime}</p>
-    <p class="status">Status: ${escapeHtml(kitchenStatus)}</p>
+    <p><strong>Table:</strong> ${table} <span style="float:right">${time}</span></p>
+    <p><strong>Guest:</strong> ${guest}</p>
+    <p style="white-space:pre-wrap;"><strong>Items:</strong>\n${itemLines || "—"}</p>
+    <p><strong>Total:</strong> Rp${total.toLocaleString("id-ID")}</p>
+    <p><strong>Payment:</strong> ${method} (${paymentStatus})</p>
+    <p class="status">Status: ${kitchenStatus}</p>
   `;
 
   const controls = document.createElement("div");
@@ -181,7 +202,8 @@ function renderOrder(id, data) {
   });
   div.appendChild(controls);
 
-  const lower = table.toLowerCase();
+  // WhatsApp contact for Mille tables
+  const lower = String(table).toLowerCase();
   const phone =
     (lower.includes("mille 1") && phoneMap["mille 1"]) ||
     (lower.includes("mille 2") && phoneMap["mille 2"]) ||
@@ -198,36 +220,12 @@ function renderOrder(id, data) {
   return div;
 }
 
-// helper: convert firebase timestamp (or Date) to Jakarta time string HH:MM
-function tsToJakartaString(ts) {
-  try {
-    const d = (ts && ts.toDate) ? ts.toDate() : (ts ? new Date(ts) : new Date());
-    return d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' });
-  } catch (e) {
-    return "—";
-  }
-}
-
-// small escape to avoid layout injection if any
-function escapeHtml(s) {
-  return String(s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
-}
-
 let loadedOrders = new Map();
 
-// Use Jakarta date for querying too (so it matches order creators)
-function getJakartaDateStringFromInput() {
-  // read input value (if user changed) otherwise compute Jakarta today
-  // If the input has a value, use it (it will be in YYYY-MM-DD so fine).
-  if (orderDate.value) return orderDate.value;
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
-}
-
 function loadOrders() {
-  const yyyyMmDd = getJakartaDateStringFromInput();
-  if (!yyyyMmDd) return console.error("❌ Invalid date for loadOrders");
+  const yyyyMmDd = jakartaDateStringFromInput();
+  if (!yyyyMmDd) return console.error("❌ Invalid date (staff)");
 
-  // stop any previous listener if you keep ref (left as exercise). Here we simply attach one.
   db.collection("orders")
     .where("date", "==", yyyyMmDd)
     .orderBy("timestamp", "desc")
@@ -235,39 +233,32 @@ function loadOrders() {
       snapshot.docChanges().forEach(change => {
         const doc = change.doc;
         const data = doc.data();
-        const docId = doc.id;
-
-        // remove existing card if present (defensive: prevents mixed renderers)
-        const existing = loadedOrders.get(docId);
-        if (existing) {
-          try { existing.remove(); } catch (e) {}
-          loadedOrders.delete(docId);
-        }
 
         if (change.type === "added") {
-          const card = renderOrder(docId, data);
-          // newest on top
+          console.log("🆕 Added order:", doc.id);
+          const card = renderOrder(doc.id, data);
           orderList.prepend(card);
-          loadedOrders.set(docId, card);
-
-          // Only play chime on staff page and when visible
-          if (isStaffPage() && typeof AudioChime?.play === "function" && !document.hidden) {
-            console.log("🔔 New order chime (doc added):", docId);
-            AudioChime.play();
-          }
+          loadedOrders.set(doc.id, card);
+          // Play chime request (debounced / gesture-gated)
+          AudioChime.requestChime?.();
+          // If staff is not looking at that order yet, start repeating chime modal
+          RepeatingChime.start(doc.id);
+          showStaffModalIfNeeded(doc.id, data);
         }
 
         if (change.type === "modified") {
-          const updated = renderOrder(docId, data);
-          // insert updated at top for visibility (or locate old position)
-          orderList.prepend(updated);
-          loadedOrders.set(docId, updated);
+          const card = loadedOrders.get(doc.id);
+          if (card) {
+            const updated = renderOrder(doc.id, data);
+            orderList.replaceChild(updated, card);
+            loadedOrders.set(doc.id, updated);
+          }
         }
 
         if (change.type === "removed") {
-          const card = loadedOrders.get(docId);
+          const card = loadedOrders.get(doc.id);
           if (card) card.remove();
-          loadedOrders.delete(docId);
+          loadedOrders.delete(doc.id);
         }
       });
 
@@ -288,31 +279,24 @@ function filterOrders(status) {
   });
 }
 
-orderDate.addEventListener("change", () => {
-  // Clear current UI & reload for new date
-  orderList.innerHTML = "";
-  loadedOrders.clear();
-  loadOrders();
+orderDate.addEventListener("change", loadOrders);
+window.addEventListener("DOMContentLoaded", () => {
+  if (typeof AudioChime !== "undefined") AudioChime.primeMutedAutoplay();
+  // If this staff page opened via a notification (has orderId), stop repeating for it immediately
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderIdFromUrl = urlParams.get("orderId");
+    if (orderIdFromUrl) {
+      RepeatingChime.stop(orderIdFromUrl);
+      // mark as shown so modal won't reappear
+      try { window.staffShownModals = window.staffShownModals || new Set(); window.staffShownModals.add(orderIdFromUrl); } catch {}
+    }
+  } catch (e) { /* ignore URL parse errs */ }
 });
-
-// small guard to make sure repeating-chime code only runs on staff page
-function isStaffPage() {
-  return /staff\.html?$/.test(location.pathname) || location.pathname === '/' || location.pathname.endsWith('/staff');
-}
-
-// pause chime when page is hidden, resume when visible
-document.addEventListener("visibilitychange", () => {
-  if (document.hidden) {
-    if (typeof AudioChime?.pause === "function") AudioChime.pause?.();
-  }
-});
-
-// unlock audio on first user interaction
 document.body.addEventListener("click", () => {
-  try { AudioChime.primeMutedAutoplay(); } catch (e) {}
+  try { AudioChime.primeMutedAutoplay(); } catch {}
 }, { once: true });
 
-// initial load
 loadOrders();
 </script>
 </body>
