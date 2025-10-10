@@ -116,7 +116,8 @@
   const orderDate = document.getElementById("orderDate");
   orderDate.valueAsDate = new Date();
 
-  let currentFilter = "all";
+  let staffCurrentFilter = "all";
+
 
   // 📱 Define phone numbers for each Mille
   const phoneMap = {
@@ -224,13 +225,13 @@
           const card = renderOrder(doc.id, data);
           orderList.appendChild(card);
         });
-        filterOrders(currentFilter);
+        filterOrders(staffCurrentFilter);
       });
   }
 
   // ✅ Filter orders
   function filterOrders(status) {
-    currentFilter = status;
+    staffCurrentFilter = status;
     document.querySelectorAll("#orderFilters .btn").forEach(btn => btn.classList.remove("active"));
     const activeBtn = [...document.querySelectorAll("#orderFilters .btn")]
       .find(b => b.textContent.toLowerCase().includes(status));

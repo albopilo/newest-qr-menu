@@ -69,111 +69,111 @@ window.normalizeDriveUrl = function(raw) {
 };
 
 /**
- * Format number to Indonesian Rupiah, safe for missing values.
- * Usage: formatRp(15000) -> "Rp15.000"
+ * Format number to Indonesian Rupiah.
+ * Usage: formatRp(15000) → "Rp15.000"
  */
- function formatRp(value) {
-   return "Rp" + Number(value || 0).toLocaleString("id-ID");
- }
-
+function formatRp(value) {
+  return "Rp" + Number(value || 0).toLocaleString("id-ID");
+}
 
 // app.js — minimal product rendering (compatible with firebase v8)
-(function(){
+(function () {
   // Assumes firebase app already initialized on the page
   const db = firebase.firestore();
 
-  const productListEl = document.getElementById("productList");
-  if (!productListEl) throw new Error("#productList missing");
-
-
-function renderProductCard(doc) {
-  const p = doc.data ? doc.data() : doc;
-  if (Number(p.pos_hidden || 0) === 1) return null;
-
-  const card = document.createElement("div");
-  card.className = "product-card";
-
-  // --- media (image or "No Image") ---
-  const rawUrl = normalizeDriveUrl((p.photo_1 || "").trim());
-  let mediaEl;
-  if (rawUrl) {
-    const img = document.createElement("img");
-    img.className = "media";
-// Chrome lazy-load causes issues with Drive links, disable:
- // img.loading = "lazy";    img.alt = p.name || "Product";
-    img.src = rawUrl;
-    img.onerror = () => {
-   console.warn("Image failed once, retrying:", img.src);
-   setTimeout(() => { img.src = img.src; }, 800); // retry once
- };
-    mediaEl = img;
-  } else {
-    const placeholder = document.createElement("div");
-    placeholder.className = "media";
-    placeholder.style.display = "flex";
-    placeholder.style.alignItems = "center";
-    placeholder.style.justifyContent = "center";
-    placeholder.style.color = "#999";
-    placeholder.style.fontSize = "0.9rem";
-    placeholder.textContent = "No Image";
-    mediaEl = placeholder;
-  }
-  card.appendChild(mediaEl);
-
-  // --- content ---
-  const content = document.createElement("div");
-  content.className = "content";
-
-  const titleEl = document.createElement("div");
-  titleEl.className = "title";
-  titleEl.textContent = p.name || "Unnamed";
-  content.appendChild(titleEl);
-
-  if (p.description) {
-if (p.variant_label || p.variant_names) {
-   const descEl = document.createElement("div");
-   descEl.className = "desc";
-   descEl.textContent = p.variant_label || p.variant_names;
-   content.appendChild(descEl);
- }
+  const productListEl = document.querySelector("#productList");
+  if (!productListEl) {
+    console.log("ℹ️ #productList not found — skipping product rendering (normal for staff page)");
+    return; // ✅ stop here safely for staff.html
   }
 
-  // --- price + button ---
-  const priceRow = document.createElement("div");
-  priceRow.className = "priceRow";
+  // --- inner helpers ---
+  function renderProductCard(doc) {
+    const p = doc.data ? doc.data() : doc;
+    if (Number(p.pos_hidden || 0) === 1) return null;
 
-  const priceVal = p.pos_sell_price ?? p.price ?? p.basePrice ?? p.market_price ?? 0;
+    const card = document.createElement("div");
+    card.className = "product-card";
 
-  const priceEl = document.createElement("div");
-  priceEl.className = "price";
-  priceEl.textContent = formatRp(priceVal);
+    // --- media ---
+    const rawUrl = normalizeDriveUrl((p.photo_1 || "").trim());
+    let mediaEl;
+    if (rawUrl) {
+      const img = document.createElement("img");
+      img.className = "media";
+      img.src = rawUrl;
+      img.alt = p.name || "Product";
+      img.onerror = () => {
+        console.warn("Image failed once, retrying:", img.src);
+        setTimeout(() => {
+          img.src = img.src;
+        }, 800);
+      };
+      mediaEl = img;
+    } else {
+      const placeholder = document.createElement("div");
+      placeholder.className = "media";
+      placeholder.style.display = "flex";
+      placeholder.style.alignItems = "center";
+      placeholder.style.justifyContent = "center";
+      placeholder.style.color = "#999";
+      placeholder.style.fontSize = "0.9rem";
+      placeholder.textContent = "No Image";
+      mediaEl = placeholder;
+    }
+    card.appendChild(mediaEl);
 
-  const addBtn = document.createElement("button");
-  addBtn.className = "addBtn small";
+    // --- content ---
+    const content = document.createElement("div");
+    content.className = "content";
 
-  const hasVariants = (p.variants && p.variants.length > 1);
-  if (hasVariants) {
-    addBtn.textContent = "Select variation";
-    addBtn.addEventListener("click", () => {
-      openVariantModal({ id: doc.id, ...p });
-    });
-  } else {
-    addBtn.textContent = "Add";
-    addBtn.addEventListener("click", () => {
-      cart.add({ id: doc.id, product: p });
-      const prev = addBtn.textContent;
-      addBtn.textContent = "Added ✓";
-      setTimeout(() => { addBtn.textContent = prev; }, 900);
-    });
+    const titleEl = document.createElement("div");
+    titleEl.className = "title";
+    titleEl.textContent = p.name || "Unnamed";
+    content.appendChild(titleEl);
+
+    if (p.variant_label || p.variant_names) {
+      const descEl = document.createElement("div");
+      descEl.className = "desc";
+      descEl.textContent = p.variant_label || p.variant_names;
+      content.appendChild(descEl);
+    }
+
+    // --- price + button ---
+    const priceRow = document.createElement("div");
+    priceRow.className = "priceRow";
+
+    const priceVal = p.pos_sell_price ?? p.price ?? p.basePrice ?? p.market_price ?? 0;
+    const priceEl = document.createElement("div");
+    priceEl.className = "price";
+    priceEl.textContent = formatRp(priceVal);
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "addBtn small";
+
+    const hasVariants = p.variants && p.variants.length > 1;
+    if (hasVariants) {
+      addBtn.textContent = "Select variation";
+      addBtn.addEventListener("click", () => {
+        openVariantModal({ id: doc.id, ...p });
+      });
+    } else {
+      addBtn.textContent = "Add";
+      addBtn.addEventListener("click", () => {
+        cart.add({ id: doc.id, product: p });
+        const prev = addBtn.textContent;
+        addBtn.textContent = "Added ✓";
+        setTimeout(() => (addBtn.textContent = prev), 900);
+      });
+    }
+
+    priceRow.appendChild(priceEl);
+    priceRow.appendChild(addBtn);
+    content.appendChild(priceRow);
+
+    card.appendChild(content);
+    return card;
   }
-
-  priceRow.appendChild(priceEl);
-  priceRow.appendChild(addBtn);
-  content.appendChild(priceRow);
-
-  card.appendChild(content);
-  return card;
-}
 
   function clearProducts() {
     productListEl.innerHTML = "";
@@ -183,22 +183,25 @@ if (p.variant_label || p.variant_names) {
     clearProducts();
     const grid = document.createElement("div");
     grid.className = "product-grid";
-    snap.forEach(doc => {
+    snap.forEach((doc) => {
       const card = renderProductCard(doc);
       if (card) grid.appendChild(card);
     });
     productListEl.appendChild(grid);
   }
 
-  // listen to all products ordered by name
-  db.collection("products").orderBy("name").onSnapshot(snap => {
-    renderProductsSnapshot(snap);
-  }, err => {
-    console.error("Products listen error:", err);
-    productListEl.textContent = "Failed to load products.";
-  });
-
+  // --- live Firestore listener ---
+  db.collection("products")
+    .orderBy("name")
+    .onSnapshot(
+      (snap) => renderProductsSnapshot(snap),
+      (err) => {
+        console.error("Products listen error:", err);
+        productListEl.textContent = "Failed to load products.";
+      }
+    );
 })();
+
 
 
 /***********************
