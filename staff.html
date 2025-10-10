@@ -115,6 +115,7 @@
 
 <!-- ✅ Staff Logic -->
 <script>
+/* Staff page orders listener & renderer (replace existing staff script) */
 const orderList = document.getElementById("orderList");
 const orderDate = document.getElementById("orderDate");
 orderDate.valueAsDate = new Date();
@@ -141,16 +142,14 @@ function styleOrderBox(el, status) {
 
 async function updateOrderStatus(id, newStatus) {
   await db.collection("orders").doc(id).update({ kitchenStatus: newStatus });
-  alert(`✅ Order updated to ${newStatus}`);
 }
 
+// render a detailed order card
 function renderOrder(id, data) {
   const table = data.table || data.tableName || data.table_no || "—";
-  const items = data.items || [];
+  const items = Array.isArray(data.items) ? data.items : (data.orderItems || []);
   const guest = data.guestName || "Guest";
-  const date = data.date || new Date().toISOString().split("T")[0];
-  const timestamp = data.timestamp?.toDate?.() || data.createdAt?.toDate?.() || null;
-  const time = timestamp ? timestamp.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "—";
+  const jakartaTime = tsToJakartaString(data.timestamp || data.createdAt);
   const kitchenStatus = (data.kitchenStatus || data.status || "pending").toLowerCase();
   const paymentStatus = (data.paymentStatus || "unknown").toLowerCase();
   const method = (data.paymentMethod || "unspecified").toLowerCase();
@@ -159,16 +158,17 @@ function renderOrder(id, data) {
   const div = document.createElement("div");
   div.className = "order";
   div.dataset.status = kitchenStatus;
+  div.dataset.id = id;
   styleOrderBox(div, kitchenStatus);
 
   div.innerHTML = `
-    <p><strong>Table:</strong> ${table}</p>
-    <p><strong>Guest:</strong> ${guest}</p>
-    <p><strong>Items:</strong> ${items.map(i => `${i.qty || 1}× ${i.name || i.itemName || "?"}`).join(", ")}</p>
-    <p><strong>Total:</strong> Rp${total.toLocaleString("id-ID")}</p>
-    <p><strong>Payment:</strong> ${method} (${paymentStatus})</p>
-    <p><strong>Time:</strong> ${time}</p>
-    <p class="status">Status: ${kitchenStatus}</p>
+    <p><strong>Table:</strong> ${escapeHtml(table)}</p>
+    <p><strong>Guest:</strong> ${escapeHtml(guest)}</p>
+    <p><strong>Items:</strong> ${items.map(i => `${i.qty || 1}× ${escapeHtml(i.name || i.itemName || '?')}`).join(", ")}</p>
+    <p><strong>Total:</strong> Rp${Number(total).toLocaleString("id-ID")}</p>
+    <p><strong>Payment:</strong> ${escapeHtml(method)} (${escapeHtml(paymentStatus)})</p>
+    <p><strong>Time (JKT):</strong> ${jakartaTime}</p>
+    <p class="status">Status: ${escapeHtml(kitchenStatus)}</p>
   `;
 
   const controls = document.createElement("div");
@@ -181,7 +181,6 @@ function renderOrder(id, data) {
   });
   div.appendChild(controls);
 
-  // WhatsApp contact
   const lower = table.toLowerCase();
   const phone =
     (lower.includes("mille 1") && phoneMap["mille 1"]) ||
@@ -190,7 +189,7 @@ function renderOrder(id, data) {
   if (phone) {
     const wa = document.createElement("a");
     wa.className = "btn contact";
-    wa.href = `https://wa.me/${phone}?text=Order ${id} (${table})`;
+    wa.href = `https://wa.me/${phone}?text=Order%20${encodeURIComponent(id)}%20(${encodeURIComponent(table)})`;
     wa.target = "_blank";
     wa.textContent = "💬 Contact Mille";
     div.appendChild(wa);
@@ -199,13 +198,36 @@ function renderOrder(id, data) {
   return div;
 }
 
-let loadedOrders = new Map(); // prevent re-render on updates
+// helper: convert firebase timestamp (or Date) to Jakarta time string HH:MM
+function tsToJakartaString(ts) {
+  try {
+    const d = (ts && ts.toDate) ? ts.toDate() : (ts ? new Date(ts) : new Date());
+    return d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return "—";
+  }
+}
+
+// small escape to avoid layout injection if any
+function escapeHtml(s) {
+  return String(s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+}
+
+let loadedOrders = new Map();
+
+// Use Jakarta date for querying too (so it matches order creators)
+function getJakartaDateStringFromInput() {
+  // read input value (if user changed) otherwise compute Jakarta today
+  // If the input has a value, use it (it will be in YYYY-MM-DD so fine).
+  if (orderDate.value) return orderDate.value;
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+}
 
 function loadOrders() {
-  const selected = orderDate.valueAsDate || new Date();
-  const yyyyMmDd = selected.toISOString().split("T")[0];
-  if (!yyyyMmDd) return console.error("❌ Invalid date");
+  const yyyyMmDd = getJakartaDateStringFromInput();
+  if (!yyyyMmDd) return console.error("❌ Invalid date for loadOrders");
 
+  // stop any previous listener if you keep ref (left as exercise). Here we simply attach one.
   db.collection("orders")
     .where("date", "==", yyyyMmDd)
     .orderBy("timestamp", "desc")
@@ -213,31 +235,39 @@ function loadOrders() {
       snapshot.docChanges().forEach(change => {
         const doc = change.doc;
         const data = doc.data();
+        const docId = doc.id;
+
+        // remove existing card if present (defensive: prevents mixed renderers)
+        const existing = loadedOrders.get(docId);
+        if (existing) {
+          try { existing.remove(); } catch (e) {}
+          loadedOrders.delete(docId);
+        }
 
         if (change.type === "added") {
-          console.log("🆕 Added order:", doc.id);
-          const card = renderOrder(doc.id, data);
+          const card = renderOrder(docId, data);
+          // newest on top
           orderList.prepend(card);
-          loadedOrders.set(doc.id, card);
-          if (typeof AudioChime?.play === "function") {
-            console.log("🔔 New order chime!");
+          loadedOrders.set(docId, card);
+
+          // Only play chime on staff page and when visible
+          if (isStaffPage() && typeof AudioChime?.play === "function" && !document.hidden) {
+            console.log("🔔 New order chime (doc added):", docId);
             AudioChime.play();
           }
         }
 
         if (change.type === "modified") {
-          const card = loadedOrders.get(doc.id);
-          if (card) {
-            const updated = renderOrder(doc.id, data);
-            orderList.replaceChild(updated, card);
-            loadedOrders.set(doc.id, updated);
-          }
+          const updated = renderOrder(docId, data);
+          // insert updated at top for visibility (or locate old position)
+          orderList.prepend(updated);
+          loadedOrders.set(docId, updated);
         }
 
         if (change.type === "removed") {
-          const card = loadedOrders.get(doc.id);
+          const card = loadedOrders.get(docId);
           if (card) card.remove();
-          loadedOrders.delete(doc.id);
+          loadedOrders.delete(docId);
         }
       });
 
@@ -258,16 +288,32 @@ function filterOrders(status) {
   });
 }
 
-orderDate.addEventListener("change", loadOrders);
-window.addEventListener("DOMContentLoaded", () => {
-  if (typeof AudioChime !== "undefined") AudioChime.primeMutedAutoplay();
+orderDate.addEventListener("change", () => {
+  // Clear current UI & reload for new date
+  orderList.innerHTML = "";
+  loadedOrders.clear();
+  loadOrders();
 });
+
+// small guard to make sure repeating-chime code only runs on staff page
+function isStaffPage() {
+  return /staff\.html?$/.test(location.pathname) || location.pathname === '/' || location.pathname.endsWith('/staff');
+}
+
+// pause chime when page is hidden, resume when visible
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    if (typeof AudioChime?.pause === "function") AudioChime.pause?.();
+  }
+});
+
+// unlock audio on first user interaction
 document.body.addEventListener("click", () => {
-  try { AudioChime.primeMutedAutoplay(); } catch {}
+  try { AudioChime.primeMutedAutoplay(); } catch (e) {}
 }, { once: true });
 
+// initial load
 loadOrders();
 </script>
-
 </body>
 </html>

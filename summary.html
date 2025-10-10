@@ -178,6 +178,11 @@ let deliveryFee = 0;
 let paymentMethod = "";
 let qrisOrderCreated = null;
 
+// helper: get Jakarta date as YYYY-MM-DD (en-CA)
+function jakartaDateString() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     let existingVoucherId = null;
@@ -266,26 +271,33 @@ document.addEventListener("DOMContentLoaded", async () => {
         const memberId = urlParams.get("memberId") || "";
         const { finalTotal, grandTotal } = renderSummary();
         confirmBtn.disabled = true;
+
+        // compute Jakarta date BEFORE creating the doc
+        const dateForOrder = jakartaDateString();
+
         const docRef = await db.collection("orders").add({
           subtotal, discount, tax, deliveryFee,
           total: finalTotal, grandTotal,
           table, guestName, items,
-          date: new Date().toISOString().split("T")[0],
+          date: dateForOrder,
           timestamp: firebase.firestore.FieldValue.serverTimestamp(),
           status: "pending",
           memberPhone, memberId,
           paymentMethod: "qris",
           paymentStatus: "awaiting-proof"
         });
-        // ✅ Trigger push notification
-fetch("/.netlify/functions/newOrderPush", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    title: "🆕 New QRIS Order",
-    message: `Table ${table} placed a new QRIS order.`
-  })
-});
+
+        // ✅ Trigger push notification (include orderId + url pointing to staff)
+        fetch("/.netlify/functions/newOrderPush", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: "🆕 New QRIS Order",
+            message: `Table ${table} placed a new QRIS order.`,
+            orderId: docRef.id,
+            url: `https://13e-menu.netlify.app/staff.html?orderId=${docRef.id}`
+          })
+        }).catch(e => console.warn("Push send failed:", e));
 
         qrisOrderCreated = docRef;
         confirmBtn.style.display = "none";
@@ -297,7 +309,7 @@ fetch("/.netlify/functions/newOrderPush", {
       }
     });
 
-    // Voucher
+    // Voucher (unchanged)
     applyVoucherBtn.addEventListener("click", async () => {
       if (status === "success") return;
       const code = voucherInput.value.trim().toUpperCase();
@@ -362,7 +374,7 @@ fetch("/.netlify/functions/newOrderPush", {
       }
     });
 
-    // Confirm
+    // Confirm (Cash)
     confirmBtn.addEventListener("click", async () => {
       if (!paymentMethod) { alert("⚠️ Please select a payment method."); return; }
       if (paymentMethod === "qris") { alert("✅ QRIS order already created."); return; }
@@ -372,26 +384,33 @@ fetch("/.netlify/functions/newOrderPush", {
         const memberPhone = urlParams.get("memberPhone") || "";
         const memberId = urlParams.get("memberId") || "";
         const { finalTotal, grandTotal } = renderSummary();
-        await db.collection("orders").add({
+
+        // Jakarta date here too
+        const dateForOrder = jakartaDateString();
+
+        const docRef = await db.collection("orders").add({
           subtotal, discount, tax, deliveryFee,
           total: finalTotal, grandTotal,
           table, guestName, items,
-          date: new Date().toISOString().split("T")[0],
+          date: dateForOrder,
           timestamp: firebase.firestore.FieldValue.serverTimestamp(),
           status: "pending",
           memberPhone, memberId,
           paymentMethod: "cash",
           paymentStatus: "pending"
         });
-        // ✅ Trigger push notification
-fetch("/.netlify/functions/newOrderPush", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    title: "🆕 New Cash Order",
-    message: `Table ${table} placed a new Cash order.`
-  })
-});
+
+        // notify staff (include orderId + url to staff)
+        fetch("/.netlify/functions/newOrderPush", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: "🆕 New Cash Order",
+            message: `Table ${table} placed a new Cash order.`,
+            orderId: docRef.id,
+            url: `https://13e-menu.netlify.app/staff.html?orderId=${docRef.id}`
+          })
+        }).catch(e => console.warn("Push send failed:", e));
 
         alert("✅ Order confirmed! Please pay at the receptionist.");
       } catch (err) {
@@ -423,5 +442,6 @@ function renderSummary() {
   return { finalTotal, grandTotal };
 }
 </script>
+
 </body>
 </html>
