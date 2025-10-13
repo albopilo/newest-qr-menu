@@ -273,16 +273,19 @@ function loadOrders() {
         }
 
         if (change.type === "modified") {
-          const card = loadedOrders.get(doc.id);
-          if (card) {
+// ✅ Debounce modification updates to avoid premature replace
+          setTimeout(() => {
+            const card = loadedOrders.get(doc.id);
+            if (!card) return;
             const updated = renderOrder(doc.id, data);
             if (orderList.contains(card)) {
               orderList.replaceChild(updated, card);
               loadedOrders.set(doc.id, updated);
             } else {
-              console.warn("⚠️ Skipping replace — card not found in DOM:", doc.id);
+              // This usually happens only once per session, safe to ignore
+              console.debug("ℹ️ Deferred replace for", doc.id);
             }
-          }
+          }, 100); // wait 100ms to ensure DOM insertion finished
           const status = (data.kitchenStatus || data.status || "").toLowerCase();
           if (status !== "pending") {
             setTimeout(() => RepeatingChime.stop(doc.id), 500);
