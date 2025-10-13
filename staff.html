@@ -136,15 +136,9 @@ const phoneMap = {
 };
 
 function jakartaDateStringFromInput() {
-  // Always compute date strictly in Asia/Jakarta, even if stored UTC
-  const d = orderDate.valueAsDate || new Date();
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Jakarta',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  return formatter.format(d);
+  // Same logic used in summary.html → guarantees same string "YYYY-MM-DD"
+  return new Date(orderDate.valueAsDate || new Date())
+    .toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
 }
 
 function tsToJakartaTime(ts) {
@@ -175,23 +169,35 @@ async function updateOrderStatus(id, newStatus) {
 function renderOrder(id, data) {
   const table = data.table || data.tableName || data.table_no || "—";
   // 🧩 Robust item extraction (matches app.js)
-  let items = [];
-  const candidates = [
-    data.items,
-    data.orderItems,
-    data.products,
-    data.orderedItems,
-    data.orderData?.items,
-    data.orderData?.products,
-    data.itemsMap,
-    data.orderData?.itemsMap,
-  ];
-  for (const c of candidates) {
-    if (Array.isArray(c)) { items = c; break; }
-    if (c && typeof c === 'object') { items = Object.values(c); break; }
+let items = [];
+  try {
+    const candidates = [
+      data.items,
+      data.orderItems,
+      data.products,
+      data.orderedItems,
+      data.orderData?.items,
+      data.orderData?.products,
+      data.itemsMap,
+      data.orderData?.itemsMap,
+    ];
+    for (const c of candidates) {
+      if (!c) continue;
+      if (Array.isArray(c)) { items = c; break; }
+      if (typeof c === "object") {
+        // handle Firestore array of objects wrapped in proto
+        const vals = Object.values(c);
+        if (vals.length && typeof vals[0] === "object") { items = vals; break; }
+      }
+      if (typeof c === "string" && c.trim().startsWith("[")) {
+        try { items = JSON.parse(c); break; } catch {}
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ item extraction failed for", id, err);
   }
-  if (!items || !items.length) console.debug("⚠️ No items found for", id, data);
-console.debug("📦 Items for", id, items);
+  if (!Array.isArray(items)) items = [];
+  console.debug("📦 Items for", id, items);
   const guest = data.guestName || data.guest || "Guest";
   const rawTs = data.timestamp || data.createdAt;
  const timestamp = rawTs?.toDate?.() ? rawTs.toDate() : new Date(rawTs || Date.now());
@@ -216,9 +222,10 @@ console.debug("📦 Items for", id, items);
       const name = i.name || i.itemName || i.product || "Unnamed";
 const qty = i.qty || i.quantity || i.qtyOrdered || 1;
 const price = i.price || i.unitPrice || i.cost || 0;
-      const line = price
-        ? `${qty}× ${name} — Rp${(qty * price).toLocaleString("id-ID")}`
-        : `${qty}× ${name}`;
+      const line =
+  price && !isNaN(price)
+    ? `${qty}× ${name} — Rp${(qty * price).toLocaleString("id-ID")}`
+    : `${qty}× ${name}`;
       return `<li>${line}</li>`;
     })
     .join("");
@@ -268,7 +275,7 @@ const price = i.price || i.unitPrice || i.cost || 0;
 
 
 let loadedOrders = new Map();
-let unsubscribeOrders = null; // 🧩 hold the Firestore listener reference
+window.unsubscribeOrders = window.unsubscribeOrders || null; // avoid redeclaration
 
 function loadOrders() {
   const yyyyMmDd = jakartaDateStringFromInput();
@@ -354,7 +361,13 @@ orderDate.addEventListener("change", loadOrders);
 // ✅ Global function accessible to both listeners
  function setTodayJakarta() {
   const now = new Date();
-  orderDate.value = jakartaDateStringFromInput();
+  const jakarta = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(now);
+  orderDate.value = jakarta; // always "YYYY-MM-DD"
 }
 
  window.addEventListener("DOMContentLoaded", async () => {
