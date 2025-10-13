@@ -115,6 +115,15 @@
 
 <!-- ✅ Staff Logic -->
 <script>
+
+// 🧩 Safety: prevent ReferenceError if modal helper missing
+if (typeof showStaffModalIfNeeded !== "function") {
+  window.showStaffModalIfNeeded = (id, data) => {
+    console.log("ℹ️ (No modal implemented) Order:", id, data.table || data.table_no);
+  };
+}
+
+
 /* Staff page orders listener & renderer (replace existing staff script) */
 const orderList = document.getElementById("orderList");
 const orderDate = document.getElementById("orderDate");
