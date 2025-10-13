@@ -238,6 +238,8 @@ function loadOrders() {
   const yyyyMmDd = jakartaDateStringFromInput();
   if (!yyyyMmDd) return console.error("❌ Invalid date (staff)");
 
+  let initialLoadDone = false;
+
   db.collection("orders")
     .where("date", "==", yyyyMmDd)
     .orderBy("timestamp", "desc")
@@ -251,11 +253,13 @@ function loadOrders() {
           const card = renderOrder(doc.id, data);
           orderList.prepend(card);
           loadedOrders.set(doc.id, card);
-          // Play chime request (debounced / gesture-gated)
-          AudioChime.requestChime?.();
-          // If staff is not looking at that order yet, start repeating chime modal
-          RepeatingChime.start(doc.id);
-          showStaffModalIfNeeded(doc.id, data);
+
+          // Play chime & repeat only for truly new live orders
+          if (initialLoadDone) {
+            AudioChime.requestChime?.();
+            RepeatingChime.start(doc.id);
+            showStaffModalIfNeeded(doc.id, data);
+          }
         }
 
         if (change.type === "modified") {
@@ -263,17 +267,16 @@ function loadOrders() {
           if (card) {
             const updated = renderOrder(doc.id, data);
             if (orderList.contains(card)) {
-     orderList.replaceChild(updated, card);
-     loadedOrders.set(doc.id, updated);
-   } else {
-     console.warn("⚠️ Skipping replace — card not found in DOM:", doc.id);
-   }
+              orderList.replaceChild(updated, card);
+              loadedOrders.set(doc.id, updated);
+            } else {
+              console.warn("⚠️ Skipping replace — card not found in DOM:", doc.id);
+            }
           }
           const status = (data.kitchenStatus || data.status || "").toLowerCase();
-if (status !== "pending") {
-  setTimeout(() => RepeatingChime.stop(doc.id), 500);
-}
-
+          if (status !== "pending") {
+            setTimeout(() => RepeatingChime.stop(doc.id), 500);
+          }
         }
 
         if (change.type === "removed") {
@@ -284,6 +287,8 @@ if (status !== "pending") {
       });
 
       filterOrders(staffCurrentFilter);
+      // After first batch processed, mark initial load done
+      initialLoadDone = true;
     }, err => console.error("🔥 Snapshot error:", err));
 }
 
