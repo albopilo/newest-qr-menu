@@ -127,17 +127,6 @@ if (typeof showStaffModalIfNeeded !== "function") {
 /* Staff page orders listener & renderer (replace existing staff script) */
 const orderList = document.getElementById("orderList");
 const orderDate = document.getElementById("orderDate");
-// ✅ FIX: ensure correct Jakarta local date, not UTC-shifted
-{
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Jakarta',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
-  orderDate.value = formatter.format(now); // yyyy-mm-dd for <input type="date">
-}
 let staffCurrentFilter = "incoming";
 
 const phoneMap = {
@@ -328,6 +317,17 @@ function filterOrders(status) {
 
 orderDate.addEventListener("change", loadOrders);
 window.addEventListener("DOMContentLoaded", () => {
+  // (moved date init to DOMContentLoaded to avoid UTC-shift)
+function setTodayJakarta() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  orderDate.value = formatter.format(now);
+}
   if (typeof AudioChime !== "undefined") AudioChime.primeMutedAutoplay();
   // If this staff page opened via a notification (has orderId), stop repeating for it immediately
   try {
@@ -344,7 +344,18 @@ document.body.addEventListener("click", () => {
   try { AudioChime.primeMutedAutoplay(); } catch {}
 }, { once: true });
 
-loadOrders();
+// ✅ Wait for DOM ready + Firestore init before attaching listener
+window.addEventListener("DOMContentLoaded", async () => {
+  setTodayJakarta();
+  try {
+    // Ensure Firestore network is ready before first snapshot
+    await firebase.firestore().enableNetwork();
+    console.log("✅ Firestore ready, now loading orders for", orderDate.value);
+  } catch (err) {
+    console.warn("⚠️ Firestore enableNetwork failed, proceeding anyway:", err);
+  }
+  loadOrders();
+});
 </script>
 </body>
 </html>
