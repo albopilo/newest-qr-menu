@@ -127,10 +127,17 @@ if (typeof showStaffModalIfNeeded !== "function") {
 /* Staff page orders listener & renderer (replace existing staff script) */
 const orderList = document.getElementById("orderList");
 const orderDate = document.getElementById("orderDate");
-// ✅ Robust: get Jakarta YYYY-MM-DD directly
-const todayJakarta = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
-orderDate.value = todayJakarta;
-
+// ✅ FIX: ensure correct Jakarta local date, not UTC-shifted
+{
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  orderDate.value = formatter.format(now); // yyyy-mm-dd for <input type="date">
+}
 let staffCurrentFilter = "incoming";
 
 const phoneMap = {
@@ -179,39 +186,40 @@ function renderOrder(id, data) {
   const kitchenStatus = (data.kitchenStatus || data.status || "pending").toLowerCase();
   const paymentStatus = (data.paymentStatus || "unknown").toLowerCase();
   const method = (data.paymentMethod || "unspecified").toLowerCase();
-  const subtotal = Number(data.subtotal || 0);
-  const discount = Number(data.discount || 0);
-  const tax = Number(data.tax || 0);
-  const deliveryFee = Number(data.deliveryFee || 0);
-  const total = Number(data.grandTotal || data.total || subtotal + tax - discount + deliveryFee);
+  const subtotal = +data.subtotal || 0;
+  const discount = +data.discount || 0;
+  const tax = +data.tax || 0;
+  const deliveryFee = +data.deliveryFee || 0;
+  const grandTotal = +data.grandTotal || subtotal - discount + tax + deliveryFee;
 
   const div = document.createElement("div");
   div.className = "order";
   div.dataset.status = kitchenStatus;
   styleOrderBox(div, kitchenStatus);
 
-  // ✅ Build detailed item list (inline bullets)
-  const itemHTML = items.length
-    ? `<ul style="margin:6px 0 0 16px;padding:0;list-style-type:disc;">
-        ${items.map(i => {
-          const name = i.name || i.itemName || i.product || "Unnamed";
-          const qty = Number(i.qty || i.quantity || 1);
-          const price = Number(i.price || i.unitPrice || 0);
-          const lineTotal = price ? `Rp${(price * qty).toLocaleString("id-ID")}` : "";
-          return `<li>${qty}× ${name}${lineTotal ? ` — <span style='color:#555;'>${lineTotal}</span>` : ""}</li>`;
-        }).join("")}
-       </ul>`
-    : "<p>—</p>";
+  // ✅ Detailed inline rendering for staff view
+  const itemLines = (items || [])
+    .map(i => {
+      const name = i.name || i.itemName || "Unnamed";
+      const qty = i.qty || i.quantity || 1;
+      const price = i.price || i.unitPrice || 0;
+      const line = price
+        ? `${qty}× ${name} — Rp${(qty * price).toLocaleString("id-ID")}`
+        : `${qty}× ${name}`;
+      return `<li>${line}</li>`;
+    })
+    .join("");
 
   div.innerHTML = `
     <p><strong>Table:</strong> ${table} <span style="float:right">${time}</span></p>
     <p><strong>Guest:</strong> ${guest}</p>
-    <div><strong>Items:</strong>${itemHTML}</div>
+    <p><strong>Items:</strong></p>
+    <ul style="margin:4px 0 8px 16px; padding:0; list-style-type:disc;">${itemLines}</ul>
     <p><strong>Subtotal:</strong> Rp${subtotal.toLocaleString("id-ID")}</p>
-    ${discount > 0 ? `<p><strong>Discount:</strong> -Rp${discount.toLocaleString("id-ID")}</p>` : ""}
-    ${tax > 0 ? `<p><strong>Tax:</strong> Rp${tax.toLocaleString("id-ID")}</p>` : ""}
-    ${deliveryFee > 0 ? `<p><strong>Delivery Fee:</strong> Rp${deliveryFee.toLocaleString("id-ID")}</p>` : ""}
-    <p><strong>Total:</strong> <span style="color:#16a34a;font-weight:bold;">Rp${total.toLocaleString("id-ID")}</span></p>
+    ${discount ? `<p><strong>Discount:</strong> -Rp${discount.toLocaleString("id-ID")}</p>` : ""}
+    ${tax ? `<p><strong>Tax:</strong> Rp${tax.toLocaleString("id-ID")}</p>` : ""}
+    ${deliveryFee ? `<p><strong>Delivery Fee:</strong> Rp${deliveryFee.toLocaleString("id-ID")}</p>` : ""}
+    <p><strong>Total:</strong> <span style="color:#16a34a;font-weight:bold;">Rp${grandTotal.toLocaleString("id-ID")}</span></p>
     <p><strong>Payment:</strong> ${method.toUpperCase()} (${paymentStatus})</p>
     <p class="status">Status: ${kitchenStatus.toUpperCase()}</p>
   `;
