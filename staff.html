@@ -127,8 +127,10 @@ if (typeof showStaffModalIfNeeded !== "function") {
 /* Staff page orders listener & renderer (replace existing staff script) */
 const orderList = document.getElementById("orderList");
 const orderDate = document.getElementById("orderDate");
-const nowJakarta = new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" });
- orderDate.valueAsDate = new Date(nowJakarta);
+// ✅ Robust: get Jakarta YYYY-MM-DD directly
+const todayJakarta = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+orderDate.value = todayJakarta;
+
 let staffCurrentFilter = "incoming";
 
 const phoneMap = {
@@ -268,9 +270,10 @@ function loadOrders() {
    }
           }
           const status = (data.kitchenStatus || data.status || "").toLowerCase();
-   if (status !== "pending") {
-     RepeatingChime.stop(doc.id);
-   }
+if (status !== "pending") {
+  setTimeout(() => RepeatingChime.stop(doc.id), 500);
+}
+
         }
 
         if (change.type === "removed") {
@@ -317,5 +320,24 @@ document.body.addEventListener("click", () => {
 
 loadOrders();
 </script>
+
+<!-- ✅ Simple order detail modal -->
+<div id="staffModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;z-index:1000;">
+  <div style="background:#fff;padding:20px;border-radius:12px;max-width:400px;width:90%;box-shadow:0 4px 20px rgba(0,0,0,0.2);">
+    <h3 id="modalTitle"></h3>
+    <pre id="modalBody" style="white-space:pre-wrap;font-size:0.9rem;"></pre>
+    <button onclick="document.getElementById('staffModal').style.display='none'">Close</button>
+  </div>
+</div>
+
+<script>
+window.showStaffModalIfNeeded = (id, data) => {
+  const modal = document.getElementById('staffModal');
+  document.getElementById('modalTitle').textContent = `Order ${id}`;
+  document.getElementById('modalBody').textContent = JSON.stringify(data, null, 2);
+  modal.style.display = 'flex';
+};
+</script>
+
 </body>
 </html>
