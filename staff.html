@@ -168,9 +168,18 @@ async function updateOrderStatus(id, newStatus) {
 
 function renderOrder(id, data) {
   const table = data.table || data.tableName || data.table_no || "—";
-  const items = Array.isArray(data.items) ? data.items : [];
+  const items =
+   Array.isArray(data.items) ? data.items :
+  Array.isArray(data.orderItems) ? data.orderItems :
+  Array.isArray(data.products) ? data.products :
+  Array.isArray(data.orderedItems) ? data.orderedItems :
+  (data.items && typeof data.items === "object") ? Object.values(data.items) :
+  (data.orderData?.items && typeof data.orderData.items === "object") ? Object.values(data.orderData.items) :
+  [];
+console.debug("📦 Items for", id, items);
   const guest = data.guestName || data.guest || "Guest";
-  const timestamp = data.timestamp?.toDate?.() || data.createdAt?.toDate?.() || null;
+  const rawTs = data.timestamp || data.createdAt;
+ const timestamp = rawTs?.toDate?.() ? rawTs.toDate() : new Date(rawTs || Date.now());
   const time = tsToJakartaTime(timestamp);
   const kitchenStatus = (data.kitchenStatus || data.status || "pending").toLowerCase();
   const paymentStatus = (data.paymentStatus || "unknown").toLowerCase();
@@ -189,9 +198,9 @@ function renderOrder(id, data) {
   // ✅ Detailed inline rendering for staff view
   const itemLines = (items || [])
     .map(i => {
-      const name = i.name || i.itemName || "Unnamed";
-      const qty = i.qty || i.quantity || 1;
-      const price = i.price || i.unitPrice || 0;
+      const name = i.name || i.itemName || i.product || "Unnamed";
+const qty = i.qty || i.quantity || i.qtyOrdered || 1;
+const price = i.price || i.unitPrice || i.cost || 0;
       const line = price
         ? `${qty}× ${name} — Rp${(qty * price).toLocaleString("id-ID")}`
         : `${qty}× ${name}`;
@@ -255,6 +264,7 @@ function loadOrders() {
     .where("date", "==", yyyyMmDd)
     .orderBy("timestamp", "desc")
     .onSnapshot(snapshot => {
+      console.debug("📅 Listening for date:", yyyyMmDd, "→ got", snapshot.size, "docs");
       snapshot.docChanges().forEach(change => {
         const doc = change.doc;
         const data = doc.data();
@@ -319,46 +329,53 @@ function filterOrders(status) {
 }
 
 orderDate.addEventListener("change", loadOrders);
-window.addEventListener("DOMContentLoaded", () => {
-  // (moved date init to DOMContentLoaded to avoid UTC-shift)
-function setTodayJakarta() {
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Jakarta',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
-  orderDate.value = formatter.format(now);
-}
-  if (typeof AudioChime !== "undefined") AudioChime.primeMutedAutoplay();
-  // If this staff page opened via a notification (has orderId), stop repeating for it immediately
-  try {
-    const urlParams = new URLSearchParams(window.location.search);
-    const orderIdFromUrl = urlParams.get("orderId");
-    if (orderIdFromUrl) {
-      RepeatingChime.stop(orderIdFromUrl);
-      // mark as shown so modal won't reappear
-      try { window.staffShownModals = window.staffShownModals || new Set(); window.staffShownModals.add(orderIdFromUrl); } catch {}
-    }
-  } catch (e) { /* ignore URL parse errs */ }
-});
-document.body.addEventListener("click", () => {
-  try { AudioChime.primeMutedAutoplay(); } catch {}
-}, { once: true });
+// ✅ Global function accessible to both listeners
+ function setTodayJakarta() {
+   const now = new Date();
+   const formatter = new Intl.DateTimeFormat('en-CA', {
+     timeZone: 'Asia/Jakarta',
+     year: 'numeric',
+     month: '2-digit',
+     day: '2-digit'
+   });
+   orderDate.value = formatter.format(now);
+ }
 
-// ✅ Wait for DOM ready + Firestore init before attaching listener
-window.addEventListener("DOMContentLoaded", async () => {
-  setTodayJakarta();
-  try {
-    // Ensure Firestore network is ready before first snapshot
-    await firebase.firestore().enableNetwork();
-    console.log("✅ Firestore ready, now loading orders for", orderDate.value);
-  } catch (err) {
-    console.warn("⚠️ Firestore enableNetwork failed, proceeding anyway:", err);
-  }
-  loadOrders();
-});
+ window.addEventListener("DOMContentLoaded", async () => {
+   // ✅ Always set Jakarta date before anything else
+   setTodayJakarta();
+
+   // ✅ Prime audio (for Chrome autoplay restrictions)
+   if (typeof AudioChime !== "undefined") AudioChime.primeMutedAutoplay();
+   document.body.addEventListener("click", () => {
+     try { AudioChime.primeMutedAutoplay(); } catch {}
+  }, { once: true });
+
+   // ✅ Stop any repeating chime if opened via notification
+   try {
+     const params = new URLSearchParams(location.search);
+     const orderId = params.get("orderId");
+     if (orderId) {
+       RepeatingChime.stop(orderId);
+       window.staffShownModals = window.staffShownModals || new Set();
+       window.staffShownModals.add(orderId);
+     }
+   } catch {}
+
+   // ✅ Enable Firestore and load data
+   try {
+     try {
+   await firebase.firestore().enableNetwork();
+ } catch (e) {
+   console.debug("Firestore network already active or cached:", e);
+ }
+     console.log("✅ Firestore ready — loading orders for", orderDate.value);
+   } catch (err) {
+     console.warn("⚠️ Firestore enableNetwork failed, proceeding anyway:", err);
+   }
+
+   loadOrders();
+ });
 </script>
 </body>
 </html>
