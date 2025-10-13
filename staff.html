@@ -179,31 +179,44 @@ function renderOrder(id, data) {
   const kitchenStatus = (data.kitchenStatus || data.status || "pending").toLowerCase();
   const paymentStatus = (data.paymentStatus || "unknown").toLowerCase();
   const method = (data.paymentMethod || "unspecified").toLowerCase();
-  const total = Number(data.grandTotal || data.total || data.subtotal || 0);
+  const subtotal = Number(data.subtotal || 0);
+  const discount = Number(data.discount || 0);
+  const tax = Number(data.tax || 0);
+  const deliveryFee = Number(data.deliveryFee || 0);
+  const total = Number(data.grandTotal || data.total || subtotal + tax - discount + deliveryFee);
 
   const div = document.createElement("div");
   div.className = "order";
   div.dataset.status = kitchenStatus;
   styleOrderBox(div, kitchenStatus);
 
-  // Build item list (detailed)
-  const itemLines = items.map(i => {
-    const name = i.name || i.itemName || i.product || "Unnamed";
-    const qty = Number(i.qty || i.quantity || 1);
-    const price = Number(i.price || i.unitPrice || 0);
-    const lineTotal = price ? ` • Rp${(price * qty).toLocaleString("id-ID")}` : "";
-    return `${qty}× ${name}${lineTotal}`;
-  }).join("\n");
+  // ✅ Build detailed item list (inline bullets)
+  const itemHTML = items.length
+    ? `<ul style="margin:6px 0 0 16px;padding:0;list-style-type:disc;">
+        ${items.map(i => {
+          const name = i.name || i.itemName || i.product || "Unnamed";
+          const qty = Number(i.qty || i.quantity || 1);
+          const price = Number(i.price || i.unitPrice || 0);
+          const lineTotal = price ? `Rp${(price * qty).toLocaleString("id-ID")}` : "";
+          return `<li>${qty}× ${name}${lineTotal ? ` — <span style='color:#555;'>${lineTotal}</span>` : ""}</li>`;
+        }).join("")}
+       </ul>`
+    : "<p>—</p>";
 
   div.innerHTML = `
     <p><strong>Table:</strong> ${table} <span style="float:right">${time}</span></p>
     <p><strong>Guest:</strong> ${guest}</p>
-    <p style="white-space:pre-wrap;"><strong>Items:</strong>\n${itemLines || "—"}</p>
-    <p><strong>Total:</strong> Rp${total.toLocaleString("id-ID")}</p>
-    <p><strong>Payment:</strong> ${method} (${paymentStatus})</p>
-    <p class="status">Status: ${kitchenStatus}</p>
+    <div><strong>Items:</strong>${itemHTML}</div>
+    <p><strong>Subtotal:</strong> Rp${subtotal.toLocaleString("id-ID")}</p>
+    ${discount > 0 ? `<p><strong>Discount:</strong> -Rp${discount.toLocaleString("id-ID")}</p>` : ""}
+    ${tax > 0 ? `<p><strong>Tax:</strong> Rp${tax.toLocaleString("id-ID")}</p>` : ""}
+    ${deliveryFee > 0 ? `<p><strong>Delivery Fee:</strong> Rp${deliveryFee.toLocaleString("id-ID")}</p>` : ""}
+    <p><strong>Total:</strong> <span style="color:#16a34a;font-weight:bold;">Rp${total.toLocaleString("id-ID")}</span></p>
+    <p><strong>Payment:</strong> ${method.toUpperCase()} (${paymentStatus})</p>
+    <p class="status">Status: ${kitchenStatus.toUpperCase()}</p>
   `;
 
+  // ✅ Action buttons (kitchen status)
   const controls = document.createElement("div");
   ["preparing", "served", "cancelled"].forEach(s => {
     const btn = document.createElement("button");
@@ -214,7 +227,7 @@ function renderOrder(id, data) {
   });
   div.appendChild(controls);
 
-  // WhatsApp contact for Mille tables
+  // ✅ Optional contact button (for Mille tables)
   const lower = String(table).toLowerCase();
   const phone =
     (lower.includes("mille 1") && phoneMap["mille 1"]) ||
@@ -231,6 +244,7 @@ function renderOrder(id, data) {
 
   return div;
 }
+
 
 let loadedOrders = new Map();
 
@@ -258,7 +272,6 @@ function loadOrders() {
           if (initialLoadDone) {
             AudioChime.requestChime?.();
             RepeatingChime.start(doc.id);
-            showStaffModalIfNeeded(doc.id, data);
           }
         }
 
@@ -325,24 +338,5 @@ document.body.addEventListener("click", () => {
 
 loadOrders();
 </script>
-
-<!-- ✅ Simple order detail modal -->
-<div id="staffModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;z-index:1000;">
-  <div style="background:#fff;padding:20px;border-radius:12px;max-width:400px;width:90%;box-shadow:0 4px 20px rgba(0,0,0,0.2);">
-    <h3 id="modalTitle"></h3>
-    <pre id="modalBody" style="white-space:pre-wrap;font-size:0.9rem;"></pre>
-    <button onclick="document.getElementById('staffModal').style.display='none'">Close</button>
-  </div>
-</div>
-
-<script>
-window.showStaffModalIfNeeded = (id, data) => {
-  const modal = document.getElementById('staffModal');
-  document.getElementById('modalTitle').textContent = `Order ${id}`;
-  document.getElementById('modalBody').textContent = JSON.stringify(data, null, 2);
-  modal.style.display = 'flex';
-};
-</script>
-
 </body>
 </html>
