@@ -136,9 +136,15 @@ const phoneMap = {
 };
 
 function jakartaDateStringFromInput() {
-  // ensure the selected calendar date is interpreted in Asia/Jakarta timezone
+  // Always compute date strictly in Asia/Jakarta, even if stored UTC
   const d = orderDate.valueAsDate || new Date();
-  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }); // YYYY-MM-DD
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(d);
 }
 
 function tsToJakartaTime(ts) {
@@ -168,14 +174,23 @@ async function updateOrderStatus(id, newStatus) {
 
 function renderOrder(id, data) {
   const table = data.table || data.tableName || data.table_no || "—";
-  const items =
-   Array.isArray(data.items) ? data.items :
-  Array.isArray(data.orderItems) ? data.orderItems :
-  Array.isArray(data.products) ? data.products :
-  Array.isArray(data.orderedItems) ? data.orderedItems :
-  (data.items && typeof data.items === "object") ? Object.values(data.items) :
-  (data.orderData?.items && typeof data.orderData.items === "object") ? Object.values(data.orderData.items) :
-  [];
+  // 🧩 Robust item extraction (matches app.js)
+  let items = [];
+  const candidates = [
+    data.items,
+    data.orderItems,
+    data.products,
+    data.orderedItems,
+    data.orderData?.items,
+    data.orderData?.products,
+    data.itemsMap,
+    data.orderData?.itemsMap,
+  ];
+  for (const c of candidates) {
+    if (Array.isArray(c)) { items = c; break; }
+    if (c && typeof c === 'object') { items = Object.values(c); break; }
+  }
+  if (!items || !items.length) console.debug("⚠️ No items found for", id, data);
 console.debug("📦 Items for", id, items);
   const guest = data.guestName || data.guest || "Guest";
   const rawTs = data.timestamp || data.createdAt;
@@ -338,15 +353,9 @@ function filterOrders(status) {
 orderDate.addEventListener("change", loadOrders);
 // ✅ Global function accessible to both listeners
  function setTodayJakarta() {
-   const now = new Date();
-   const formatter = new Intl.DateTimeFormat('en-CA', {
-     timeZone: 'Asia/Jakarta',
-     year: 'numeric',
-     month: '2-digit',
-     day: '2-digit'
-   });
-   orderDate.value = formatter.format(now);
- }
+  const now = new Date();
+  orderDate.value = jakartaDateStringFromInput();
+}
 
  window.addEventListener("DOMContentLoaded", async () => {
    // ✅ Always set Jakarta date before anything else
