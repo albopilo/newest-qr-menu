@@ -253,6 +253,7 @@ const price = i.price || i.unitPrice || i.cost || 0;
 
 
 let loadedOrders = new Map();
+let unsubscribeOrders = null; // 🧩 hold the Firestore listener reference
 
 function loadOrders() {
   const yyyyMmDd = jakartaDateStringFromInput();
@@ -260,7 +261,13 @@ function loadOrders() {
 
   let initialLoadDone = false;
 
-  db.collection("orders")
+  // 🧩 Stop previous snapshot listener before starting a new one
+  if (unsubscribeOrders) {
+    console.debug("🧹 Unsubscribing previous Firestore listener");
+    try { unsubscribeOrders(); } catch {}
+  }
+
+  unsubscribeOrders = db.collection("orders")
     .where("date", "==", yyyyMmDd)
     .orderBy("timestamp", "desc")
     .onSnapshot(snapshot => {
