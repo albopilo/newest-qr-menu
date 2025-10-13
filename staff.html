@@ -127,7 +127,8 @@ if (typeof showStaffModalIfNeeded !== "function") {
 /* Staff page orders listener & renderer (replace existing staff script) */
 const orderList = document.getElementById("orderList");
 const orderDate = document.getElementById("orderDate");
-orderDate.valueAsDate = new Date();
+const nowJakarta = new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" });
+ orderDate.valueAsDate = new Date(nowJakarta);
 let staffCurrentFilter = "incoming";
 
 const phoneMap = {
@@ -259,9 +260,17 @@ function loadOrders() {
           const card = loadedOrders.get(doc.id);
           if (card) {
             const updated = renderOrder(doc.id, data);
-            orderList.replaceChild(updated, card);
-            loadedOrders.set(doc.id, updated);
+            if (orderList.contains(card)) {
+     orderList.replaceChild(updated, card);
+     loadedOrders.set(doc.id, updated);
+   } else {
+     console.warn("⚠️ Skipping replace — card not found in DOM:", doc.id);
+   }
           }
+          const status = (data.kitchenStatus || data.status || "").toLowerCase();
+   if (status !== "pending") {
+     RepeatingChime.stop(doc.id);
+   }
         }
 
         if (change.type === "removed") {
