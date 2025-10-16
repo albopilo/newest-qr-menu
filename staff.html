@@ -239,7 +239,7 @@
   function startRepeatingChime(id){
     if(activeRepeaters.has(id)) return; // already repeating
     const play = () => audio.play().catch(()=>{});
-    const interval = setInterval(play, 20000); // repeat every 20s
+    const interval = setInterval(play, 6000); // repeat every 20s
     activeRepeaters.set(id, interval);
     play(); // immediate first play
   }
