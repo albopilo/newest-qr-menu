@@ -1,6 +1,6 @@
 {
   "name": "13e Staff Dashboard",
-  "short_name": "13e Dashboard",
+  "short_name": "13e Staff",
   "start_url": "/staff.html",
   "display": "standalone",
   "background_color": "#f9f9f9",
