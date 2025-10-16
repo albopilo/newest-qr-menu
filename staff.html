@@ -20,31 +20,61 @@
       color: #111827;
     }
     h1 { text-align:center; margin: 0 0 12px; font-size: 1.4rem; }
-    #orderControls { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; margin-bottom:12px; position: sticky; top:0; background:var(--bg); padding:8px; z-index: 30; border-bottom:1px solid #e5e7eb; }
-    .btn { border: none; padding: 8px 12px; border-radius:8px; background:#e5e7eb; cursor:pointer; font-size:0.95rem; transition: background .15s; }
+
+    #orderControls {
+      display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center;
+      margin-bottom:12px; position: sticky; top:0; background:var(--bg);
+      padding:8px 0; z-index:30;
+    }
+
+    .btn {
+      border: none; padding: 8px 12px; border-radius:8px;
+      background:#e5e7eb; cursor:pointer; font-size:0.95rem; transition:background .15s;
+    }
     .btn:hover { background:#d1d5db; }
     .btn.active { background: var(--accent); color: #fff; }
-    #orderDate { padding:6px 8px; border-radius:8px; border:1px solid #d1d5db; font-size:1rem; }
-    #orderList { margin-top: 12px; max-width: 840px; margin-left:auto; margin-right:auto; }
-    .order { background: var(--card); border-radius:10px; padding:12px; margin-bottom:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: box-shadow .18s, border-color .18s; }
-    .order:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.08); }
-    .meta { display:flex; justify-content:space-between; gap: 12px; align-items:center; flex-wrap:wrap; }
-    .order p { margin:6px 0; color:#111827; font-size:0.96rem; }
+
+    #orderDate {
+      padding:6px 8px; border-radius:8px; border:1px solid #d1d5db; font-size:1rem;
+    }
+
+    #orderList { margin-top: 12px; max-width: 840px; margin-inline:auto; }
+
+    .order {
+      background: var(--card); border-radius:10px; padding:12px;
+      margin-bottom:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      transition: box-shadow .18s, border-color .18s;
+    }
+
+    .order .meta {
+      display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap;
+    }
+
+    .order p { margin:6px 0; color:#111827; font-size:0.95rem; }
     .order ul { margin:6px 0 8px 18px; padding:0; }
+    .order .status { font-weight:700; margin-top:6px; }
+
     .controls-row { margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .btn.minimal { background:#f3f4f6; border-radius:6px; padding:7px 10px; }
-    .btn.contact { background:#25D366; color:white; padding:7px 10px; border-radius:6px; text-decoration:none; display:inline-block; }
-    .loading, .empty, .error { text-align:center; color:var(--muted); padding:18px 0; }
-    .badge { padding:6px 8px;border-radius:999px;font-size:0.85rem; font-weight:600; }
+    .btn.contact { background:#25D366; color:white; text-decoration:none; padding:7px 10px; border-radius:6px; }
+
+    .loading, .empty { text-align:center; color:var(--muted); padding:18px 0; }
+
+    .badge {
+      padding:6px 8px; border-radius:999px; font-size:0.85rem; font-weight:600;
+      display:inline-block;
+    }
     .badge.pending { background:#fff7ed; color:#7c2d12; border:1px solid #f97316; }
     .badge.preparing { background:#eff6ff; color:#1e3a8a; border:1px solid #3b82f6; }
     .badge.served { background:#ecfdf5; color:#064e3b; border:1px solid #10b981; }
     .badge.cancelled { background:#fee2e2; color:#991b1b; border:1px solid #ef4444; }
+
     .topline { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+
     @media (max-width:600px) {
       .meta { flex-direction:column; align-items:flex-start; }
       .controls-row { width:100%; }
-      #orderControls { padding-left:8px; padding-right:8px; }
+      #orderControls { padding-inline:8px; }
     }
   </style>
 </head>
@@ -58,6 +88,7 @@
       <button class="btn" data-filter="served">Served</button>
       <button class="btn" data-filter="cancelled">Cancelled</button>
     </div>
+
     <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
       <label for="orderDate" style="font-size:0.9rem; color:var(--muted);">Orders for</label>
       <input id="orderDate" type="date" />
@@ -68,159 +99,202 @@
 
   <audio id="newOrderSound" preload="auto" src="https://albopilo.github.io/newest-qr-menu/assets/sound.mp3"></audio>
 
-  <!-- Firebase (Compat) SDK -->
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
+  <!-- Shared Firebase logic -->
+  <script src="app.js"></script>
+
+  <!-- Staff Logic -->
   <script>
   (function(){
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT.appspot.com",
-      messagingSenderId: "YOUR_MSG_ID",
-      appId: "YOUR_APP_ID"
+    const phoneMap = {
+      "mille 1": "6282217091699",
+      "mille 2": "6281220039853",
+      "mille 3": "6282261863984",
     };
-
-    // Initialize Firebase safely
-    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
 
     const orderList = document.getElementById('orderList');
     const orderDate = document.getElementById('orderDate');
-    const filterButtons = Array.from(document.querySelectorAll('.btn[data-filter]'));
     const audio = document.getElementById('newOrderSound');
-    const phoneMap = { "mille 1":"6282217091699","mille 2":"6281220039853","mille 3":"6282261863984" };
+    const filterButtons = [...document.querySelectorAll('#orderControls .btn[data-filter]')];
 
-    let unsubscribe = null;
+    let loadedOrders = new Map();
     let currentFilter = 'incoming';
-    let initialLoad = true;
+    window._staff_unsub = window._staff_unsub || null;
 
-    function escapeHtml(s){return (s??'').toString().replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-    function formatDate(d){const j=new Date(d.toLocaleString('en-US',{timeZone:'Asia/Jakarta'}));return `${j.getFullYear()}-${String(j.getMonth()+1).padStart(2,'0')}-${String(j.getDate()).padStart(2,'0')}`;}
-    function formatTime(ts){const d=ts?.toDate?.()||new Date(ts);return d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Jakarta'});}
-    function setToday(){orderDate.value=formatDate(new Date());}
-    function show(msg,type='loading'){orderList.innerHTML=`<div class="${type}">${msg}</div>`;}
+    function getDb(){
+      return window.db || (window.firebase?.firestore?.());
+    }
+
+    function escapeHtml(s){
+      return String(s || '').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    function tsToJakartaTime(ts){
+      if(!ts) return '—';
+      const d = ts.toDate?.() || new Date(ts);
+      return d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Jakarta'});
+    }
+
+    function todayJakarta(){
+      const d = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Jakarta'}));
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
 
     function extractItems(data){
-      const cands=[data?.items,data?.orderItems,data?.products,data?.orderedItems,data?.orderData?.items,data?.orderData?.products];
-      for(const c of cands){if(Array.isArray(c))return c;if(typeof c==='string'){try{const p=JSON.parse(c);if(Array.isArray(p))return p;}catch(e){}}}
+      const cands = [data.items,data.orderItems,data.products,data.orderedItems,data.orderData?.items,data.orderData?.products];
+      for(const c of cands){
+        if(Array.isArray(c)) return c;
+        if(typeof c==='string'&&c.trim().startsWith('[')){
+          try{return JSON.parse(c);}catch{}
+        }
+        if(c && typeof c==='object'){
+          const vals=Object.values(c);
+          if(vals.length && typeof vals[0]==='object') return vals;
+        }
+      }
       return [];
     }
 
     function badge(status){
       const s=(status||'').toLowerCase();
-      if(s.includes('prepar'))return `<span class="badge preparing">PREPARING</span>`;
-      if(s.includes('serve'))return `<span class="badge served">SERVED</span>`;
-      if(s.includes('cancel'))return `<span class="badge cancelled">CANCELLED</span>`;
-      return `<span class="badge pending">PENDING</span>`;
+      if(s.includes('prepare'))return'<span class="badge preparing">PREPARING</span>';
+      if(s.includes('serve'))return'<span class="badge served">SERVED</span>';
+      if(s.includes('cancel'))return'<span class="badge cancelled">CANCELLED</span>';
+      return'<span class="badge pending">PENDING</span>';
     }
 
-    function createOrder(id,data){
+    function createCard(id,data){
       const table=data.table||data.tableName||'—';
       const guest=data.guestName||'Guest';
       const items=extractItems(data);
-      const time=formatTime(data.timestamp||data.createdAt);
+      const time=tsToJakartaTime(data.timestamp||data.createdAt);
       const status=(data.kitchenStatus||data.status||'pending').toLowerCase();
       const method=(data.paymentMethod||'unspecified').toUpperCase();
-      const payStat=(data.paymentStatus||'unknown').toLowerCase();
-      const subtotal=+data.subtotal||0,discount=+data.discount||0,tax=+data.tax||0,fee=+data.deliveryFee||0;
-      const total=(+data.grandTotal)||(subtotal-discount+tax+fee);
+      const payStatus=(data.paymentStatus||'unknown').toLowerCase();
+      const subtotal=+data.subtotal||0,disc=+data.discount||0,tax=+data.tax||0,fee=+data.deliveryFee||0;
+      const total=+data.grandTotal||subtotal-disc+tax+fee;
 
-      const el=document.createElement('div');
-      el.className='order';
-      el.dataset.status=status;
-      el.dataset.id=id;
-
-      el.innerHTML=`
+      const div=document.createElement('div');
+      div.className='order'; div.dataset.status=status;
+      div.innerHTML=`
         <div class="meta">
           <div>
-            <div class="topline"><strong>${escapeHtml(table)}</strong><span style="color:var(--muted)">${escapeHtml(guest)}</span></div>
+            <div class="topline">
+              <strong>${escapeHtml(table)}</strong>
+              <span style="color:var(--muted)">${escapeHtml(guest)}</span>
+            </div>
             <p><strong>Items:</strong></p>
             <ul>${items.map(i=>`<li>${i.qty||1}× ${escapeHtml(i.name||i.itemName||'Unnamed')} — Rp${((i.qty||1)*(i.price||0)).toLocaleString('id-ID')}</li>`).join('')}</ul>
           </div>
           <div style="text-align:right">
-            ${badge(status)}<div style="color:var(--muted);font-size:0.9rem;margin-top:6px;">${method} (${payStat})</div>
+            ${badge(status)}
+            <div style="color:var(--muted);font-size:0.9rem;">${method} (${payStatus})</div>
             <div style="color:var(--muted);font-size:0.9rem;margin-top:6px;">${time}</div>
           </div>
         </div>
         <p><strong>Total:</strong> <span style="color:var(--success);font-weight:700">Rp${total.toLocaleString('id-ID')}</span></p>
-        <p class="status">Status: ${status.toUpperCase()}</p>`;
+        <p class="status">Status: ${status.toUpperCase()}</p>
+      `;
 
-      const ctr=document.createElement('div');
-      ctr.className='controls-row';
+      const ctrl=document.createElement('div');
+      ctrl.className='controls-row';
       ['preparing','served','cancelled'].forEach(s=>{
         const b=document.createElement('button');
-        b.className='btn minimal';b.textContent=s;b.onclick=()=>updateStatus(id,s);ctr.appendChild(b);
+        b.className='btn minimal'; b.textContent=s;
+        b.onclick=()=>updateStatus(id,s);
+        ctrl.appendChild(b);
       });
       const lower=table.toLowerCase();
       const phone=(lower.includes('mille 1')&&phoneMap['mille 1'])||(lower.includes('mille 2')&&phoneMap['mille 2'])||(lower.includes('mille 3')&&phoneMap['mille 3']);
-      if(phone){const a=document.createElement('a');a.className='btn contact';a.href=`https://wa.me/${phone}?text=${encodeURIComponent('Order '+id+' ('+table+')')}`;a.target='_blank';a.textContent='💬 Contact Mille';ctr.appendChild(a);}
-      el.appendChild(ctr);
-      return el;
+      if(phone){
+        const a=document.createElement('a');
+        a.className='btn contact';
+        a.href=`https://wa.me/${phone}?text=${encodeURIComponent('Order '+id+' ('+table+')')}`;
+        a.target='_blank'; a.textContent='💬 Contact Mille';
+        ctrl.appendChild(a);
+      }
+      div.appendChild(ctrl);
+      return div;
     }
 
     async function updateStatus(id,status){
-      try{await db.collection('orders').doc(id).update({kitchenStatus:status});toast(`✅ ${id} → ${status}`);}
-      catch(e){toast('⚠️ Failed updating');}
+      const db=getDb();
+      if(!db)return alert('Firestore not ready');
+      await db.collection('orders').doc(id).update({kitchenStatus:status});
+      showBanner(`✅ Order ${id} → ${status}`);
     }
 
-    function toast(msg,ms=2000){
-      const t=document.createElement('div');t.textContent=msg;
-      Object.assign(t.style,{position:'fixed',bottom:'24px',left:'50%',transform:'translateX(-50%)',background:'#111',color:'#fff',padding:'8px 12px',borderRadius:'8px',zIndex:9999});
-      document.body.appendChild(t);setTimeout(()=>t.remove(),ms);
+    function showBanner(msg,ms=2500){
+      const el=document.createElement('div');
+      el.textContent=msg;
+      Object.assign(el.style,{position:'fixed',bottom:'24px',left:'50%',transform:'translateX(-50%)',background:'#111',color:'#fff',padding:'8px 12px',borderRadius:'8px',zIndex:9999});
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(),ms);
     }
 
-    function applyFilter(f){
-      currentFilter=f;
-      filterButtons.forEach(b=>b.classList.toggle('active',b.dataset.filter===f));
+    function applyFilter(status){
+      currentFilter=status;
+      filterButtons.forEach(b=>b.classList.toggle('active',b.dataset.filter===status));
       document.querySelectorAll('.order').forEach(el=>{
-        const s=(el.dataset.status||'').toLowerCase();
-        const show=(f==='all'||(f==='incoming'&&['pending','preparing'].includes(s))||s===f);
-        el.style.display=show?'':'none';
+        const s=el.dataset.status;
+        const incoming=status==='incoming'&&['pending','preparing'].includes(s);
+        el.style.display=(status==='all'||incoming||s===status)?'':'none';
       });
-      if(!document.querySelector('.order:not([style*="display: none"])')) show('No orders match filter','empty');
+      const any=[...document.querySelectorAll('.order')].some(e=>e.style.display!=='none');
+      if(!any)orderList.innerHTML+=`<div class="empty">No orders match filter.</div>`;
+      else document.querySelectorAll('.empty').forEach(e=>e.remove());
     }
 
-    async function loadOrders(){
-      if(unsubscribe) unsubscribe();
-      const dateStr=orderDate.value;
-      if(!dateStr){show('Invalid date','error');return;}
-      show('Loading orders…');
-      const start=new Date(`${dateStr}T00:00:00+07:00`),end=new Date(`${dateStr}T23:59:59+07:00`);
-      unsubscribe=db.collection('orders')
-        .where('timestamp','>=',start).where('timestamp','<=',end)
-        .orderBy('timestamp','desc')
-        .onSnapshot(snap=>{
-          if(snap.empty){show('No orders for this date.','empty');return;}
-          const frag=document.createDocumentFragment();
-          snap.docs.forEach(d=>frag.appendChild(createOrder(d.id,d.data())));
-          orderList.innerHTML='';orderList.appendChild(frag);
-          applyFilter(currentFilter);
-          if(!initialLoad){try{audio.play();}catch(e){}}
-          initialLoad=false;
-        },err=>{
-          show('Snapshot error: '+err.message,'error');
-          retryLater();
+    function loadOrders(){
+      const db=getDb();
+      if(!db){orderList.innerHTML='<div class="loading">Waiting for Firestore...</div>';return;}
+      const date=orderDate.value;
+      if(!date){orderList.innerHTML='<div class="empty">Please select a date.</div>';return;}
+      if(window._staff_unsub){try{window._staff_unsub();}catch{} window._staff_unsub=null;}
+
+      orderList.innerHTML='<div class="loading">Loading orders…</div>';
+      loadedOrders.clear();
+
+      let initial=true;
+      const q=db.collection('orders').where('date','==',date).orderBy('timestamp','desc');
+      window._staff_unsub=q.onSnapshot(snap=>{
+        if(snap.empty&&initial){orderList.innerHTML='<div class="empty">No orders for this date.</div>';return;}
+        snap.docChanges().forEach(ch=>{
+          const id=ch.doc.id,data=ch.doc.data();
+          if(ch.type==='added'){
+            const el=createCard(id,data);
+            loadedOrders.set(id,el);
+            orderList.prepend(el);
+            if(!initial) audio.play().catch(()=>{});
+          }else if(ch.type==='modified'){
+            const old=loadedOrders.get(id);
+            const el=createCard(id,data);
+            if(old&&old.parentElement)old.replaceWith(el);
+            else orderList.prepend(el);
+            loadedOrders.set(id,el);
+          }else if(ch.type==='removed'){
+            loadedOrders.get(id)?.remove();
+            loadedOrders.delete(id);
+          }
         });
+        applyFilter(currentFilter);
+        initial=false;
+      },err=>{
+        orderList.innerHTML=`<div class="empty">Error: ${err.message}</div>`;
+      });
     }
 
-    function retryLater(){
-      const retry=document.createElement('button');
-      retry.className='btn';retry.textContent='Retry Connection';
-      retry.onclick=()=>{retry.remove();loadOrders();};
-      orderList.appendChild(retry);
-    }
-
-    // Setup controls
     filterButtons.forEach(b=>b.onclick=()=>applyFilter(b.dataset.filter));
     orderDate.onchange=loadOrders;
 
     document.addEventListener('DOMContentLoaded',()=>{
-      setToday();
-      setTimeout(loadOrders,300);
+      orderDate.value=todayJakarta();
+      setTimeout(loadOrders,200);
     });
+
   })();
   </script>
 </body>
