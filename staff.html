@@ -136,10 +136,9 @@ const phoneMap = {
 };
 
 function jakartaDateStringFromInput() {
-  // Same logic used in summary.html → guarantees same string "YYYY-MM-DD"
-  return new Date(orderDate.valueAsDate || new Date())
-    .toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+  return new Date(orderDate.value).toISOString().split("T")[0];
 }
+
 
 function tsToJakartaTime(ts) {
   if (!ts) return "—";
@@ -338,7 +337,7 @@ function loadOrders() {
         }
       });
 
-      filterOrders(staffCurrentFilter);
+      setTimeout(() => filterOrders(staffCurrentFilter), 200);
       // After first batch processed, mark initial load done
       initialLoadDone = true;
     }, err => console.error("🔥 Snapshot error:", err));
