@@ -122,8 +122,15 @@
 
   let loadedOrders = new Map();
   let currentFilter = 'incoming';
-  let activeRepeaters = new Map(); // 🔔 track repeating chimes per order
+  let activeRepeaters = new Map();
   window._staff_unsub = window._staff_unsub || null;
+
+  // 🔹 Persistent record of notified orders
+  const notifiedOrders = new Set(JSON.parse(localStorage.getItem('notifiedOrders') || '[]'));
+  function markNotified(id){
+    notifiedOrders.add(id);
+    localStorage.setItem('notifiedOrders', JSON.stringify([...notifiedOrders]));
+  }
 
   function getDb(){ return window.db || (window.firebase?.firestore?.()); }
 
@@ -235,7 +242,6 @@
     setTimeout(()=>el.remove(),ms);
   }
 
-  // 🔔 Repeat Chime Helpers
   function startRepeatingChime(id){
     if(activeRepeaters.has(id)) return;
     const play = () => audio.play().catch(()=>{});
@@ -243,13 +249,11 @@
     activeRepeaters.set(id, interval);
     play();
   }
-
   function stopRepeatingChime(id){
     if(!activeRepeaters.has(id)) return;
     clearInterval(activeRepeaters.get(id));
     activeRepeaters.delete(id);
   }
-
   function stopAllChimes(){
     for(const [id,t] of activeRepeaters) clearInterval(t);
     activeRepeaters.clear();
@@ -275,7 +279,6 @@
     if(!date){orderList.innerHTML='<div class="empty">Please select a date.</div>';return;}
     if(window._staff_unsub){try{window._staff_unsub();}catch{} window._staff_unsub=null;}
     stopAllChimes();
-
     orderList.innerHTML='<div class="loading">Loading orders…</div>';
     loadedOrders.clear();
 
@@ -289,8 +292,11 @@
           const el=createCard(id,data);
           loadedOrders.set(id,el);
           orderList.prepend(el);
-          if(!initial){
+
+          // 🔔 Only notify once per new order
+          if(!initial && !notifiedOrders.has(id)){
             startRepeatingChime(id);
+            markNotified(id);
             if(window.OneSignal && OneSignal.sendSelfNotification){
               OneSignal.sendSelfNotification(
                 "📦 New Order Received",
@@ -323,12 +329,10 @@
 
   filterButtons.forEach(b=>b.onclick=()=>applyFilter(b.dataset.filter));
   orderDate.onchange=loadOrders;
-
   document.addEventListener('DOMContentLoaded',()=>{
     orderDate.value=todayJakarta();
     setTimeout(loadOrders,200);
   });
-
 })();
 </script>
 
@@ -340,8 +344,10 @@
     await OneSignal.init({
       appId: "9d4e981e-3184-4ebb-9ac1-cdb4644b1ccd",
       notifyButton: { enable: true },
+      serviceWorkerParam: { scope: '/' },
+      serviceWorkerPath: 'OneSignalSDKWorker.js' // ✅ Needed for closed-browser push
     });
-    console.log("✅ OneSignal initialized for Staff Dashboard");
+    console.log("✅ OneSignal initialized and background push enabled");
   });
 </script>
 </body>
