@@ -24,10 +24,10 @@ self.addEventListener("activate", (evt) => {
 
 // Fetch: serve cached first
 self.addEventListener("fetch", (evt) => {
-  evt.respondWith(
-    caches.match(evt.request).then((r) => r || fetch(evt.request))
-  );
+  if (evt.request.url.includes("https://cdn.onesignal.com/")) return; // let OneSignal handle itself
+  evt.respondWith(caches.match(evt.request).then(r => r || fetch(evt.request)));
 });
+
 
 // Listen for messages (from page)
 self.addEventListener("message", (event) => {
