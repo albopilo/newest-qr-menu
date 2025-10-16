@@ -211,6 +211,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       tax = Number(urlParams.get("tax")) || 0;
     }
 
+    // ✅ Force Mille tables to QRIS only
+    if (/mille/i.test(table)) {
+      // Hide cash option entirely for Mille tables
+      const cashRadio = document.getElementById("payCash");
+      const cashLabel = document.querySelector("label[for='payCash']");
+      if (cashRadio) cashRadio.style.display = "none";
+      if (cashLabel) cashLabel.style.display = "none";
+      cashInstruction.style.display = "none";
+      // Reset selection so only QRIS remains visible
+      payCash.checked = false;
+      paymentMethod = "";
+    }
+
     // DOM update
     tableDisplay.textContent = table;
     guestDisplay.textContent = guestName;
