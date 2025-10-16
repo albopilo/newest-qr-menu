@@ -1,409 +1,516 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <title>Staff Dashboard</title>
-  <link rel="manifest" href="/manifest.json" />
-  <link rel="stylesheet" href="style.css" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
+    :root {
+      --bg: #f9f9f9;
+      --card: #ffffff;
+      --muted: #6b7280;
+      --accent: #3b82f6;
+      --success: #10b981;
+      --danger: #ef4444;
+    }
     body.staff {
-      font-family: sans-serif;
-      background: #f9f9f9;
-      padding: 16px;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: var(--bg);
+      margin: 0; padding: 18px;
+      color: #111827;
     }
-    h1 {
-      text-align: center;
-      font-size: 1.5em;
-      margin-bottom: 12px;
-    }
-    #orderFilters {
-      position: sticky;
-      top: 0;
-      background: #f9f9f9;
-      padding: 10px 0;
-      z-index: 10;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      justify-content: center;
-    }
-    #orderFilters .btn.active {
-      background: #3b82f6;
-      color: white;
-    }
-    .order {
-      background: white;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 12px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-      font-size: 0.95rem;
-      transition: box-shadow 0.3s, border-color 0.3s;
-    }
-    .status {
-      font-weight: bold;
-      margin-top: 6px;
-    }
-    .btn {
-      margin: 6px 4px 0 0;
-      padding: 8px 12px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.95rem;
-    }
-    .btn.minimal {
-      background: #e5e7eb;
-    }
-    .btn.contact {
-      background: #25D366;
-      color: #fff;
-    }
-    #orderDate {
-      font-size: 1rem;
-      padding: 6px;
-      margin: 10px 0;
-      width: 100%;
-      max-width: 300px;
-      display: block;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    @media (max-width: 600px) {
-      h1 { font-size: 1.2rem; }
-      .btn { display: block; width: 100%; margin: 6px 0; }
-      .order { font-size: 0.9rem; padding: 10px; }
+    h1 { text-align:center; margin: 0 0 12px; font-size: 1.4rem; }
+    #orderControls { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center; margin-bottom:12px; position: sticky; top:0; background:var(--bg); padding-top:8px; padding-bottom:8px; z-index: 30; }
+    .btn { border: none; padding: 8px 12px; border-radius:8px; background:#e5e7eb; cursor:pointer; font-size:0.95rem; }
+    .btn.active { background: var(--accent); color: #fff; }
+    #orderDate { padding:6px 8px; border-radius:8px; border:1px solid #d1d5db; font-size:1rem; }
+    #orderList { margin-top: 12px; max-width: 840px; margin-left:auto; margin-right:auto; }
+    .order { background: var(--card); border-radius:10px; padding:12px; margin-bottom:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid transparent; transition: box-shadow .18s, border-color .18s; }
+    .order .meta { display:flex; justify-content:space-between; gap: 12px; align-items:center; flex-wrap:wrap; }
+    .order p { margin:6px 0; color:#111827; font-size:0.96rem; }
+    .order ul { margin:6px 0 8px 18px; padding:0; }
+    .order .status { font-weight:700; margin-top:6px; }
+    .controls-row { margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .btn.minimal { background:#f3f4f6; border-radius:6px; padding:7px 10px; }
+    .btn.contact { background:#25D366; color:white; padding:7px 10px; border-radius:6px; text-decoration:none; display:inline-block; }
+    .loading { text-align:center; color:var(--muted); padding:18px 0; }
+    .empty { text-align:center; color:var(--muted); padding:18px 0; }
+    .badge { padding:6px 8px;border-radius:999px;font-size:0.85rem; font-weight:600; }
+    .badge.pending { background: #fff7ed; color:#7c2d12; border:1px solid #f97316; }
+    .badge.preparing { background:#eff6ff; color:#1e3a8a; border:1px solid #3b82f6; }
+    .badge.served { background:#ecfdf5; color:#064e3b; border:1px solid #10b981; }
+    .badge.cancelled { background:#fee2e2; color:#991b1b; border:1px solid #ef4444; }
+    .topline { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    @media (max-width:600px) {
+      .meta { flex-direction:column; align-items:flex-start; }
+      .controls-row { width:100%; }
+      #orderControls { padding-left:8px; padding-right:8px; }
     }
   </style>
 </head>
-
 <body class="staff">
   <h1>📋 Incoming Orders</h1>
 
-  <div id="orderFilters">
-    <button onclick="filterOrders('all')" class="btn active">All</button>
-    <button onclick="filterOrders('incoming')" class="btn">Incoming</button>
-    <button onclick="filterOrders('served')" class="btn">Served</button>
-    <button onclick="filterOrders('cancelled')" class="btn">Cancelled</button>
+  <div id="orderControls" aria-hidden="false">
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <button class="btn active" data-filter="all">All</button>
+      <button class="btn" data-filter="incoming">Incoming</button>
+      <button class="btn" data-filter="served">Served</button>
+      <button class="btn" data-filter="cancelled">Cancelled</button>
+    </div>
+
+    <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+      <label for="orderDate" style="font-size:0.9rem; color:var(--muted);">Orders for</label>
+      <input id="orderDate" type="date" />
+    </div>
   </div>
 
-  <h2 style="text-align:center;">Orders for <input type="date" id="orderDate" /></h2>
-  <div id="orderList"></div>
+  <div id="orderList" role="list"></div>
 
-  <audio id="newOrderSound" src="https://albopilo.github.io/newest-qr-menu/assets/sound.mp3" preload="auto"></audio>
-  <button id="installBtn" style="display:none;">Install App</button>
+  <audio id="newOrderSound" preload="auto" src="https://albopilo.github.io/newest-qr-menu/assets/sound.mp3"></audio>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <!-- Firebase SDK should already be included (app.js). This script relies on global firebase & firebase.firestore() -->
+  <script>
+  (function () {
+    // --- Utilities ---
+    const debug = (...args) => console.debug('[staff]', ...args);
+    const warn = (...args) => console.warn('[staff]', ...args);
+    const phoneMap = {
+      "mille 1": "6282217091699",
+      "mille 2": "6281220039853",
+      "mille 3": "6282261863984",
+    };
 
-  <!-- ✅ Load shared app logic (contains Firebase init + AudioChime + repeating chime) -->
-  <script src="app.js"></script>
+    // DOM refs
+    const orderList = document.getElementById('orderList');
+    const orderDate = document.getElementById('orderDate');
+    const audio = document.getElementById('newOrderSound');
+    const filterButtons = Array.from(document.querySelectorAll('#orderControls .btn[data-filter]'));
 
- <!-- ✅ OneSignal push notification integration -->
-<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-<script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "9d4e981e-3184-4ebb-9ac1-cdb4644b1ccd",
-    });
-    console.log("🔔 OneSignal initialized");
-  });
-</script>
+    // State
+    let loadedOrders = new Map();
+    // store unsubscribe in window to avoid duplicate decl across hot-reloads
+    window._staff_unsubscribeOrders = window._staff_unsubscribeOrders || null;
 
-<!-- ✅ Staff Logic -->
-<script>
+    // Helper: format a Date object into YYYY-MM-DD for the <input> & Firestore date field (Jakarta)
+    function formatJakartaYYYYMMDD(dateObj) {
+      // create date in Jakarta by using toLocaleString forced into that timezone
+      const jakarta = new Date(dateObj.toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+      const yyyy = jakarta.getFullYear();
+      const mm = String(jakarta.getMonth() + 1).padStart(2,'0');
+      const dd = String(jakarta.getDate()).padStart(2,'0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
 
-// 🧩 Safety: prevent ReferenceError if modal helper missing
-if (typeof showStaffModalIfNeeded !== "function") {
-  window.showStaffModalIfNeeded = (id, data) => {
-    console.log("ℹ️ (No modal implemented) Order:", id, data.table || data.table_no);
-  };
-}
-
-
-/* Staff page orders listener & renderer (replace existing staff script) */
-const orderList = document.getElementById("orderList");
-const orderDate = document.getElementById("orderDate");
-let staffCurrentFilter = "incoming";
-
-const phoneMap = {
-  "mille 1": "6282217091699",
-  "mille 2": "6281220039853",
-  "mille 3": "6282261863984",
-};
-
-function jakartaDateStringFromInput() {
-  return new Date(orderDate.value).toISOString().split("T")[0];
-}
-
-
-function tsToJakartaTime(ts) {
-  if (!ts) return "—";
-  // Accepts Firestore timestamp or Date
-  const d = ts.toDate ? ts.toDate() : (ts instanceof Date ? ts : new Date(ts));
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
-}
-
-function styleOrderBox(el, status) {
-  const palette = {
-    pending:   { bg: "#fff7ed", border: "#f97316", text: "#7c2d12" },
-    preparing: { bg: "#eff6ff", border: "#3b82f6", text: "#1e3a8a" },
-    served:    { bg: "#ecfdf5", border: "#10b981", text: "#064e3b" },
-    cancelled: { bg: "#fee2e2", border: "#ef4444", text: "#991b1b" },
-  };
-  const c = palette[status] || palette.pending;
-  el.style.backgroundColor = c.bg;
-  el.style.border = `1px solid ${c.border}`;
-  el.style.color = c.text;
-}
-
-async function updateOrderStatus(id, newStatus) {
-  await db.collection("orders").doc(id).update({ kitchenStatus: newStatus });
-  showBanner(`✅ Order ${id} updated to ${newStatus}`, 2500);
-}
-
-function renderOrder(id, data) {
-  const table = data.table || data.tableName || data.table_no || "—";
-  // 🧩 Robust item extraction (matches app.js)
-let items = [];
-  try {
-    const candidates = [
-      data.items,
-      data.orderItems,
-      data.products,
-      data.orderedItems,
-      data.orderData?.items,
-      data.orderData?.products,
-      data.itemsMap,
-      data.orderData?.itemsMap,
-    ];
-    for (const c of candidates) {
-      if (!c) continue;
-      if (Array.isArray(c)) { items = c; break; }
-      if (typeof c === "object") {
-        // handle Firestore array of objects wrapped in proto
-        const vals = Object.values(c);
-        if (vals.length && typeof vals[0] === "object") { items = vals; break; }
-      }
-      if (typeof c === "string" && c.trim().startsWith("[")) {
-        try { items = JSON.parse(c); break; } catch {}
+    // Ensure the input value is set to Jakarta today
+    function setTodayJakarta() {
+      try {
+        orderDate.value = formatJakartaYYYYMMDD(new Date());
+      } catch (e) {
+        orderDate.value = new Date().toISOString().split('T')[0];
       }
     }
-  } catch (err) {
-    console.warn("⚠️ item extraction failed for", id, err);
-  }
-  if (!Array.isArray(items)) items = [];
-  console.debug("📦 Items for", id, items);
-  const guest = data.guestName || data.guest || "Guest";
-  const rawTs = data.timestamp || data.createdAt;
- const timestamp = rawTs?.toDate?.() ? rawTs.toDate() : new Date(rawTs || Date.now());
-  const time = tsToJakartaTime(timestamp);
-  const kitchenStatus = (data.kitchenStatus || data.status || "pending").toLowerCase();
-  const paymentStatus = (data.paymentStatus || "unknown").toLowerCase();
-  const method = (data.paymentMethod || "unspecified").toLowerCase();
-  const subtotal = +data.subtotal || 0;
-  const discount = +data.discount || 0;
-  const tax = +data.tax || 0;
-  const deliveryFee = +data.deliveryFee || 0;
-  const grandTotal = +data.grandTotal || subtotal - discount + tax + deliveryFee;
 
-  const div = document.createElement("div");
-  div.className = "order";
-  div.dataset.status = kitchenStatus;
-  styleOrderBox(div, kitchenStatus);
+    // Convert Firestore timestamp or Date-like to Jakarta HH:mm (en-GB format)
+    function tsToJakartaTime(ts) {
+      if (!ts) return '—';
+      try {
+        const d = ts && typeof ts.toDate === 'function' ? ts.toDate() : (ts instanceof Date ? ts : new Date(ts));
+        return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
+      } catch (e) {
+        return '—';
+      }
+    }
 
-  // ✅ Detailed inline rendering for staff view
-  const itemLines = (items || [])
-    .map(i => {
-      const name = i.name || i.itemName || i.product || "Unnamed";
-const qty = i.qty || i.quantity || i.qtyOrdered || 1;
-const price = i.price || i.unitPrice || i.cost || 0;
-      const line =
-  price && !isNaN(price)
-    ? `${qty}× ${name} — Rp${(qty * price).toLocaleString("id-ID")}`
-    : `${qty}× ${name}`;
-      return `<li>${line}</li>`;
-    })
-    .join("");
-
-  div.innerHTML = `
-    <p><strong>Table:</strong> ${table} <span style="float:right">${time}</span></p>
-    <p><strong>Guest:</strong> ${guest}</p>
-    <p><strong>Items:</strong></p>
-    <ul style="margin:4px 0 8px 16px; padding:0; list-style-type:disc;">${itemLines}</ul>
-    <p><strong>Subtotal:</strong> Rp${subtotal.toLocaleString("id-ID")}</p>
-    ${discount ? `<p><strong>Discount:</strong> -Rp${discount.toLocaleString("id-ID")}</p>` : ""}
-    ${tax ? `<p><strong>Tax:</strong> Rp${tax.toLocaleString("id-ID")}</p>` : ""}
-    ${deliveryFee ? `<p><strong>Delivery Fee:</strong> Rp${deliveryFee.toLocaleString("id-ID")}</p>` : ""}
-    <p><strong>Total:</strong> <span style="color:#16a34a;font-weight:bold;">Rp${grandTotal.toLocaleString("id-ID")}</span></p>
-    <p><strong>Payment:</strong> ${method.toUpperCase()} (${paymentStatus})</p>
-    <p class="status">Status: ${kitchenStatus.toUpperCase()}</p>
-  `;
-
-  // ✅ Action buttons (kitchen status)
-  const controls = document.createElement("div");
-  ["preparing", "served", "cancelled"].forEach(s => {
-    const btn = document.createElement("button");
-    btn.textContent = s;
-    btn.className = "btn minimal";
-    btn.onclick = () => updateOrderStatus(id, s);
-    controls.appendChild(btn);
-  });
-  div.appendChild(controls);
-
-  // ✅ Optional contact button (for Mille tables)
-  const lower = String(table).toLowerCase();
-  const phone =
-    (lower.includes("mille 1") && phoneMap["mille 1"]) ||
-    (lower.includes("mille 2") && phoneMap["mille 2"]) ||
-    (lower.includes("mille 3") && phoneMap["mille 3"]);
-  if (phone) {
-    const wa = document.createElement("a");
-    wa.className = "btn contact";
-    wa.href = `https://wa.me/${phone}?text=Order%20${encodeURIComponent(id)}%20(${encodeURIComponent(table)})`;
-    wa.target = "_blank";
-    wa.textContent = "💬 Contact Mille";
-    div.appendChild(wa);
-  }
-
-  return div;
-}
-
-
-let loadedOrders = new Map();
-window.unsubscribeOrders = window.unsubscribeOrders || null; // avoid redeclaration
-
-function loadOrders() {
-  const yyyyMmDd = jakartaDateStringFromInput();
-  if (!yyyyMmDd) return console.error("❌ Invalid date (staff)");
-
-  let initialLoadDone = false;
-
-  // 🧩 Stop previous snapshot listener before starting a new one
-  if (unsubscribeOrders) {
-    console.debug("🧹 Unsubscribing previous Firestore listener");
-    try { unsubscribeOrders(); } catch {}
-  }
-
-  unsubscribeOrders = db.collection("orders")
-    .where("date", "==", yyyyMmDd)
-    .orderBy("timestamp", "desc")
-    .onSnapshot(snapshot => {
-      console.debug("📅 Listening for date:", yyyyMmDd, "→ got", snapshot.size, "docs");
-      snapshot.docChanges().forEach(change => {
-        const doc = change.doc;
-        const data = doc.data();
-
-        if (change.type === "added") {
-          console.log("🆕 Added order:", doc.id);
-          const card = renderOrder(doc.id, data);
-          orderList.prepend(card);
-          loadedOrders.set(doc.id, card);
-
-          // Play chime & repeat only for truly new live orders
-          if (initialLoadDone) {
-            AudioChime.requestChime?.();
-            RepeatingChime.start(doc.id);
+    // Robust item extraction (arrays, objects/maps, JSON string)
+    function extractItems(data) {
+      const candidates = [
+        data?.items,
+        data?.orderItems,
+        data?.products,
+        data?.orderedItems,
+        data?.orderData?.items,
+        data?.orderData?.products,
+        data?.itemsMap,
+        data?.orderData?.itemsMap
+      ];
+      for (const c of candidates) {
+        if (!c && c !== 0) continue;
+        // JSON string like "[{...}]"
+        if (typeof c === 'string') {
+          const s = c.trim();
+          if (s.startsWith('[')) {
+            try { const parsed = JSON.parse(s); if (Array.isArray(parsed)) return parsed; } catch(e){}
           }
         }
-
-        if (change.type === "modified") {
-// ✅ Debounce modification updates to avoid premature replace
-          setTimeout(() => {
-            const card = loadedOrders.get(doc.id);
-            if (!card) return;
-            const updated = renderOrder(doc.id, data);
-            if (orderList.contains(card)) {
-              orderList.replaceChild(updated, card);
-              loadedOrders.set(doc.id, updated);
-            } else {
-              // This usually happens only once per session, safe to ignore
-              console.debug("ℹ️ Deferred replace for", doc.id);
-            }
-          }, 100); // wait 100ms to ensure DOM insertion finished
-          const status = (data.kitchenStatus || data.status || "").toLowerCase();
-          if (status !== "pending") {
-            setTimeout(() => RepeatingChime.stop(doc.id), 500);
-          }
+        if (Array.isArray(c)) return c;
+        if (c && typeof c === 'object') {
+          const vals = Object.values(c);
+          if (Array.isArray(vals) && vals.length > 0 && typeof vals[0] === 'object') return vals;
         }
+      }
+      return [];
+    }
 
-        if (change.type === "removed") {
-          const card = loadedOrders.get(doc.id);
-          if (card) card.remove();
-          loadedOrders.delete(doc.id);
-        }
+    // Visual helpers
+    function clearOrderList() {
+      orderList.innerHTML = '';
+      loadedOrders.clear();
+    }
+    function showLoading() {
+      orderList.innerHTML = `<div class="loading">Loading orders…</div>`;
+    }
+    function showEmpty() {
+      orderList.innerHTML = `<div class="empty">No orders for this date.</div>`;
+    }
+    function showError(msg) {
+      orderList.innerHTML = `<div class="empty">Error: ${String(msg)}</div>`;
+    }
+
+    // showBanner fallback
+    function showBanner(msg, ms = 2400) {
+      if (typeof window.showBanner === 'function') {
+        try { window.showBanner(msg, ms); return; } catch(e){}
+      }
+      // simple ephemeral toast
+      const t = document.createElement('div');
+      t.textContent = msg;
+      t.style.position = 'fixed';
+      t.style.left = '50%';
+      t.style.transform = 'translateX(-50%)';
+      t.style.bottom = '24px';
+      t.style.background = '#111827';
+      t.style.color = '#fff';
+      t.style.padding = '8px 12px';
+      t.style.borderRadius = '8px';
+      t.style.zIndex = 9999;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), ms);
+    }
+
+    // Color / badge helper
+    function badgeForStatus(status) {
+      const s = (status || '').toLowerCase();
+      if (s.includes('prepare') || s.includes('preparing')) return `<span class="badge preparing">PREPARING</span>`;
+      if (s.includes('served')) return `<span class="badge served">SERVED</span>`;
+      if (s.includes('cancel')) return `<span class="badge cancelled">CANCELLED</span>`;
+      return `<span class="badge pending">PENDING</span>`;
+    }
+
+    // Create order card DOM element
+    function createOrderElement(id, data) {
+      const table = data?.table || data?.tableName || data?.table_no || '—';
+      const guest = data?.guestName || data?.guest || 'Guest';
+      const items = extractItems(data);
+      const timestampRaw = data?.timestamp || data?.createdAt;
+      const time = tsToJakartaTime(timestampRaw);
+      const kitchenStatus = (data?.kitchenStatus || data?.status || 'pending').toLowerCase();
+      const paymentStatus = (data?.paymentStatus || 'unknown').toLowerCase();
+      const method = (data?.paymentMethod || 'unspecified').toLowerCase();
+      const subtotal = Number(data?.subtotal) || 0;
+      const discount = Number(data?.discount) || 0;
+      const tax = Number(data?.tax) || 0;
+      const deliveryFee = Number(data?.deliveryFee) || 0;
+      const grandTotal = Number(data?.grandTotal) || subtotal - discount + tax + deliveryFee;
+
+      const div = document.createElement('div');
+      div.className = 'order';
+      div.dataset.status = kitchenStatus;
+      div.dataset.orderId = id;
+
+      // header/meta
+      const metaHtml = `
+        <div class="topline">
+          <div style="font-weight:700">${escapeHtml(table)}</div>
+          <div style="color:var(--muted)">${escapeHtml(guest)}</div>
+        </div>
+      `;
+
+      // items
+      const itemLines = (items || []).map(i => {
+        if (!i) return '';
+        const name = i?.name || i?.itemName || i?.product || String(i) || 'Unnamed';
+        const qty = Number(i?.qty ?? i?.quantity ?? i?.qtyOrdered ?? 1) || 1;
+        const price = Number(i?.price ?? i?.unitPrice ?? i?.cost ?? 0) || 0;
+        const priceStr = price && !Number.isNaN(price) ? ` — Rp${(qty * price).toLocaleString('id-ID')}` : '';
+        return `<li>${qty}× ${escapeHtml(name)}${priceStr}</li>`;
+      }).join('');
+
+      // payment / totals
+      const totalsHtml = `
+        <p><strong>Subtotal:</strong> Rp${subtotal.toLocaleString('id-ID')}</p>
+        ${discount ? `<p><strong>Discount:</strong> -Rp${discount.toLocaleString('id-ID')}</p>` : ''}
+        ${tax ? `<p><strong>Tax:</strong> Rp${tax.toLocaleString('id-ID')}</p>` : ''}
+        ${deliveryFee ? `<p><strong>Delivery Fee:</strong> Rp${deliveryFee.toLocaleString('id-ID')}</p>` : ''}
+        <p><strong>Total:</strong> <span style="color:var(--success); font-weight:700">Rp${grandTotal.toLocaleString('id-ID')}</span></p>
+      `;
+
+      // Build inner HTML
+      div.innerHTML = `
+        <div class="meta">
+          <div>
+            ${metaHtml}
+            <p style="margin-top:6px;"><strong>Items:</strong></p>
+            <ul>${itemLines || '<li>(no items)</li>'}</ul>
+          </div>
+          <div style="text-align:right; min-width:120px;">
+            <div style="margin-bottom:6px">${badgeForStatus(kitchenStatus)}</div>
+            <div style="color:var(--muted); font-size:0.95rem;">${escapeHtml(method.toUpperCase())} (${escapeHtml(paymentStatus)})</div>
+            <div style="color:var(--muted); font-size:0.95rem; margin-top:6px;">${escapeHtml(time)}</div>
+          </div>
+        </div>
+
+        ${totalsHtml}
+        <p class="status">Status: ${escapeHtml(kitchenStatus.toUpperCase())}</p>
+      `;
+
+      // controls
+      const controls = document.createElement('div');
+      controls.className = 'controls-row';
+
+      ['preparing', 'served', 'cancelled'].forEach(s => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn minimal';
+        btn.textContent = s;
+        btn.onclick = () => updateOrderStatus(id, s);
+        controls.appendChild(btn);
       });
 
-      setTimeout(() => filterOrders(staffCurrentFilter), 200);
-      // After first batch processed, mark initial load done
-      initialLoadDone = true;
-    }, err => console.error("🔥 Snapshot error:", err));
-}
+      // optional WA contact for Mille
+      const lower = String(table).toLowerCase();
+      const phone = (lower.includes('mille 1') && phoneMap['mille 1']) ||
+                    (lower.includes('mille 2') && phoneMap['mille 2']) ||
+                    (lower.includes('mille 3') && phoneMap['mille 3']);
+      if (phone) {
+        const a = document.createElement('a');
+        a.className = 'btn contact';
+        a.href = `https://wa.me/${phone}?text=${encodeURIComponent('Order ' + id + ' (' + table + ')')}`;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = '💬 Contact Mille';
+        controls.appendChild(a);
+      }
 
-function filterOrders(status) {
-  staffCurrentFilter = status;
-  document.querySelectorAll("#orderFilters .btn").forEach(btn =>
-    btn.classList.toggle("active", btn.textContent.toLowerCase().includes(status))
-  );
+      div.appendChild(controls);
+      return div;
+    }
 
-  document.querySelectorAll(".order").forEach(el => {
-    const st = (el.dataset.status || "").toLowerCase();
-    const incoming = status === "incoming" && ["pending", "preparing"].includes(st);
-    el.style.display = (status === "all" || incoming || st === status) ? "" : "none";
-  });
-}
+    // Basic HTML escaping for small inserted values
+    function escapeHtml(input) {
+      if (input === null || input === undefined) return '';
+      const s = String(input);
+      return s.replace(/[&<>"']/g, function (m) {
+        return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[m];
+      });
+    }
 
-orderDate.addEventListener("change", loadOrders);
-// ✅ Global function accessible to both listeners
- function setTodayJakarta() {
-  const now = new Date();
-  const jakarta = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Jakarta',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(now);
-  orderDate.value = jakarta; // always "YYYY-MM-DD"
-}
+    // Update kitchenStatus in Firestore
+    async function updateOrderStatus(id, newStatus) {
+      try {
+        const db = getFirestore();
+        if (!db) throw new Error('Firestore not ready');
+        await db.collection('orders').doc(id).update({ kitchenStatus: newStatus });
+        showBanner(`✅ Order ${id} updated to ${newStatus}`);
+      } catch (err) {
+        warn('Failed updating status', err);
+        showBanner('⚠️ Failed to update order status', 2500);
+      }
+    }
 
- window.addEventListener("DOMContentLoaded", async () => {
-   // ✅ Always set Jakarta date before anything else
-   setTodayJakarta();
+    // get firestore instance (from global app.js or firebase)
+    function getFirestore() {
+      if (window.db) return window.db;
+      if (window.firebase && typeof window.firebase.firestore === 'function') return window.firebase.firestore();
+      return null;
+    }
 
-   // ✅ Prime audio (for Chrome autoplay restrictions)
-   if (typeof AudioChime !== "undefined") AudioChime.primeMutedAutoplay();
-   document.body.addEventListener("click", () => {
-     try { AudioChime.primeMutedAutoplay(); } catch {}
-  }, { once: true });
+    // Core: load orders for selected date (YYYY-MM-DD string)
+    function loadOrders() {
+      const db = getFirestore();
+      if (!db) {
+        showError('Firestore not available (waiting for app.js). Reload after app.js loads.');
+        return;
+      }
 
-   // ✅ Stop any repeating chime if opened via notification
-   try {
-     const params = new URLSearchParams(location.search);
-     const orderId = params.get("orderId");
-     if (orderId) {
-       RepeatingChime.stop(orderId);
-       window.staffShownModals = window.staffShownModals || new Set();
-       window.staffShownModals.add(orderId);
-     }
-   } catch {}
+      const dateStr = (orderDate.value || '').trim();
+      if (!dateStr) {
+        showError('Invalid date selected');
+        return;
+      }
 
-   // ✅ Enable Firestore and load data
-   try {
-     try {
-   await firebase.firestore().enableNetwork();
- } catch (e) {
-   console.debug("Firestore network already active or cached:", e);
- }
-     console.log("✅ Firestore ready — loading orders for", orderDate.value);
-   } catch (err) {
-     console.warn("⚠️ Firestore enableNetwork failed, proceeding anyway:", err);
-   }
+      // unsubscribe previous listener if exists
+      if (window._staff_unsubscribeOrders) {
+        try { window._staff_unsubscribeOrders(); } catch (e) { debug('unsubscribe error', e); }
+        window._staff_unsubscribeOrders = null;
+      }
 
-   loadOrders();
- });
-</script>
+      clearOrderList();
+      showLoading();
+
+      let initialLoad = true;
+
+      try {
+        const q = db.collection('orders')
+                    .where('date', '==', dateStr)
+                    .orderBy('timestamp', 'desc');
+
+        window._staff_unsubscribeOrders = q.onSnapshot(snapshot => {
+          // If empty on first load -> no orders
+          if (snapshot.empty && initialLoad) {
+            showEmpty();
+            initialLoad = false;
+            return;
+          }
+
+          // Process doc changes incrementally
+          snapshot.docChanges().forEach(change => {
+            const id = change.doc.id;
+            const data = change.doc.data();
+
+            if (change.type === 'added') {
+              // render and prepend
+              const el = createOrderElement(id, data);
+              // avoid duplicate: if already exists remove old
+              const existing = loadedOrders.get(id);
+              if (existing && existing.parentElement) existing.remove();
+              orderList.prepend(el);
+              loadedOrders.set(id, el);
+
+              if (!initialLoad) {
+                // Play chime & start repeating if provided by app.js
+                try { window.AudioChime?.requestChime?.(); } catch (e) {}
+                try { window.RepeatingChime?.start?.(id); } catch (e) {}
+                try { audio.play().catch(()=>{}); } catch(e){}
+              }
+
+            } else if (change.type === 'modified') {
+              // debounce brief replace to allow stable DOM
+              setTimeout(() => {
+                const existing = loadedOrders.get(id);
+                const updatedEl = createOrderElement(id, data);
+                if (existing && existing.parentElement) {
+                  existing.parentElement.replaceChild(updatedEl, existing);
+                } else {
+                  orderList.prepend(updatedEl);
+                }
+                loadedOrders.set(id, updatedEl);
+              }, 80);
+
+              const status = (data?.kitchenStatus || data?.status || '').toLowerCase();
+              if (status && status !== 'pending') {
+                try { window.RepeatingChime?.stop?.(id); } catch(e){}
+              }
+
+            } else if (change.type === 'removed') {
+              const existing = loadedOrders.get(id);
+              if (existing && existing.parentElement) existing.remove();
+              loadedOrders.delete(id);
+            }
+          });
+
+          // if we reached here and list is empty -> show empty
+          if (orderList.children.length === 0) showEmpty();
+
+          // apply filter after snapshot updates (slight delay for DOM)
+          setTimeout(() => applyFilter(currentFilter), 120);
+
+          initialLoad = false;
+        }, err => {
+          warn('snapshot error', err);
+          showError('Snapshot error: ' + (err && err.message ? err.message : err));
+        });
+
+      } catch (err) {
+        warn('query fail', err);
+        showError('Failed to start listener: ' + (err.message || err));
+      }
+    }
+
+    // Filter logic
+    let currentFilter = 'incoming';
+    function applyFilter(status) {
+      currentFilter = status;
+      // update button states
+      filterButtons.forEach(btn => {
+        const f = btn.dataset.filter;
+        btn.classList.toggle('active', f === status);
+      });
+
+      const orderEls = document.querySelectorAll('.order');
+      orderEls.forEach(el => {
+        const st = (el.dataset.status || '').toLowerCase();
+        const incoming = status === 'incoming' && ['pending', 'preparing'].includes(st);
+        const show = status === 'all' || incoming || st === status;
+        el.style.display = show ? '' : 'none';
+      });
+
+      // if no visible orders show helpful message
+      const anyVisible = Array.from(document.querySelectorAll('.order')).some(e => e.style.display !== 'none');
+      if (!anyVisible) {
+        // If DOM currently has an explicit loading or empty message, keep it
+        if (!document.querySelector('.loading') && !document.querySelector('.empty')) {
+          orderList.insertAdjacentHTML('beforeend', `<div class="empty">No orders matching filter.</div>`);
+        }
+      } else {
+        const empties = orderList.querySelectorAll('.empty'); empties.forEach(n => n.remove());
+      }
+    }
+
+    // Wire filter button clicks
+    filterButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const f = btn.dataset.filter;
+        applyFilter(f);
+      });
+    });
+
+    // Wire date change
+    orderDate.addEventListener('change', () => {
+      // small safety: if value empty ignore
+      if (!orderDate.value) return;
+      // clear list and re-subscribe
+      loadOrders();
+    });
+
+    // Initialization routine
+    async function init() {
+      setTodayJakarta();
+      // small delay to ensure input is updated in some browsers
+      await new Promise(r => setTimeout(r, 120));
+
+      // Wait for firebase (app.js) to be ready (timeout fallback)
+      const waitForFirestore = () => new Promise(resolve => {
+        let attempts = 0;
+        const interval = setInterval(() => {
+          attempts++;
+          if (getFirestore()) {
+            clearInterval(interval); resolve(true);
+          } else if (attempts > 30) { // ~3 seconds
+            clearInterval(interval); resolve(false);
+          }
+        }, 100);
+      });
+      const hasDb = await waitForFirestore();
+      if (!hasDb) {
+        warn('Firestore not detected; will still try but you may need to reload after app.js loads.');
+      } else {
+        try { await getFirestore().enableNetwork(); } catch(e){ debug('enableNetwork may have failed or is unnecessary', e); }
+      }
+
+      // Load orders for today
+      loadOrders();
+    }
+
+    // Start
+    document.addEventListener('DOMContentLoaded', init);
+
+    // Expose some helpers for debugging
+    window.staffReloadOrders = loadOrders;
+    window.staffApplyFilter = applyFilter;
+    window.staffExtractItems = extractItems;
+
+  })();
+  </script>
 </body>
 </html>
