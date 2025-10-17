@@ -142,13 +142,14 @@
       return [];
     }
 
-    const badge = s => {
-      s=(s||'').toLowerCase();
-      if(s.includes('prepare'))return'<span class="badge preparing">PREPARING</span>';
-      if(s.includes('serve'))return'<span class="badge served">SERVED</span>';
-      if(s.includes('cancel'))return'<span class="badge cancelled">CANCELLED</span>';
-      return'<span class="badge pending">PENDING</span>';
-    };
+const badge = s => {
+  s = (s || '').trim().toLowerCase();
+  if (s === 'preparing' || s.includes('prepare')) return '<span class="badge preparing">PREPARING</span>';
+  if (s === 'served' || s.includes('serve')) return '<span class="badge served">SERVED</span>';
+  if (s === 'cancelled' || s.includes('cancel')) return '<span class="badge cancelled">CANCELLED</span>';
+  return '<span class="badge pending">PENDING</span>';
+};
+
 
     function createCard(id,d){
       const table=d.table||'—', guest=d.guestName||'Guest';
