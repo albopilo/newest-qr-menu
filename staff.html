@@ -154,7 +154,9 @@
       const table=d.table||'—', guest=d.guestName||'Guest';
       const items=extractItems(d);
       const time=tsToJakartaTime(d.timestamp||d.createdAt);
-      const status=(d.kitchenStatus||d.status||'pending').toLowerCase();
+      const status = (d.kitchenStatus && d.kitchenStatus.trim()) ? d.kitchenStatus.toLowerCase()
+             : (d.status && d.status.trim()) ? d.status.toLowerCase()
+             : 'pending';
       const method=(d.paymentMethod||'unspecified').toUpperCase();
       const payStatus=(d.paymentStatus||'unknown').toLowerCase();
       const subtotal=+d.subtotal||0,disc=+d.discount||0,tax=+d.tax||0,fee=+d.deliveryFee||0;
@@ -207,16 +209,18 @@ async function updateStatus(id, status) {
   const db = getDb();
   if (!db) return;
 
-  // Update BOTH kitchenStatus and status together
   await db.collection('orders').doc(id).update({
     kitchenStatus: status,
     status: status
   });
 
+  loadedOrders.get(id)?.remove();
+  loadedOrders.delete(id);
+
   stopRepeatingChime(id);
   showBanner(`✅ Order ${id} → ${status}`);
+  setTimeout(loadOrders, 1000);
 }
-
 
     function showBanner(msg,ms=2500){
       const el=document.createElement('div');
