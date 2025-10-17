@@ -300,11 +300,12 @@
     await OneSignal.init({
       appId: "9d4e981e-3184-4ebb-9ac1-cdb4644b1ccd",
       notifyButton: { enable: true },
-      serviceWorkerParam: { scope: '/' },
-      serviceWorkerPath: '/OneSignalSDKWorker.js'
+      serviceWorkerPath: "OneSignalSDKWorker.js",
+      serviceWorkerParam: { scope: "/" },
+      safari_web_id: null
     });
     console.log("✅ OneSignal initialized (TWA-ready)");
   });
-  </script>
+</script>
 </body>
 </html>
