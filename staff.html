@@ -203,12 +203,20 @@
       return div;
     }
 
-    async function updateStatus(id,status){
-      const db=getDb(); if(!db)return;
-      await db.collection('orders').doc(id).update({kitchenStatus:status});
-      stopRepeatingChime(id);
-      showBanner(`✅ Order ${id} → ${status}`);
-    }
+async function updateStatus(id, status) {
+  const db = getDb();
+  if (!db) return;
+
+  // Update BOTH kitchenStatus and status together
+  await db.collection('orders').doc(id).update({
+    kitchenStatus: status,
+    status: status
+  });
+
+  stopRepeatingChime(id);
+  showBanner(`✅ Order ${id} → ${status}`);
+}
+
 
     function showBanner(msg,ms=2500){
       const el=document.createElement('div');
