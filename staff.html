@@ -107,6 +107,17 @@
       "mille 3": "6282261863984",
     };
 
+     function resolveGuestPhone(d) {
+   return (
+     d.phone ||
+     d.memberPhone ||
+     d.member?.phone ||
+     d.contactPhone ||
+     null
+   );
+ }
+
+
     const orderList = document.getElementById('orderList');
     const orderDate = document.getElementById('orderDate');
     const audio = document.getElementById('newOrderSound');
@@ -194,17 +205,25 @@ const badge = s => {
         ctrl.appendChild(b);
       });
       
-      // 📞 Guest phone (from order)
- if (d.phone) {
+ // 📞 Guest / Member phone (normalized)
+ const guestPhone = resolveGuestPhone(d);
+
+ if (guestPhone) {
    const phoneRow = document.createElement('p');
+   phoneRow.style.marginTop = '6px';
+
    const phoneLink = document.createElement('a');
-   phoneLink.href = `tel:${d.phone}`;
-   phoneLink.textContent = d.phone;
-   phoneLink.style.fontWeight = 'bold';
+   phoneLink.href = `tel:${guestPhone}`;
+   phoneLink.textContent = guestPhone;
+   phoneLink.style.fontWeight = '700';
+   phoneLink.style.color = '#111';
+
    phoneRow.innerHTML = '📞 Phone: ';
    phoneRow.appendChild(phoneLink);
+
    div.appendChild(phoneRow);
  }
+
 
 
 const lower = (table || '').toLowerCase();
@@ -217,14 +236,27 @@ const lower = (table || '').toLowerCase();
         ctrl.appendChild(a);
       }
 
-       // ☎️ Contact guest directly
- if (d.phone) {
+ // ☎️ Contact guest directly
+ if (guestPhone) {
    const callBtn = document.createElement('a');
    callBtn.className = 'btn contact';
-   callBtn.href = `tel:${d.phone}`;
+   callBtn.href = `tel:${guestPhone}`;
    callBtn.textContent = '📞 Call Guest';
    ctrl.appendChild(callBtn);
  }
+
+  if (guestPhone) {
+   const waBtn = document.createElement('a');
+   waBtn.className = 'btn contact';
+   waBtn.href = `https://wa.me/${guestPhone.replace(/\D/g,'')}?text=${encodeURIComponent(
+     `Hello, regarding your order ${id} (${table})`
+   )}`;
+   waBtn.target = '_blank';
+   waBtn.textContent = '💬 WhatsApp Guest';
+   ctrl.appendChild(waBtn);
+ }
+
+
 
       div.appendChild(ctrl);
       return div;
