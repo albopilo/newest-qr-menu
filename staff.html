@@ -193,7 +193,21 @@ const badge = s => {
         b.onclick=()=>updateStatus(id,s);
         ctrl.appendChild(b);
       });
-      const lower=table.toLowerCase();
+      
+      // 📞 Guest phone (from order)
+ if (d.phone) {
+   const phoneRow = document.createElement('p');
+   const phoneLink = document.createElement('a');
+   phoneLink.href = `tel:${d.phone}`;
+   phoneLink.textContent = d.phone;
+   phoneLink.style.fontWeight = 'bold';
+   phoneRow.innerHTML = '📞 Phone: ';
+   phoneRow.appendChild(phoneLink);
+   div.appendChild(phoneRow);
+ }
+
+
+const lower = (table || '').toLowerCase();
       const phone=(lower.includes('mille 1')&&phoneMap['mille 1'])||(lower.includes('mille 2')&&phoneMap['mille 2'])||(lower.includes('mille 3')&&phoneMap['mille 3']);
       if(phone){
         const a=document.createElement('a');
@@ -202,6 +216,16 @@ const badge = s => {
         a.target='_blank'; a.textContent='💬 Contact Mille';
         ctrl.appendChild(a);
       }
+
+       // ☎️ Contact guest directly
+ if (d.phone) {
+   const callBtn = document.createElement('a');
+   callBtn.className = 'btn contact';
+   callBtn.href = `tel:${d.phone}`;
+   callBtn.textContent = '📞 Call Guest';
+   ctrl.appendChild(callBtn);
+ }
+
       div.appendChild(ctrl);
       return div;
     }

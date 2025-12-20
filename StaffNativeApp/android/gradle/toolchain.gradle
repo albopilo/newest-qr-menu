@@ -1,0 +1,94 @@
+// android/gradle/toolchain.gradle
+// Robust toolchain enforcer: set Java 17 toolchain + Kotlin jvmTarget=17 across subprojects.
+// Avoids direct unresolved class references and enforces settings after evaluation.
+
+import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.api.Task
+
+def kotlinCompileClass = null
+try {
+    // resolve KotlinCompile class safely (if kotlin plugin is on the classpath)
+    kotlinCompileClass = Class.forName('org.jetbrains.kotlin.gradle.tasks.KotlinCompile')
+} catch (ignored) {}
+
+// helper to set java toolchain + compat on a project safely
+def enforceOnProject = { proj ->
+    // If project has 'android' extension, attempt to set compileOptions + java toolchain
+    def androidExt = proj.extensions.findByName("android")
+    if (androidExt != null) {
+        try {
+            if (androidExt.hasProperty("compileOptions")) {
+                androidExt.compileOptions.sourceCompatibility = JavaVersion.VERSION_17
+                androidExt.compileOptions.targetCompatibility = JavaVersion.VERSION_17
+            }
+        } catch (ignored) {}
+
+        try {
+            if (androidExt.hasProperty("java")) {
+                def javaExt = androidExt.java
+                // only set if the API exists
+                if (javaExt != null && javaExt.toolchain != null) {
+                    javaExt.toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+                }
+            }
+        } catch (ignored) {}
+    }
+
+    // enforce JavaCompile tasks (for tasks created earlier)
+    proj.tasks.withType(JavaCompile).configureEach { JavaCompile jc ->
+        try {
+            jc.sourceCompatibility = "17"
+            jc.targetCompatibility = "17"
+            jc.javaCompiler = proj.javaToolchains.compilerFor {
+                languageVersion.set(JavaLanguageVersion.of(17))
+            }
+        } catch (err) {
+            proj.logger.debug("toolchain: failed to enforce for ${jc.path}: ${err.message}")
+        }
+    }
+
+    // For Kotlin, if class found, enforce jvmTarget on tasks
+    if (kotlinCompileClass != null) {
+        proj.tasks.withType(kotlinCompileClass).configureEach { kt ->
+            try {
+                kt.kotlinOptions.jvmTarget = "17"
+            } catch (err) {
+                try { kt.kotlinOptions.setProperty("jvmTarget", "17") } catch (ignored) {}
+            }
+        }
+    } else {
+        // fallback heuristic: patch tasks by name for Kotlin compile if kotlin class not available yet
+        proj.tasks.whenTaskAdded { Task t ->
+            if (t.class.name.toLowerCase().contains("kotlin") && t.name.toLowerCase().contains("compile")) {
+                try {
+                    // attempt to set jvmTarget if the task exposes kotlinOptions
+                    t.kotlinOptions.jvmTarget = "17"
+                } catch (ignored) {}
+            }
+        }
+    }
+}
+
+// Apply enforcement for projects now and again after project evaluation to override later changes
+subprojects { p ->
+    // best-effort immediate configuration
+    try { enforceOnProject(p) } catch (ignored) {}
+
+    // run again after the project and plugins have been applied - this ensures AGP doesn't override us later
+    p.gradle.projectsEvaluated {
+        try { enforceOnProject(p) } catch (err) {
+            p.logger.debug("toolchain: projectsEvaluated enforcement failed for ${p.path}: ${err.message}")
+        }
+
+        // print final diagnostic for this project (visible in Gradle output)
+        p.tasks.withType(JavaCompile).all { jc ->
+            p.logger.lifecycle(">>> TOOLCHAIN CHECK: ${p.name} ${jc.name} java target=${jc.targetCompatibility}")
+        }
+        if (kotlinCompileClass != null) {
+            p.tasks.withType(kotlinCompileClass).all { kt ->
+                p.logger.lifecycle(">>> TOOLCHAIN CHECK: ${p.name} ${kt.name} kotlinJvmTarget=${kt.kotlinOptions.jvmTarget}")
+            }
+        }
+    }
+}

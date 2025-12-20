@@ -108,6 +108,32 @@
       <p id="voucherMsg"></p>
     </div>
 
+    <div id="phoneSection" style="margin-top:12px; display:none;">
+  <label for="phoneInput" class="label">Phone Number:</label>
+  <input
+    type="tel"
+    id="phoneInput"
+    placeholder="08xxxxxxxxxx"
+    style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-size:0.95em;"
+  />
+  <p style="font-size:0.85em; color:#666; margin-top:4px;">
+    Needed so staff can contact you if required.
+  </p>
+</div>
+
+<button id="contactCafeBtn" style="
+  margin-top:12px;
+  padding:10px;
+  width:100%;
+  border-radius:8px;
+  border:none;
+  background:#ff9800;
+  color:#fff;
+  font-size:15px;
+  cursor:pointer;">
+  ☎️ Contact Café
+</button>
+
     <div id="paymentSection">
       <label class="label">Payment Method:</label><br>
       <input type="radio" name="paymentMethod" id="payCash" value="cash"> 
@@ -166,6 +192,15 @@ const payCash = document.getElementById("payCash");
 const payQRIS = document.getElementById("payQRIS");
 const cashInstruction = document.getElementById("cashInstruction");
 const paymentSection = document.getElementById("paymentSection");
+const phoneSection = document.getElementById("phoneSection");
+const phoneInput = document.getElementById("phoneInput");
+const contactCafeBtn = document.getElementById("contactCafeBtn");
+
+ const memberId = urlParams.get("memberId") || "";
+ const memberPhoneFromUrl = urlParams.get("memberPhone") || "";
+ const isMember = Boolean(memberId && memberPhoneFromUrl);
+
+
 
 // Vars
 let table = "unknown";
@@ -183,33 +218,104 @@ function jakartaDateString() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
 }
 
+function resolvePhoneOrFail() {
+   if (isMember) {
+     return memberPhoneFromUrl;
+   }
+
+   const p = phoneInput?.value?.trim();
+   if (!p) {
+     alert("⚠️ Please enter your phone number.");
+     throw new Error("PHONE_REQUIRED");
+   }
+
+   return p;
+ }
+
+
+// ================= SCHEMA & VALIDATION =================
+const SCHEMA_VERSION = 1;
+
+function isValidItemArray(arr) {
+  return Array.isArray(arr) &&
+    arr.length > 0 &&
+    arr.every(i =>
+      i &&
+      typeof i.name === "string" &&
+      typeof i.qty === "number" &&
+      i.qty > 0
+    );
+}
+
+function hardFail(message) {
+  alert(message);
+  document.body.innerHTML = `
+    <div style="padding:24px;text-align:center">
+      <h2>⚠️ Order Error</h2>
+      <p>${message}</p>
+      <p>Please contact staff.</p>
+    </div>`;
+  throw new Error(message);
+}
+
+
 document.addEventListener("DOMContentLoaded", async () => {
+
+  if (isMember) { // Signed-in member → phone already known
+  phoneSection.style.display = "none";
+} else { // Guest → must enter phone
+  phoneSection.style.display = "block";
+}
+
   try {
     let existingVoucherId = null;
 
-    if (orderId) {
-      const doc = await db.collection("orders").doc(orderId).get();
-      if (doc.exists) {
-        const data = doc.data();
-        table = data.table || table;
-        guestName = data.guestName || guestName;
-        items = data.items || [];
-        subtotal = data.subtotal || 0;
-        discount = data.discount || 0;
-        tax = data.tax || 0;
-        deliveryFee = data.deliveryFee || 0;
-        paymentMethod = data.paymentMethod || "";
-        existingVoucherId = data.voucherId || null;
-        if (data.paymentStatus === "success") status = "success";
-      }
-    } else {
-      table = urlParams.get("table") || table;
-      guestName = urlParams.get("guestName") || guestName;
-      try { items = JSON.parse(decodeURIComponent(urlParams.get("items") || "[]")); } catch(e){}
+      // ================= HYDRATION =================
+let hydratedFrom = "none";
+
+if (orderId) {
+  const snap = await db.collection("orders").doc(orderId).get();
+  if (snap.exists) {
+    const d = snap.data();
+
+    if (isValidItemArray(d.items)) {
+      table = d.table || table;
+      guestName = d.guestName || guestName;
+      items = d.items;
+      subtotal = Number(d.subtotal) || 0;
+      discount = Number(d.discount) || 0;
+      tax = Number(d.tax) || 0;
+      deliveryFee = Number(d.deliveryFee) || 0;
+      paymentMethod = d.paymentMethod || "";
+      existingVoucherId = d.voucherId || null;
+      hydratedFrom = "firestore";
+    }
+    if (d.paymentStatus === "success") {
+         status = "success";
+         }
+  }
+}
+
+// Fallback ONLY if Firestore invalid
+if (!isValidItemArray(items)) {
+  try {
+    const urlItems = JSON.parse(decodeURIComponent(urlParams.get("items") || "[]"));
+    if (isValidItemArray(urlItems)) {
+      items = urlItems;
       subtotal = Number(urlParams.get("subtotal")) || 0;
       discount = Number(urlParams.get("discount")) || 0;
       tax = Number(urlParams.get("tax")) || 0;
+      hydratedFrom = "url";
     }
+  } catch {}
+}
+
+// Absolute stop
+if (!isValidItemArray(items)) {
+  hardFail("Invalid or incomplete order data.");
+}
+
+console.info("Order hydrated from:", hydratedFrom);
 
     // ✅ Force Mille tables to QRIS only
     if (/mille/i.test(table)) {
@@ -221,13 +327,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       cashInstruction.style.display = "none";
       // Reset selection so only QRIS remains visible
       payCash.checked = false;
-      paymentMethod = "";
+      paymentMethod = "qris";
+      payQRIS.checked = true;
     }
 
     // DOM update
     tableDisplay.textContent = table;
     guestDisplay.textContent = guestName;
     itemsList.innerHTML = "";
+
     items.forEach(item => {
       const li = document.createElement("li");
       li.textContent = `${item.qty} × ${item.name}`;
@@ -249,6 +357,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         voucherNotice.style.display = "block";
       }
     }
+
 
     // Pre-select payment
     if (paymentMethod === "cash") payCash.checked = true;
@@ -280,8 +389,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       cashInstruction.style.display = "none";
       if (qrisOrderCreated || status === "success") return;
       try {
-        const memberPhone = urlParams.get("memberPhone") || "";
-        const memberId = urlParams.get("memberId") || "";
+         let phone;
+ try {
+   phone = resolvePhoneOrFail();
+ } catch {
+   confirmBtn.disabled = false;
+  phoneInput?.focus();
+   return;
+ }
+
         const { finalTotal, grandTotal } = renderSummary();
         confirmBtn.disabled = true;
 
@@ -290,11 +406,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       const docRef = await db.collection("orders").add({
         subtotal, discount, tax, deliveryFee,
         total: finalTotal, grandTotal,
-        table, guestName, items,
+        table, guestName, items: JSON.parse(JSON.stringify(items)),
+schemaVersion: SCHEMA_VERSION,
         date: jakartaDate, // <-- Jakarta local date
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
         status: "pending",
-        memberPhone, memberId,
+        phone,
+ isMember,
+ memberId: memberId || null,
         paymentMethod: "qris",
         paymentStatus: "awaiting-proof"
       });
@@ -393,19 +512,27 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (status === "success") return;
       try {
         confirmBtn.disabled = true;
-        const memberPhone = urlParams.get("memberPhone") || "";
-        const memberId = urlParams.get("memberId") || "";
+        let phone;
+ try {
+   phone = resolvePhoneOrFail();
+ } catch {
+   confirmBtn.disabled = false;
+   return;
+ }
         const { finalTotal, grandTotal } = renderSummary();
 
         const jakartaDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
         const docRef = await db.collection("orders").add({
           subtotal, discount, tax, deliveryFee,
           total: finalTotal, grandTotal,
-          table, guestName, items,
+          table, guestName, items: JSON.parse(JSON.stringify(items)),
+          schemaVersion: SCHEMA_VERSION,
           date: jakartaDate, // Jakarta local date
           timestamp: firebase.firestore.FieldValue.serverTimestamp(),
           status: "pending",
-          memberPhone, memberId,
+          phone,
+ isMember,
+ memberId: memberId || null,
           paymentMethod: "cash",
           paymentStatus: "pending"
         });
@@ -433,6 +560,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.error("Init summary error:", err);
   }
 });
+
+if (contactCafeBtn) {
+   contactCafeBtn.addEventListener("click", () => {
+     const cafePhone = "+628123456789"; // TODO: move to Firestore settings later
+ window.location.href = `tel:${cafePhone}`;
+   });
+ }
+
 
 // Render summary
 function renderSummary() {

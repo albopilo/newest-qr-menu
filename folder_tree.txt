@@ -1,0 +1,121 @@
+Folder PATH listing for volume OS
+Volume serial number is 460C-D6F0
+C:.
+³   admin.html
+³   admin.js
+³   app.js
+³   firebase-messaging-sw.js
+³   folder_tree.txt
+³   index.html
+³   manifest.json
+³   mille-staff.html
+³   mille2-staff.html
+³   mille3-staff.html
+³   OneSignalSDKUpdaterWorker.js
+³   OneSignalSDKWorker.js
+³   pwa-worker.js
+³   qris.html
+³   register.html
+³   register.js
+³   staff.html
+³   style.css
+³   summary.html
+³   sw.js
+³   twa-manifest.json
+³   voucher-admin.html
+³   voucher-admin.js
+³   
+ÃÄÄÄassets
+³   ³   favicon.ico
+³   ³   icon-192.png
+³   ³   icon-512.png
+³   ³   index.html
+³   ³   qris versi 1.jpeg
+³   ³   sound.mp3
+³   ³   
+³   ÀÄÄÄimages
+³           ala thai.jpg
+³           andaliman.png
+³           bakwan udang.png
+³           blue eagle.jpg
+³           bolognese.png
+³           butter chicken ricebowl.png
+³           caramel blossom.jpg
+³           carbonara.jpg
+³           ChatGPT Image Jul 11, 2025, 05_38_29 PM.png
+³           ChatGPT Image Jul 17, 2025, 03_04_00 PM.png
+³           ChatGPT Image Jul 17, 2025, 03_08_14 PM.png
+³           ChatGPT Image Jul 17, 2025, 03_13_38 PM.png
+³           ChatGPT Image Jul 17, 2025, 04_35_41 PM.png
+³           ChatGPT Image Sep 1, 2025, 03_03_03 PM.png
+³           ChatGPT Image Sep 1, 2025, 04_13_28 PM.png
+³           ChatGPT Image Sep 6, 2025, 05_26_12 PM.png
+³           chicken maryland.png
+³           chicken steak.jpg
+³           choco lava cake.png
+³           cinamon french toast.png
+³           coffee latte.jpg
+³           creme brulee toast.png
+³           egg on toast.png
+³           egg&beef with mozza.png
+³           emerrald.jpg
+³           fata morgana.jpg
+³           fish n chip.jpg
+³           geprek.jpg
+³           gordon blue.png
+³           hoeny chicken.jpg
+³           indomi goreng.jpg
+³           indomi kuah.jpg
+³           indomie bangladesh.png
+³           indomie kari.png
+³           jade.jpg
+³           kwetiau sapi lada hitam.jpg
+³           kwetiau siram.jpg
+³           matcha elixir.jpg
+³           mie tektek.jpg
+³           minefields 2.png
+³           minefields.png
+³           nasgor kampung.jpg
+³           nasgor seafood.jpg
+³           nasgor terasi.png
+³           nasi andaliman.jpg
+³           nasi ayam bakar.jpg
+³           nasi goreng special.png
+³           noble matcha.jpg
+³           orange sunrise.jpg
+³           peanut butter.jpg
+³           piccante padang spaghetti.png
+³           piccolo.jpg
+³           pisgor coklat keju.png
+³           pizza toast.png
+³           potato.jpg
+³           queen paradise.jpg
+³           regale royale.png
+³           rica rica.jpg
+³           ricebowl andaliman.jpg
+³           ricebowl asam manis.png
+³           ricebowl geprek (2).png
+³           ricebowl geprek.png
+³           ricebowl ijo.png
+³           rose whisper.jpg
+³           salt cheese chocolate.png
+³           salted egg 2.png
+³           salted egg.png
+³           sayur pecal.jpg
+³           sign milo.jpg
+³           snack platter 2.png
+³           snack platter.png
+³           snowy lagoon.jpg
+³           specialty aglio olio.png
+³           sundali.jpg
+³           tempe.jpg
+³           text
+³           twillight mountain.png
+³           
+ÀÄÄÄnetlify
+    ³   test
+    ³   
+    ÀÄÄÄfunctions
+            newOrderNotify.js
+            newOrderPush.js
+            

@@ -1,0 +1,14 @@
+directories:
+  output: dist
+  buildResources: build
+appId: com.staff.dashboard
+productName: Staff Dashboard
+icon: icon.ico
+win:
+  target: nsis
+  signAndEditExecutable: false
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+files: []
+electronVersion: 30.0.2
