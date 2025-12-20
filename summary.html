@@ -562,11 +562,21 @@ schemaVersion: SCHEMA_VERSION,
 });
 
 if (contactCafeBtn) {
-   contactCafeBtn.addEventListener("click", () => {
-     const cafePhone = "+628123456789"; // TODO: move to Firestore settings later
- window.location.href = `tel:${cafePhone}`;
-   });
- }
+  contactCafeBtn.addEventListener("click", () => {
+    const cafeWaNumber = "6282188884663"; // no +, WhatsApp format
+    const tableName = table || "Unknown Table";
+    const id = orderId || "N/A";
+
+    const message = encodeURIComponent(
+      `Hello Cafe, please check order ${id} (${tableName})`
+    );
+
+    const waUrl = `https://wa.me/${cafeWaNumber}?text=${message}`;
+
+    window.open(waUrl, "_blank");
+  });
+}
+
 
 
 // Render summary
