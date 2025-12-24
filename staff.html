@@ -97,7 +97,12 @@
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <script src="app.js"></script>
+<script>
+   window.IS_ANDROID_WEBVIEW =
+     /wv|android/i.test(navigator.userAgent) &&
+     !/chrome/i.test(navigator.userAgent);
+ </script>
+<script src="app.js?v=2025-01-STAFF"></script>
 
   <script>
   (function(){
@@ -353,28 +358,39 @@ async function updateStatus(id, status) {
   </script>
 
   <!-- ✅ Register PWA Worker -->
+<!-- ✅ Service Worker: Browser only (NOT WebView APK) -->
   <script>
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/pwa-worker.js')
-      .then(r=>console.log('PWA worker registered',r.scope))
-      .catch(e=>console.warn('SW failed',e));
+    if (window.IS_ANDROID_WEBVIEW) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => r.unregister());
+      });
+      console.log('🚫 Service workers disabled in Android WebView');
+    } else {
+      navigator.serviceWorker.register('/pwa-worker.js')
+        .then(r => console.log('✅ PWA worker registered', r.scope))
+        .catch(e => console.warn('❌ SW failed', e));
+    }
   }
   </script>
 
   <!-- ✅ OneSignal Push (TWA compatible) -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "9d4e981e-3184-4ebb-9ac1-cdb4644b1ccd",
-      notifyButton: { enable: true },
-      serviceWorkerPath: "OneSignalSDKWorker.js",
-      serviceWorkerParam: { scope: "/" },
-      safari_web_id: null
+if (!window.IS_ANDROID_WEBVIEW) {
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function(OneSignal) {
+      await OneSignal.init({
+        appId: "9d4e981e-3184-4ebb-9ac1-cdb4644b1ccd",
+        notifyButton: { enable: true },
+        serviceWorkerPath: "OneSignalSDKWorker.js",
+        serviceWorkerParam: { scope: "/" }
+      });
+      console.log("✅ OneSignal initialized (browser only)");
     });
-    console.log("✅ OneSignal initialized (TWA-ready)");
-  });
+  } else {
+    console.log('🚫 OneSignal disabled inside Android WebView');
+  }
 </script>
 </body>
 </html>

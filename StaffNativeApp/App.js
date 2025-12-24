@@ -13,7 +13,8 @@ import messaging from '@react-native-firebase/messaging';
 import TrackPlayer from 'react-native-track-player-next';
 
 // --- CONFIGURATION ---
-const STAFF_URL = 'https://13e-menu.netlify.app/staff.html';
+const APP_BUILD = '1.0.12'; // bump every APK release
+const STAFF_URL = `https://13e-menu.netlify.app/staff.html?v=${APP_BUILD}`;
 
 // --- HELPER FUNCTIONS ---
 
@@ -214,6 +215,9 @@ useEffect(() => {
         javaScriptEnabled
         domStorageEnabled
         mixedContentMode="always"
+        cacheEnabled={false}
+        cacheMode="LOAD_NO_CACHE"
+        incognito={true}
       />
     </SafeAreaView>
   );
