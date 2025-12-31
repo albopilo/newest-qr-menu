@@ -225,6 +225,11 @@ function jakartaDateString() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
 }
 
+function isMilleTable(t) {
+  return /mille\s*[123]/i.test(t || "");
+}
+
+
 function resolvePhoneOrFail() {
    if (isMember) {
      return memberPhoneFromUrl;
@@ -502,7 +507,17 @@ console.info("Order hydrated from:", hydratedFrom);
     // Confirm (Cash)
     confirmBtn.addEventListener("click", async () => {
       if (!paymentMethod) { alert("⚠️ Please select a payment method."); return; }
-      if (paymentMethod === "qris") { location.href = `qris.html?orderId=${docRef.id}` }
+      if (isMilleTable(table)) {
+   // Mille tables ALWAYS go to QRIS
+   location.href = `qris.html?orderId=${docRef.id}`;
+   return;
+ }
+
+ if (paymentMethod === "qris") {
+   location.href = `qris.html?orderId=${docRef.id}`;
+ } else {
+   alert("✅ Order confirmed! Please pay at the receptionist.");
+ }
       if (status === "success") return;
       try {
         confirmBtn.disabled = true;
