@@ -505,65 +505,81 @@ console.info("Order hydrated from:", hydratedFrom);
     });
 
     // Confirm (Cash)
-    confirmBtn.addEventListener("click", async () => {
-      if (!paymentMethod) { alert("⚠️ Please select a payment method."); return; }
-      if (isMilleTable(table)) {
-   // Mille tables ALWAYS go to QRIS
-   location.href = `qris.html?orderId=${docRef.id}`;
-   return;
- }
+confirmBtn.addEventListener("click", async () => {
+  if (status === "success") return;
 
- if (paymentMethod === "qris") {
-   location.href = `qris.html?orderId=${docRef.id}`;
- } else {
-   alert("✅ Order confirmed! Please pay at the receptionist.");
- }
-      if (status === "success") return;
-      try {
-        confirmBtn.disabled = true;
-        let phone;
- try {
-   phone = resolvePhoneOrFail();
- } catch {
-   confirmBtn.disabled = false;
-   return;
- }
-        const { finalTotal, grandTotal } = renderSummary();
+  try {
+    if (!paymentMethod) {
+      alert("⚠️ Please select a payment method.");
+      return;
+    }
 
-        const jakartaDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
-        const docRef = await db.collection("orders").add({
-          subtotal, discount, tax, deliveryFee,
-          total: finalTotal, grandTotal,
-          table, guestName, items: JSON.parse(JSON.stringify(items)),
-          schemaVersion: SCHEMA_VERSION,
-          date: jakartaDate, // Jakarta local date
-          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          status: "pending",
-          phone,
- isMember,
- memberId: memberId || null,
-          paymentMethod: "cash",
-          paymentStatus: "pending"
-        });
-        // notify staff (include orderId + staff URL)
-        fetch("/.netlify/functions/newOrderPush", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: "🆕 New Cash Order",
-            message: `Table ${table} placed a new Cash order.`,
-            orderId: docRef.id,
-            url: `https://13e-menu.netlify.app/staff.html?orderId=${docRef.id}`
-          })
-        }).catch(e => console.warn("Push send failed:", e));
+    confirmBtn.disabled = true;
 
-        alert("✅ Order confirmed! Please pay at the receptionist.");
-      } catch (err) {
-        console.error(err);
-        alert("❌ Failed to confirm order.");
-        confirmBtn.disabled = false;
-      }
+    let phone;
+    try {
+      phone = resolvePhoneOrFail();
+    } catch {
+      confirmBtn.disabled = false;
+      return;
+    }
+
+    const { finalTotal, grandTotal } = renderSummary();
+
+    const jakartaDate = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Jakarta"
     });
+
+    // ✅ CREATE ORDER FIRST
+    const docRef = await db.collection("orders").add({
+      subtotal,
+      discount,
+      tax,
+      deliveryFee,
+      total: finalTotal,
+      grandTotal,
+      table,
+      guestName,
+      items: JSON.parse(JSON.stringify(items)),
+      schemaVersion: SCHEMA_VERSION,
+      date: jakartaDate,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      status: "pending",
+      phone,
+      isMember,
+      memberId: memberId || null,
+      paymentMethod: isMilleTable(table) ? "qris" : paymentMethod,
+      paymentStatus: "pending"
+    });
+
+    // 🔔 Notify staff
+    fetch("/.netlify/functions/newOrderPush", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: "🆕 New Order",
+        message: `Table ${table} placed a new order.`,
+        orderId: docRef.id,
+        url: `https://13e-menu.netlify.app/staff.html?orderId=${docRef.id}`
+      })
+    }).catch(() => {});
+
+    // ✅ REDIRECT LOGIC (AFTER ORDER EXISTS)
+    if (isMilleTable(table) || paymentMethod === "qris") {
+      location.href = `qris.html?orderId=${docRef.id}`;
+      return;
+    }
+
+    // Cash (non-Mille)
+    alert("✅ Order confirmed! Please pay at the receptionist.");
+
+  } catch (err) {
+    console.error(err);
+    alert("❌ Failed to confirm order.");
+    confirmBtn.disabled = false;
+  }
+});
+
 
   } catch (err) {
     console.error("Init summary error:", err);
