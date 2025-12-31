@@ -502,7 +502,7 @@ console.info("Order hydrated from:", hydratedFrom);
     // Confirm (Cash)
     confirmBtn.addEventListener("click", async () => {
       if (!paymentMethod) { alert("⚠️ Please select a payment method."); return; }
-      if (paymentMethod === "qris") {  }
+      if (paymentMethod === "qris") { location.href = `qris.html?orderId=${docRef.id}` }
       if (status === "success") return;
       try {
         confirmBtn.disabled = true;
