@@ -410,20 +410,7 @@ console.info("Order hydrated from:", hydratedFrom);
 
        // ✅ Use Jakarta timezone date for correct staff-page filtering
       const jakartaDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
-      const docRef = await db.collection("orders").add({
-        subtotal, discount, tax, deliveryFee,
-        total: finalTotal, grandTotal,
-        table, guestName, items: JSON.parse(JSON.stringify(items)),
-schemaVersion: SCHEMA_VERSION,
-        date: jakartaDate, // <-- Jakarta local date
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        status: "pending",
-        phone,
- isMember,
- memberId: memberId || null,
-        paymentMethod: "qris",
-        paymentStatus: "awaiting-proof"
-      });
+      
 
         // ✅ Trigger push notification (include orderId + url pointing to staff)
         fetch("/.netlify/functions/newOrderPush", {
@@ -515,7 +502,7 @@ schemaVersion: SCHEMA_VERSION,
     // Confirm (Cash)
     confirmBtn.addEventListener("click", async () => {
       if (!paymentMethod) { alert("⚠️ Please select a payment method."); return; }
-      if (paymentMethod === "qris") { alert("✅ QRIS order already created."); return; }
+      if (paymentMethod === "qris") {  }
       if (status === "success") return;
       try {
         confirmBtn.disabled = true;

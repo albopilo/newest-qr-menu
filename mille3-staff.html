@@ -270,7 +270,7 @@ async function markReceived(id) {
 }
 
 function loadOrders() {
-  const yyyyMmDd = new Date(orderDate.value).toISOString().split("T")[0];
+  const yyyyMmDd = orderDate.value;
   db.collection("orders")
     .where("date", "==", yyyyMmDd)
     .orderBy("timestamp", "desc")
