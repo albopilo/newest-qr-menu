@@ -439,7 +439,7 @@ schemaVersion: SCHEMA_VERSION,
 
         qrisOrderCreated = docRef;
         confirmBtn.style.display = "none";
-        window.open(`qris.html?orderId=${docRef.id}`, "_blank");
+        location.href = `qris.html?orderId=${docRef.id}`;
       } catch (err) {
         console.error(err);
         confirmBtn.disabled = false;
