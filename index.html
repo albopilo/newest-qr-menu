@@ -22,9 +22,103 @@
       header h2 { font-size:1.1rem; }
       #closedMessage h1 { font-size:1.25rem; }
     }
+
+    .notice-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.notice-popup {
+  background: #ffffff;
+  max-width: 420px;
+  width: 90%;
+  padding: 1.5rem 1.75rem;
+  border-radius: 12px;
+  position: relative;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.2);
+  text-align: center;
+}
+
+.notice-popup h3 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+
+.notice-popup p {
+  margin: 0.5rem 0;
+  line-height: 1.5;
+}
+
+.notice-hours {
+  margin-top: 0.75rem;
+}
+
+.notice-closed {
+  color: #c0392b;
+  font-weight: 600;
+}
+
+.notice-footer {
+  margin-top: 1rem;
+  font-size: 0.95rem;
+}
+
+.notice-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: none;
+  background: transparent;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: #555;
+}
+
+.notice-close:hover {
+  color: #000;
+}
+
   </style>
 </head>
 <body>
+
+  <div id="noticeOverlay" class="notice-overlay">
+  <div class="notice-popup">
+    <button class="notice-close" aria-label="Close notice">✕</button>
+
+    <h3>📢 Informasi Jam Operasional</h3>
+
+    <p>
+      Kami dengan senang hati melayani Anda pada jam operasional berikut:
+    </p>
+
+    <p class="notice-hours">
+      <strong>Minggu – Jumat</strong><br>
+      08.30 – 19.30
+    </p>
+
+    <p class="notice-hours">
+      <strong>Sabtu</strong><br>
+      08.30 – 21.30
+    </p>
+
+    <p class="notice-closed">
+      <strong>Senin</strong><br>
+      Tutup
+    </p>
+
+    <p class="notice-footer">
+      VIP Room dan Meeting Room tersedia untuk reservasi.<br>
+      Hubungi WhatsApp kami:<br>
+      <strong>0821 8888 4663</strong>
+    </p>
+  </div>
+</div>
 
   <!-- Closed message (hidden by default) -->
   <div id="closedMessage" role="status" aria-live="polite">
@@ -118,7 +212,19 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
 
   <!-- Monday-closure logic: toggles UI, does NOT overwrite body -->
-  <script>
+  <script>  
+
+    (function () {
+    const overlay = document.getElementById("noticeOverlay");
+    const closeBtn = document.querySelector(".notice-close");
+
+    if (closeBtn && overlay) {
+      closeBtn.addEventListener("click", () => {
+        overlay.style.display = "none";
+      });
+    }
+  })();
+
     (function() {
       // Determine local day of week: 0 = Sun, 1 = Mon, ...
       const today = new Date();
