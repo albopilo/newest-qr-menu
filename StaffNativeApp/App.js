@@ -9,8 +9,8 @@ import {
 } from 'react-native';
 import WebView from 'react-native-webview';
 import firestore from '@react-native-firebase/firestore';
-import messaging from '@react-native-firebase/messaging';
 import TrackPlayer from 'react-native-track-player-next';
+import OneSignal from 'react-native-onesignal';
 
 // --- CONFIGURATION ---
 const APP_BUILD = '1.0.12'; // bump every APK release
@@ -33,6 +33,26 @@ function todayJakartaDate() {
 // --- MAIN COMPONENT ---
 
 export default function App() {
+useEffect(() => {
+  OneSignal.initialize("9d4e981e-3184-4ebb-9ac1-cdb4644b1ccd");
+
+  OneSignal.Notifications.requestPermission(true);
+
+  OneSignal.User.pushSubscription.addObserver(state => {
+    console.log("Push ID:", state.current.id);
+    console.log("Subscribed:", state.current.optedIn);
+  });
+
+  OneSignal.Notifications.addEventListener("click", event => {
+    console.log("Notification opened", event);
+  });
+
+  return () => {
+    OneSignal.Notifications.removeEventListener("click");
+  };
+}, []);
+
+}, []);
   const webviewRef = useRef(null);
   const [currentDate] = useState(todayJakartaDate());
   const knownOrdersRef = useRef(new Set());
@@ -125,35 +145,12 @@ export default function App() {
  * 1️⃣ Firebase permission + topic subscription
  */
 useEffect(() => {
-  messaging()
-    .requestPermission()
-    .then(() => {
-      console.log('✅ Notification permission granted');
-      return messaging().subscribeToTopic('staff');
-    })
-    .then(() => {
-      console.log('✅ Subscribed to staff topic');
-    })
-    .catch(err => {
-      console.warn('❌ Permission or topic subscription failed', err);
-    });
 }, []);
 
 
 /**
- * 2️⃣ FCM token + foreground message listener
+ * 2️⃣ FCM token + foreground message listener (deleted)
  */
-useEffect(() => {
-  messaging().getToken().then(token => {
-    console.log('🔥 FCM TOKEN:', token);
-  });
-
-  const unsub = messaging().onMessage(msg => {
-    console.log('📩 FCM RECEIVED:', msg);
-  });
-
-  return unsub;
-}, []);
 
 
 /**
