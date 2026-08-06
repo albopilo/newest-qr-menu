@@ -1,54 +1,50 @@
-const admin = require("firebase-admin");
+const { initializeApp, cert, getApps } = require("firebase-admin/app");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
-console.log("firebase-admin loaded:", !!admin);
-console.log("apps:", admin.apps);
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
-
-if (!serviceAccount) {
-    throw new Error("Missing FIREBASE_SERVICE_ACCOUNT env variable");
-}
-
-if (!admin.apps || admin.apps.length === 0) {
-    admin.initializeApp({
-        credential: admin.credential.cert(
-            JSON.parse(serviceAccount)
-        )
+if (!getApps().length) {
+    initializeApp({
+        credential: cert(serviceAccount)
     });
 }
 
-const db = admin.firestore();
+const db = getFirestore();
 
-exports.handler = async function (event) {
-  try {
-    const body = JSON.parse(event.body || "{}");
+exports.handler = async (event) => {
+    try {
 
-    if (!body.token) {
-      return {
-        statusCode: 400,
-        body: "Missing token",
-      };
+        const body = JSON.parse(event.body || "{}");
+
+        if (!body.token) {
+            return {
+                statusCode: 400,
+                body: "Missing token"
+            };
+        }
+
+        await db.collection("fcmTokens")
+            .doc(body.token)
+            .set({
+                token: body.token,
+                platform: "android",
+                updatedAt: FieldValue.serverTimestamp()
+            });
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({
+                success: true
+            })
+        };
+
+    } catch (err) {
+
+        console.error(err);
+
+        return {
+            statusCode: 500,
+            body: err.message
+        };
     }
-
-    await db.collection("fcmTokens").doc(body.token).set({
-      token: body.token,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      platform: "android",
-    });
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        success: true,
-      }),
-    };
-
-  } catch (err) {
-    console.error(err);
-
-    return {
-      statusCode: 500,
-      body: err.message,
-    };
-  }
 };

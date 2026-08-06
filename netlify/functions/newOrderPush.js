@@ -1,92 +1,61 @@
-const admin = require("firebase-admin");
+const { initializeApp, cert, getApps } = require("firebase-admin/app");
+const { getFirestore } = require("firebase-admin/firestore");
+const { getMessaging } = require("firebase-admin/messaging");
 
-console.log("firebase-admin loaded:", !!admin);
-console.log("apps:", admin.apps);
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
-
-if (!serviceAccount) {
-    throw new Error("Missing FIREBASE_SERVICE_ACCOUNT env variable");
-}
-
-if (!admin.apps || admin.apps.length === 0) {
-    admin.initializeApp({
-        credential: admin.credential.cert(
-            JSON.parse(serviceAccount)
-        )
+if (!getApps().length) {
+    initializeApp({
+        credential: cert(serviceAccount)
     });
 }
 
-const db = admin.firestore();
+const db = getFirestore();
 
-exports.handler = async function (event) {
-  try {
+exports.handler = async () => {
 
-    const body = JSON.parse(event.body || "{}");
+    try {
 
-    const snapshot = await db.collection("fcmTokens").get();
+        const snapshot = await db.collection("fcmTokens").get();
 
-    const tokens = [];
+        const tokens = snapshot.docs.map(doc => doc.id);
 
-    snapshot.forEach(doc => {
-      tokens.push(doc.id);
-    });
+        if (!tokens.length) {
+            return {
+                statusCode: 200,
+                body: "No devices registered"
+            };
+        }
 
-    if (tokens.length === 0) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          success: false,
-          message: "No registered devices"
-        })
-      };
+        const result = await getMessaging().sendEachForMulticast({
+
+            tokens,
+
+            data: {
+                title: "New Order",
+                body: "A new order has arrived.",
+                orderId: "123"
+            },
+
+            android: {
+                priority: "high"
+            }
+
+        });
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify(result)
+        };
+
+    } catch (err) {
+
+        console.error(err);
+
+        return {
+            statusCode: 500,
+            body: err.message
+        };
     }
 
-    const message = {
-      tokens,
-
-      notification: {
-        title: body.title || "🍽️ New Order",
-        body: body.body || "A new order has arrived."
-      },
-
-      data: {
-        orderId: body.orderId || "",
-        click_action: "OPEN_ORDER"
-      },
-
-      android: {
-        priority: "high",
-        notification: {
-          channelId: "orders"
-        }
-      }
-    };
-
-    const result = await admin.messaging().sendEachForMulticast(message);
-
-    console.log(result);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        success: true,
-        sent: result.successCount,
-        failed: result.failureCount
-      })
-    };
-
-  } catch (err) {
-
-    console.error(err);
-
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        success: false,
-        error: err.message
-      })
-    };
-
-  }
 };
