@@ -42,17 +42,8 @@ useEffect(() => {
     console.log("Push ID:", state.current.id);
     console.log("Subscribed:", state.current.optedIn);
   });
-
-  OneSignal.Notifications.addEventListener("click", event => {
-    console.log("Notification opened", event);
-  });
-
-  return () => {
-    OneSignal.Notifications.removeEventListener("click");
-  };
 }, []);
 
-}, []);
   const webviewRef = useRef(null);
   const [currentDate] = useState(todayJakartaDate());
   const knownOrdersRef = useRef(new Set());
