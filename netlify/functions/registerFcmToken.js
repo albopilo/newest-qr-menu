@@ -1,9 +1,20 @@
 const admin = require("firebase-admin");
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
-  });
+console.log("firebase-admin loaded:", !!admin);
+console.log("apps:", admin.apps);
+
+const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+
+if (!serviceAccount) {
+    throw new Error("Missing FIREBASE_SERVICE_ACCOUNT env variable");
+}
+
+if (!admin.apps || admin.apps.length === 0) {
+    admin.initializeApp({
+        credential: admin.credential.cert(
+            JSON.parse(serviceAccount)
+        )
+    });
 }
 
 const db = admin.firestore();
