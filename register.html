@@ -6,21 +6,119 @@
   <title>Register — 13e Café</title>
   <link rel="stylesheet" href="style.css" />
   <style>
-    /* small, self-contained layout for register page */
-    body { font-family: system-ui, sans-serif; margin: 0; background: #fafafa; color: #222; }
-    .page { max-width: 480px; margin: 40px auto; padding: 16px; background: #fff; border-radius: 8px; box-shadow: 0 6px 30px rgba(0,0,0,0.06); }
-    h1 { margin-top: 0; }
-    label { display:block; margin: 10px 0 6px; font-weight: 600; }
-    input[type="text"], input[type="email"], input[type="date"], input[type="tel"] {
-      width:100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box;
+    :root {
+      --brand: #2c3e50;
+      --accent: #4caf50;
+      --accent-dark: #45a049;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --bg: #f5f6fa;
+      --radius: 12px;
+      --shadow: 0 6px 20px rgba(0,0,0,0.08);
     }
-    .row { display:flex; gap:8px; }
-    .row > * { flex:1; }
-    .error { color:#c53030; font-size:0.95rem; margin-top:6px; }
-    .actions { margin-top:16px; display:flex; gap:8px; }
-    button { padding: 10px 14px; border-radius: 6px; border: none; cursor: pointer; }
-    .primary { background:#333; color:#fff; }
-    .secondary { background:#eee; color:#111; }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      background: var(--bg);
+      color: #222;
+      line-height: 1.5;
+      padding: 15px;
+    }
+
+    .page {
+      max-width: 480px;
+      margin: 40px auto;
+      padding: 24px 20px;
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .page h1 {
+      margin-top: 0;
+      color: var(--brand);
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .page > p {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      margin: 12px 0 6px;
+      font-weight: 600;
+      color: var(--brand);
+      font-size: 0.9rem;
+    }
+
+    input[type="text"], input[type="email"], input[type="date"], input[type="tel"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-sizing: border-box;
+      font-size: 0.95em;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input[type="text"]:focus, input[type="email"]:focus, input[type="date"]:focus, input[type="tel"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(76,175,80,0.15);
+    }
+
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+
+    .error {
+      color: #c53030;
+      font-size: 0.9rem;
+      margin-top: 8px;
+      padding: 10px;
+      background: #fee2e2;
+      border-radius: 6px;
+    }
+
+    .actions {
+      margin-top: 20px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .actions button {
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      flex: 1;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .actions button:active { transform: scale(0.98); }
+
+    .actions .primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .actions .primary:hover { background: var(--accent-dark); }
+    .actions .primary:disabled { background: #a5d6a7; cursor: not-allowed; }
+
+    .actions .secondary {
+      background: #f3f4f6;
+      color: #374151;
+    }
+    .actions .secondary:hover { background: #e5e7eb; }
+
+    @media (max-width: 480px) {
+      body { padding: 10px; }
+      .page { margin: 20px auto; padding: 18px 14px; }
+      .page h1 { font-size: 1.2rem; }
+    }
   </style>
 </head>
 <body>

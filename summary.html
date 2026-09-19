@@ -2,88 +2,157 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Order Summary</title>
+  <title>Order Summary — 13e Café</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
   <style>
+    :root {
+      --brand: #2c3e50;
+      --accent: #4caf50;
+      --accent-dark: #45a049;
+      --accent-light: #e8f5e9;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --card-bg: #ffffff;
+      --bg: #f5f6fa;
+      --danger: #ef4444;
+      --info: #3498db;
+      --info-dark: #2980b9;
+      --warning: #ff9800;
+      --radius: 12px;
+      --shadow: 0 6px 20px rgba(0,0,0,0.08);
+    }
+
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f5f6fa;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
       padding: 15px;
       margin: 0;
       color: #333;
+      line-height: 1.5;
     }
+
     .summary {
       max-width: 500px;
       margin: auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+      background: var(--card-bg);
+      padding: 24px 20px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
     }
     .summary h2 {
       text-align: center;
-      color: #2c3e50;
-      margin-bottom: 20px;
+      color: var(--brand);
+      margin: 0 0 20px;
+      font-size: 1.4rem;
+      font-weight: 700;
     }
     .summary p, .summary ul { margin: 8px 0; font-size: 1em; }
     ul#itemsList { list-style: none; padding: 0; margin: 0; }
-    ul#itemsList li { padding: 6px 0; border-bottom: 1px solid #eee; }
+    ul#itemsList li { padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
     .label { font-weight: 600; color: #555; }
     #subtotalDisplay, #discountDisplay, #taxDisplay, #totalDisplay, #deliveryFeeDisplay, #grandTotalDisplay {
       float: right; font-weight: 500;
     }
     p#grandTotalRow {
-      font-size: 1.1em;
+      font-size: 1.15em;
       font-weight: bold;
-      color: #4caf50;
-      border-top: 2px solid #4caf50;
-      padding-top: 8px;
+      color: var(--accent);
+      border-top: 2px solid var(--accent);
+      padding-top: 10px;
       margin-top: 10px;
       display: none;
     }
     #voucherNotice {
-      background: #e8f5e9;
+      background: var(--accent-light);
       color: #2e7d32;
-      border: 1px solid #4caf50;
-      padding: 8px 12px;
-      border-radius: 6px;
+      border: 1px solid var(--accent);
+      padding: 10px 14px;
+      border-radius: 8px;
       font-size: 0.95em;
-      margin: 10px 0;
+      margin: 12px 0;
       display: none;
     }
     #confirmBtn {
-      margin-top: 20px; padding: 12px;
-      background-color: #4CAF50; color: white;
-      border: none; font-size: 16px;
+      margin-top: 20px; padding: 14px;
+      background-color: var(--accent); color: white;
+      border: none; font-size: 16px; font-weight: 600;
       border-radius: 8px; cursor: pointer; width: 100%;
-      transition: 0.3s;
+      transition: background 0.2s, transform 0.1s;
     }
-    #confirmBtn:hover { background-color: #45a049; }
-    #confirmBtn:disabled { background-color: #a5d6a7; cursor: not-allowed; }
-    #voucherSection input {
-      width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc;
-      margin: 6px 0; font-size: 0.95em;
+    #confirmBtn:hover { background-color: var(--accent-dark); }
+    #confirmBtn:active { transform: scale(0.98); }
+    #confirmBtn:disabled { background-color: #a5d6a7; cursor: not-allowed; transform: none; }
+    #voucherSection input,
+    #phoneSection input {
+      width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+      margin: 6px 0; font-size: 0.95em; box-sizing: border-box;
     }
     #voucherSection button {
       padding: 10px; border-radius: 8px; border: none;
-      background-color: #3498db; color: white; cursor: pointer; margin-top: 6px;
-      transition: 0.3s;
+      background-color: var(--info); color: white; cursor: pointer; margin-top: 6px;
+      font-weight: 600; transition: background 0.2s;
     }
-    #voucherSection button:hover { background-color: #2980b9; }
+    #voucherSection button:hover { background-color: var(--info-dark); }
     #voucherMsg { font-size: 0.9em; margin-top: 4px; min-height: 18px; }
-    #paymentSection { margin: 20px 0; padding-top: 10px; border-top: 1px solid #eee; }
+    #paymentSection { margin: 20px 0; padding-top: 14px; border-top: 1px solid var(--border); }
     #paymentSection label { font-weight: 600; }
-    #paymentSection .cash-instruction { margin-top: 8px; color: #555; font-size: 0.95em; }
+    #paymentSection .cash-instruction { margin-top: 8px; color: #555; font-size: 0.95em; padding: 10px; background: #fff8e1; border-radius: 6px; }
+    #contactCafeBtn {
+      margin-top: 12px; padding: 12px;
+      width: 100%; border-radius: 8px; border: none;
+      background: var(--warning); color: #fff; font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+    }
+    #contactCafeBtn:hover { background: #f57c00; }
+    .hours-block {
+      margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px;
+      font-size: 0.9em; color: var(--muted);
+    }
+
+    /* === Loading overlay === */
+    #loadingOverlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(255,255,255,0.92);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px;
+    }
+    #loadingOverlay.hidden { display: none; }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid #e5e7eb;
+      border-top: 4px solid var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loadingText {
+      font-size: 0.95rem; color: var(--muted); font-weight: 500;
+    }
+
+    /* === Content fade-in after load === */
+    #summaryContent { opacity: 0; transition: opacity 0.3s ease; }
+    #summaryContent.ready { opacity: 1; }
+
     @media(max-width: 480px){
       body { padding: 10px; }
-      .summary { padding: 15px; }
-      #confirmBtn { font-size: 0.95em; padding: 10px; }
+      .summary { padding: 18px 14px; }
+      #confirmBtn { font-size: 0.95em; padding: 12px; }
       #voucherSection input { font-size: 0.9em; }
+      .summary h2 { font-size: 1.2rem; }
     }
   </style>
 </head>
 <body>
-  <div class="summary">
+
+  <!-- Loading overlay -->
+  <div id="loadingOverlay">
+    <div class="spinner"></div>
+    <p id="loadingText">Calculating prices...</p>
+  </div>
+
+  <div class="summary" id="summaryContent">
     <h2>Order Summary</h2>
     <p><span class="label">Table:</span> <span id="tableDisplay"></span></p>
     <p><span class="label">Guest:</span> <span id="guestDisplay"></span></p>
@@ -109,47 +178,31 @@
     </div>
 
     <div id="phoneSection" style="margin-top:12px; display:none;">
-  <label for="phoneInput" class="label">Phone Number:</label>
-  <input
-    type="tel"
-    id="phoneInput"
-    placeholder="08xxxxxxxxxx"
-    style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-size:0.95em;"
-  />
-  <p style="font-size:0.85em; color:#666; margin-top:4px;">
-    Needed so staff can contact you if required.
-  </p>
-</div>
+      <label for="phoneInput" class="label">Phone Number:</label>
+      <input type="tel" id="phoneInput" placeholder="08xxxxxxxxxx" />
+      <p style="font-size:0.85em; color:var(--muted); margin-top:4px;">
+        Needed so staff can contact you if required.
+      </p>
+    </div>
 
-<button id="contactCafeBtn" style="
-  margin-top:12px;
-  padding:10px;
-  width:100%;
-  border-radius:8px;
-  border:none;
-  background:#ff9800;
-  color:#fff;
-  font-size:15px;
-  cursor:pointer;">
-  ☎️ Contact Café
-</button>
+    <button id="contactCafeBtn">Contact Café</button>
 
     <div id="paymentSection">
       <label class="label">Payment Method:</label><br>
-      <input type="radio" name="paymentMethod" id="payCash" value="cash"> 
+      <input type="radio" name="paymentMethod" id="payCash" value="cash">
       <label for="payCash">Cash</label><br>
-      <input type="radio" name="paymentMethod" id="payQRIS" value="qris"> 
+      <input type="radio" name="paymentMethod" id="payQRIS" value="qris">
       <label for="payQRIS">QRIS</label>
-      <div id="cashInstruction" class="cash-instruction" style="display:none;">💵 Please pay at the receptionist on 1st floor.</div>
+      <div id="cashInstruction" class="cash-instruction" style="display:none;">Please pay at the receptionist on 1st floor.</div>
     </div>
 
-<p>
-  <span class="label">Open Hours:</span><br>
-  Sunday to Friday : 08:30 - 19:30<br>
-  Saturday : 08:30 - 21:30
-</p>
+    <div class="hours-block">
+      <span class="label">Open Hours:</span><br>
+      Sunday to Friday : 08:30 - 19:30<br>
+      Saturday : 08:30 - 21:30
+    </div>
 
-    <button id="confirmBtn">✅ Confirm Order</button>
+    <button id="confirmBtn">Confirm Order</button>
   </div>
 
   <!-- Firebase SDK -->
@@ -171,12 +224,26 @@ const urlParams = new URLSearchParams(window.location.search);
 const orderId = urlParams.get("orderId");
 let status = urlParams.get("status");
 
-// ✅ Table hydration from URL (index → summary)
- const tableFromUrl =
-   urlParams.get("table") ||
-   urlParams.get("tableName") ||
-   urlParams.get("tbl") ||
-   "";
+// Loading overlay helpers
+const loadingOverlay = document.getElementById("loadingOverlay");
+const loadingText = document.getElementById("loadingText");
+const summaryContent = document.getElementById("summaryContent");
+function showLoading(msg) {
+  if (msg) loadingText.textContent = msg;
+  loadingOverlay.classList.remove("hidden");
+  summaryContent.classList.remove("ready");
+}
+function hideLoading() {
+  loadingOverlay.classList.add("hidden");
+  summaryContent.classList.add("ready");
+}
+
+// Table hydration from URL (index → summary)
+const tableFromUrl =
+  urlParams.get("table") ||
+  urlParams.get("tableName") ||
+  urlParams.get("tbl") ||
+  "";
 
 // DOM
 const tableDisplay = document.getElementById("tableDisplay");
@@ -203,9 +270,9 @@ const phoneSection = document.getElementById("phoneSection");
 const phoneInput = document.getElementById("phoneInput");
 const contactCafeBtn = document.getElementById("contactCafeBtn");
 
- const memberId = urlParams.get("memberId") || "";
- const memberPhoneFromUrl = urlParams.get("memberPhone") || "";
- const isMember = Boolean(memberId && memberPhoneFromUrl);
+const memberId = urlParams.get("memberId") || "";
+const memberPhoneFromUrl = urlParams.get("memberPhone") || "";
+const isMember = Boolean(memberId && memberPhoneFromUrl);
 
 // XSS escape helper
 const esc = s => String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -230,21 +297,17 @@ function isMilleTable(t) {
   return /mille\s*[123]/i.test(t || "");
 }
 
-
 function resolvePhoneOrFail() {
-   if (isMember) {
-     return memberPhoneFromUrl;
-   }
-
-   const p = phoneInput?.value?.trim();
-   if (!p) {
-     alert("⚠️ Please enter your phone number.");
-     throw new Error("PHONE_REQUIRED");
-   }
-
-   return p;
- }
-
+  if (isMember) {
+    return memberPhoneFromUrl;
+  }
+  const p = phoneInput?.value?.trim();
+  if (!p) {
+    alert("Please enter your phone number.");
+    throw new Error("PHONE_REQUIRED");
+  }
+  return p;
+}
 
 // ================= SCHEMA & VALIDATION =================
 const SCHEMA_VERSION = 1;
@@ -261,103 +324,108 @@ function isValidItemArray(arr) {
 }
 
 function hardFail(message) {
+  hideLoading();
   alert(message);
   const safeMsg = esc(message);
   document.body.innerHTML = `
-    <div style="padding:24px;text-align:center">
-      <h2>⚠️ Order Error</h2>
+    <div style="padding:24px;text-align:center;font-family:system-ui,sans-serif;">
+      <h2>Order Error</h2>
       <p>${safeMsg}</p>
       <p>Please contact staff.</p>
     </div>`;
   throw new Error(message);
 }
 
+// Show loading immediately on page load
+showLoading("Loading your order...");
 
 document.addEventListener("DOMContentLoaded", async () => {
 
   if (isMember) {
-  phoneSection.style.display = "none";
-} else {
-  phoneSection.style.display = "block";
-}
+    phoneSection.style.display = "none";
+  } else {
+    phoneSection.style.display = "block";
+  }
 
   try {
     let existingVoucherId = null;
 
-      // ================= HYDRATION =================
-let hydratedFrom = "none";
+    // ================= HYDRATION =================
+    let hydratedFrom = "none";
 
-if (orderId) {
-  const snap = await db.collection("orders").doc(orderId).get();
-  if (snap.exists) {
-    const d = snap.data();
+    if (orderId) {
+      showLoading("Loading order details...");
+      const snap = await db.collection("orders").doc(orderId).get();
+      if (snap.exists) {
+        const d = snap.data();
 
-    if (isValidItemArray(d.items)) {
-      table = d.table || table || tableFromUrl || "unknown";
-      guestName = d.guestName || guestName;
-      items = d.items;
-      subtotal = Number(d.subtotal) || 0;
-      discount = Number(d.discount) || 0;
-      tax = Number(d.tax) || 0;
-      deliveryFee = Number(d.deliveryFee) || 0;
-      paymentMethod = d.paymentMethod || "";
-      existingVoucherId = d.voucherId || null;
-      hydratedFrom = "firestore";
+        if (isValidItemArray(d.items)) {
+          table = d.table || table || tableFromUrl || "unknown";
+          guestName = d.guestName || guestName;
+          items = d.items;
+          subtotal = Number(d.subtotal) || 0;
+          discount = Number(d.discount) || 0;
+          tax = Number(d.tax) || 0;
+          deliveryFee = Number(d.deliveryFee) || 0;
+          paymentMethod = d.paymentMethod || "";
+          existingVoucherId = d.voucherId || null;
+          hydratedFrom = "firestore";
+        }
+        if (d.paymentStatus === "success" || d.paymentStatus === "awaiting-verification") {
+          status = "success";
+        }
+      }
     }
-    if (d.paymentStatus === "success" || d.paymentStatus === "awaiting-verification") {
-         status = "success";
-         }
-  }
-}
 
-// Fallback ONLY if Firestore invalid — load items from URL but NOT prices
-if (!isValidItemArray(items)) {
-  try {
-    const urlItems = JSON.parse(decodeURIComponent(urlParams.get("items") || "[]"));
-    if (isValidItemArray(urlItems)) {
-      items = urlItems;
-      hydratedFrom = "url";
+    // Fallback ONLY if Firestore invalid — load items from URL but NOT prices
+    if (!isValidItemArray(items)) {
+      try {
+        const urlItems = JSON.parse(decodeURIComponent(urlParams.get("items") || "[]"));
+        if (isValidItemArray(urlItems)) {
+          items = urlItems;
+          hydratedFrom = "url";
+        }
+      } catch {}
     }
-  } catch {}
-}
 
-// Absolute stop
-if (!isValidItemArray(items)) {
-  hardFail("Invalid or incomplete order data.");
-}
-
-// If hydrated from URL (new order from cart), fetch server-side price preview
-// so the displayed subtotal/discount/tax/total come from the server, not URL params
-if (hydratedFrom === "url" && !currentOrderId) {
-  try {
-    const previewResponse = await fetch("/.netlify/functions/createOrder", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        items,
-        table,
-        guestName,
-        memberId: memberId || null,
-        memberPhone: memberPhoneFromUrl || "",
-        paymentMethod: isMilleTable(table) ? "qris" : "",
-        previewOnly: true,
-      }),
-    });
-    const previewResult = await previewResponse.json();
-    if (previewResponse.ok && previewResult.success && previewResult.preview) {
-      subtotal = previewResult.subtotal;
-      discount = previewResult.discount;
-      tax = previewResult.tax;
-      deliveryFee = previewResult.deliveryFee;
+    // Absolute stop
+    if (!isValidItemArray(items)) {
+      hardFail("Invalid or incomplete order data.");
     }
-  } catch (e) {
-    console.warn("Price preview failed, will show 0 until order is confirmed:", e);
-  }
-}
 
-console.info("Order hydrated from:", hydratedFrom);
+    // If hydrated from URL (new order from cart), fetch server-side price preview
+    // so the displayed subtotal/discount/tax/total come from the server, not URL params
+    if (hydratedFrom === "url" && !currentOrderId) {
+      showLoading("Calculating prices...");
+      try {
+        const previewResponse = await fetch("/.netlify/functions/createOrder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items,
+            table,
+            guestName,
+            memberId: memberId || null,
+            memberPhone: memberPhoneFromUrl || "",
+            paymentMethod: isMilleTable(table) ? "qris" : "",
+            previewOnly: true,
+          }),
+        });
+        const previewResult = await previewResponse.json();
+        if (previewResponse.ok && previewResult.success && previewResult.preview) {
+          subtotal = previewResult.subtotal;
+          discount = previewResult.discount;
+          tax = previewResult.tax;
+          deliveryFee = previewResult.deliveryFee;
+        }
+      } catch (e) {
+        console.warn("Price preview failed, will show 0 until order is confirmed:", e);
+      }
+    }
 
-    // ✅ Force Mille tables to QRIS only
+    console.info("Order hydrated from:", hydratedFrom);
+
+    // Force Mille tables to QRIS only
     if (/mille/i.test(table)) {
       const cashRadio = document.getElementById("payCash");
       const cashLabel = document.querySelector("label[for='payCash']");
@@ -390,7 +458,7 @@ console.info("Order hydrated from:", hydratedFrom);
     if (existingVoucherId) {
       const voucherDoc = await db.collection("vouchers").doc(existingVoucherId).get();
       if (voucherDoc.exists) {
-        voucherNotice.textContent = `🎟 Voucher applied: ${voucherDoc.data().code}`;
+        voucherNotice.textContent = `Voucher applied: ${voucherDoc.data().code}`;
         voucherNotice.style.display = "block";
       }
     }
@@ -403,7 +471,7 @@ console.info("Order hydrated from:", hydratedFrom);
     // Lock UI if order already success
     if (status === "success") {
       confirmBtn.disabled = true;
-      confirmBtn.textContent = "✅ Order Successful";
+      confirmBtn.textContent = "Order Successful";
       voucherInput.disabled = true;
       applyVoucherBtn.disabled = true;
       payCash.disabled = true;
@@ -412,6 +480,9 @@ console.info("Order hydrated from:", hydratedFrom);
     }
 
     renderSummary();
+
+    // Hide loading, reveal content
+    hideLoading();
 
     // Payment selection
     payCash.addEventListener("change", () => {
@@ -425,20 +496,18 @@ console.info("Order hydrated from:", hydratedFrom);
       cashInstruction.style.display = "none";
       if (currentOrderId || status === "success") return;
 
-      // For QRIS, create the order via server-side function
       try {
-         let phone;
-         try {
-           phone = resolvePhoneOrFail();
-         } catch {
-           confirmBtn.disabled = false;
-           phoneInput?.focus();
-           return;
-         }
+        let phone;
+        try {
+          phone = resolvePhoneOrFail();
+        } catch {
+          confirmBtn.disabled = false;
+          phoneInput?.focus();
+          return;
+        }
 
         confirmBtn.disabled = true;
 
-        // Call server-side order creation (prices validated on server)
         const response = await fetch("/.netlify/functions/createOrder", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -457,7 +526,6 @@ console.info("Order hydrated from:", hydratedFrom);
           throw new Error(result.error || "Failed to create order");
         }
 
-        // Update local vars from server-calculated values
         subtotal = result.subtotal;
         discount = result.discount;
         tax = result.tax;
@@ -465,12 +533,11 @@ console.info("Order hydrated from:", hydratedFrom);
         currentOrderId = result.orderId;
         renderSummary();
 
-        // Notify staff
         fetch("/.netlify/functions/newOrderPush", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            title: "🆕 New QRIS Order",
+            title: "New QRIS Order",
             message: `Table ${table} placed a new QRIS order.`,
             orderId: result.orderId,
             url: `https://13e-menu.netlify.app/staff.html?orderId=${result.orderId}`
@@ -482,24 +549,23 @@ console.info("Order hydrated from:", hydratedFrom);
       } catch (err) {
         console.error(err);
         confirmBtn.disabled = false;
-        alert("⚠️ Failed to prepare QRIS payment.");
+        alert("Failed to prepare QRIS payment.");
       }
     });
 
-    // Voucher — now calls server-side function
+    // Voucher
     applyVoucherBtn.addEventListener("click", async () => {
       if (status === "success") return;
       const code = voucherInput.value.trim().toUpperCase();
       voucherMsg.style.color = "#d33";
-      if (!code) { voucherMsg.textContent = "⚠️ Please enter a voucher code."; return; }
+      if (!code) { voucherMsg.textContent = "Please enter a voucher code."; return; }
 
       if (!currentOrderId) {
-        voucherMsg.textContent = "⚠️ Please confirm the order first before applying a voucher.";
+        voucherMsg.textContent = "Please confirm the order first before applying a voucher.";
         return;
       }
 
       try {
-        // Call server-side voucher redemption (validates server-side)
         const response = await fetch("/.netlify/functions/redeemVoucher", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -512,11 +578,10 @@ console.info("Order hydrated from:", hydratedFrom);
         const result = await response.json();
 
         if (!response.ok || !result.success) {
-          voucherMsg.textContent = `❌ ${result.error || "Failed to apply voucher."}`;
+          voucherMsg.textContent = `${result.error || "Failed to apply voucher."}`;
           return;
         }
 
-        // Re-fetch order to get updated values
         const orderSnap = await db.collection("orders").doc(currentOrderId).get();
         if (orderSnap.exists) {
           const d = orderSnap.data();
@@ -524,94 +589,89 @@ console.info("Order hydrated from:", hydratedFrom);
         }
 
         voucherMsg.style.color = "green";
-        voucherMsg.textContent = `✅ Voucher applied: ${code}`;
-        voucherNotice.textContent = `🎟 Voucher applied: ${code}`;
+        voucherMsg.textContent = `Voucher applied: ${code}`;
+        voucherNotice.textContent = `Voucher applied: ${code}`;
         voucherNotice.style.display = "block";
         renderSummary();
       } catch (err) {
         console.error(err);
-        voucherMsg.textContent = "⚠️ Failed to apply voucher.";
+        voucherMsg.textContent = "Failed to apply voucher.";
       }
     });
 
-    // Confirm (Cash) — now calls server-side function
-confirmBtn.addEventListener("click", async () => {
-  if (status === "success") return;
+    // Confirm (Cash)
+    confirmBtn.addEventListener("click", async () => {
+      if (status === "success") return;
 
-  try {
-    if (!paymentMethod) {
-      alert("⚠️ Please select a payment method.");
-      return;
-    }
+      try {
+        if (!paymentMethod) {
+          alert("Please select a payment method.");
+          return;
+        }
 
-    confirmBtn.disabled = true;
+        confirmBtn.disabled = true;
 
-    let phone;
-    try {
-      phone = resolvePhoneOrFail();
-    } catch {
-      confirmBtn.disabled = false;
-      return;
-    }
+        let phone;
+        try {
+          phone = resolvePhoneOrFail();
+        } catch {
+          confirmBtn.disabled = false;
+          return;
+        }
 
-    // Call server-side order creation (prices validated on server)
-    const response = await fetch("/.netlify/functions/createOrder", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        items,
-        table,
-        guestName,
-        memberId: memberId || null,
-        memberPhone: memberPhoneFromUrl || phone,
-        paymentMethod: isMilleTable(table) ? "qris" : paymentMethod,
-      }),
+        const response = await fetch("/.netlify/functions/createOrder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items,
+            table,
+            guestName,
+            memberId: memberId || null,
+            memberPhone: memberPhoneFromUrl || phone,
+            paymentMethod: isMilleTable(table) ? "qris" : paymentMethod,
+          }),
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || "Failed to create order");
+        }
+
+        subtotal = result.subtotal;
+        discount = result.discount;
+        tax = result.tax;
+        deliveryFee = result.deliveryFee;
+        currentOrderId = result.orderId;
+        renderSummary();
+
+        fetch("/.netlify/functions/newOrderPush", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: "New Order",
+            message: `Table ${table} placed a new order.`,
+            orderId: result.orderId,
+            url: `https://13e-menu.netlify.app/staff.html?orderId=${result.orderId}`
+          })
+        }).catch(() => {});
+
+        if (isMilleTable(table) || paymentMethod === "qris") {
+          location.href = `qris.html?orderId=${result.orderId}`;
+          return;
+        }
+
+        alert("Order confirmed! Please pay at the receptionist.");
+
+      } catch (err) {
+        console.error(err);
+        alert("Failed to confirm order.");
+        confirmBtn.disabled = false;
+      }
     });
-
-    const result = await response.json();
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || "Failed to create order");
-    }
-
-    // Update local vars from server-calculated values
-    subtotal = result.subtotal;
-    discount = result.discount;
-    tax = result.tax;
-    deliveryFee = result.deliveryFee;
-    currentOrderId = result.orderId;
-    renderSummary();
-
-    // Notify staff
-    fetch("/.netlify/functions/newOrderPush", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: "🆕 New Order",
-        message: `Table ${table} placed a new order.`,
-        orderId: result.orderId,
-        url: `https://13e-menu.netlify.app/staff.html?orderId=${result.orderId}`
-      })
-    }).catch(() => {});
-
-    // Redirect logic
-    if (isMilleTable(table) || paymentMethod === "qris") {
-      location.href = `qris.html?orderId=${result.orderId}`;
-      return;
-    }
-
-    // Cash (non-Mille)
-    alert("✅ Order confirmed! Please pay at the receptionist.");
-
-  } catch (err) {
-    console.error(err);
-    alert("❌ Failed to confirm order.");
-    confirmBtn.disabled = false;
-  }
-});
-
 
   } catch (err) {
     console.error("Init summary error:", err);
+    hideLoading();
   }
 });
 
@@ -630,8 +690,6 @@ if (contactCafeBtn) {
     window.open(waUrl, "_blank");
   });
 }
-
-
 
 // Render summary
 function renderSummary() {

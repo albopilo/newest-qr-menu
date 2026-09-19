@@ -2,80 +2,129 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>QRIS Payment</title>
+  <title>QRIS Payment — 13e Café</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
   <style>
-    body { 
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-      padding: 20px; 
-      text-align: center; 
-      background: #f8f9fa; 
+    :root {
+      --brand: #2c3e50;
+      --accent: #4caf50;
+      --accent-dark: #45a049;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --bg: #f5f6fa;
+      --radius: 12px;
+      --shadow: 0 6px 20px rgba(0,0,0,0.08);
+    }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      padding: 15px;
+      margin: 0;
       color: #333;
+      line-height: 1.5;
+    }
+
+    .qris-container {
+      max-width: 500px;
+      margin: auto;
+      background: #fff;
+      padding: 24px 20px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+
+    .qris-container h2 {
+      color: var(--brand);
+      margin: 0 0 12px;
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .qris-container > p {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin: 8px 0;
     }
 
     img.qr-code {
       max-width: 400px;
       width: 90%;
       height: auto;
-      margin: 20px auto;
+      margin: 16px auto;
       display: block;
-      border-radius: 12px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-
-    .upload-section { 
-      margin-top: 20px; 
-      max-width: 350px; 
-      margin-left: auto; 
-      margin-right: auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 12px;
+      border-radius: var(--radius);
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
-    #amountToPay { 
-      font-size: 1.3em; 
-      font-weight: bold; 
-      margin-top: 10px; 
-      color: #2c3e50;
+    #amountToPay {
+      font-size: 1.2em;
+      font-weight: 700;
+      margin: 12px 0;
+      color: var(--brand);
+      padding: 12px;
+      background: #f0fdf4;
+      border-radius: 8px;
+      border: 1px solid #bbf7d0;
     }
 
-    button { 
-      padding: 10px 20px; 
-      font-size: 1em; 
-      margin-top: 10px; 
-      border: none; 
-      border-radius: 8px; 
-      background: #4caf50; 
-      color: #fff; 
-      cursor: pointer; 
-      transition: background 0.3s;
+    .upload-section {
+      margin-top: 20px;
+      text-align: left;
     }
 
-    button:disabled { 
-      background: #a5d6a7; 
-      cursor: not-allowed; 
+    .upload-section p {
+      font-weight: 600;
+      color: var(--brand);
+      margin-bottom: 10px;
     }
 
-    #progressContainer { 
-      width: 100%; 
-      background: #e0e0e0; 
-      border-radius: 12px; 
-      overflow: hidden; 
-      margin: 15px 0; 
-      height: 20px; 
+    .upload-section input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95em;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+    }
+
+    #submitPayment {
+      padding: 12px;
+      width: 100%;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    #submitPayment:hover { background: var(--accent-dark); }
+    #submitPayment:active { transform: scale(0.98); }
+    #submitPayment:disabled { background: #a5d6a7; cursor: not-allowed; transform: none; }
+
+    #progressContainer {
+      width: 100%;
+      background: #e0e0e0;
+      border-radius: 12px;
+      overflow: hidden;
+      margin: 12px 0;
+      height: 20px;
       display: none;
     }
 
-    #progressBar { 
-      height: 100%; 
-      width: 0%; 
-      background: linear-gradient(90deg, #4caf50, #81c784); 
-      text-align: center; 
-      color: white; 
-      line-height: 20px; 
-      font-size: 12px; 
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), #81c784);
+      text-align: center;
+      color: white;
+      line-height: 20px;
+      font-size: 12px;
       transition: width 0.2s ease;
     }
 
@@ -83,32 +132,45 @@
       font-size: 0.95em;
       margin-top: 10px;
       min-height: 24px;
+      text-align: center;
     }
 
-    @media (max-width: 400px) {
-      .upload-section {
-        padding: 15px;
-      }
-      button {
-        width: 100%;
-      }
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 16px;
+      text-decoration: none;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .back-link:hover { color: var(--brand); }
+
+    @media (max-width: 480px) {
+      body { padding: 10px; }
+      .qris-container { padding: 18px 14px; }
+      .qris-container h2 { font-size: 1.2rem; }
     }
   </style>
 </head>
 <body>
-  <h2>Pembayaran QRIS</h2>
-  <p>📷 Silakan screenshot kode di bawah dan lakukan pembayaran dengan aplikasi mobile banking Anda.</p>
-  <img src="/assets/qris versi 1.jpeg" alt="Kode QRIS" class="qr-code" />
-  <p id="amountToPay">💰 Menghitung total...</p>
+  <div class="qris-container">
+    <h2>Pembayaran QRIS</h2>
+    <p>Silakan screenshot kode di bawah dan lakukan pembayaran dengan aplikasi mobile banking Anda.</p>
+    <img src="/assets/qris versi 1.jpeg" alt="Kode QRIS" class="qr-code" />
+    <p id="amountToPay">Menghitung total...</p>
 
-  <div class="upload-section">
-    <p>⬆️ Upload bukti transaksi Anda</p>
-    <input type="file" id="paymentProof" accept="image/*" />
-    <button id="submitPayment">Kirim Bukti Pembayaran</button>
-    <div id="progressContainer">
-      <div id="progressBar">0%</div>
+    <div class="upload-section">
+      <p>Upload bukti transaksi Anda</p>
+      <input type="file" id="paymentProof" accept="image/*" />
+      <button id="submitPayment">Kirim Bukti Pembayaran</button>
+      <div id="progressContainer">
+        <div id="progressBar">0%</div>
+      </div>
+      <p id="statusMsg"></p>
     </div>
-    <p id="statusMsg"></p>
+
+    <a href="index.html" class="back-link">&larr; Back to Menu</a>
   </div>
 
   <!-- Firebase SDK -->
@@ -116,7 +178,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
   <script>
-    // Konfigurasi Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
       authDomain: "e-loyalty-12563.firebaseapp.com",
@@ -129,10 +190,9 @@
     const orderId = params.get("orderId");
 
     if (!orderId) {
-      document.getElementById("statusMsg").textContent = "⚠️ Referensi pesanan tidak ditemukan!";
+      document.getElementById("statusMsg").textContent = "Referensi pesanan tidak ditemukan!";
     }
 
-    // Tampilkan jumlah yang harus dibayar
     async function displayAmount() {
       if (!orderId) return;
       try {
@@ -150,10 +210,10 @@
         const amount = deliveryFee > 0 ? grandTotal : total;
 
         document.getElementById("amountToPay").textContent =
-          `💰 Total yang harus dibayar: Rp${amount.toLocaleString("id-ID")}`;
+          `Total yang harus dibayar: Rp${amount.toLocaleString("id-ID")}`;
       } catch (err) {
-        console.error("❌ Gagal mengambil data pesanan:", err);
-        document.getElementById("amountToPay").textContent = "⚠️ Gagal menghitung total";
+        console.error("Gagal mengambil data pesanan:", err);
+        document.getElementById("amountToPay").textContent = "Gagal menghitung total";
       }
     }
 
@@ -162,13 +222,12 @@
     document.getElementById("submitPayment").onclick = async () => {
       const file = document.getElementById("paymentProof").files[0];
       if (!file) {
-        alert("⚠️ Silakan upload bukti pembayaran terlebih dahulu.");
+        alert("Silakan upload bukti pembayaran terlebih dahulu.");
         return;
       }
 
-      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert("⚠️ File terlalu besar. Maksimal 5MB.");
+        alert("File terlalu besar. Maksimal 5MB.");
         return;
       }
 
@@ -178,13 +237,12 @@
       const progressBar = document.getElementById("progressBar");
 
       submitBtn.disabled = true;
-      statusMsg.textContent = "⬆️ Sedang mengupload bukti pembayaran, mohon tunggu...";
+      statusMsg.textContent = "Sedang mengupload bukti pembayaran, mohon tunggu...";
       progressContainer.style.display = "block";
       progressBar.style.width = "0%";
       progressBar.textContent = "0%";
 
       try {
-        // Convert file ke base64
         const toBase64 = file => new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.readAsDataURL(file);
@@ -194,7 +252,6 @@
 
         const base64Image = await toBase64(file);
 
-        // Call server-side function (API key kept on server, never exposed to client)
         const response = await fetch("/.netlify/functions/uploadPaymentProof", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -209,14 +266,14 @@
 
         progressBar.style.width = "100%";
         progressBar.textContent = "100%";
-        statusMsg.textContent = "✅ Bukti pembayaran berhasil diupload! Staff akan verifikasi pembayaran Anda.";
+        statusMsg.textContent = "Bukti pembayaran berhasil diupload! Staff akan verifikasi pembayaran Anda.";
         setTimeout(() => {
           window.location.href = `summary.html?orderId=${orderId}&status=success`;
         }, 2000);
 
       } catch (err) {
-        console.error("❌ Upload error:", err);
-        statusMsg.textContent = `❌ ${err.message || "Gagal mengupload bukti pembayaran. Silakan coba lagi."}`;
+        console.error("Upload error:", err);
+        statusMsg.textContent = `${err.message || "Gagal mengupload bukti pembayaran. Silakan coba lagi."}`;
         submitBtn.disabled = false;
       }
     };

@@ -6,38 +6,153 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="style.css">
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f6fa; margin: 0; padding: 0; color: #333; }
-    .orders-container { max-width: 600px; margin: 0 auto; padding: 16px; }
-    .orders-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 2px solid #2c3e50; margin-bottom: 16px; }
-    .orders-header h2 { margin: 0; font-size: 1.3rem; color: #2c3e50; }
-    .back-link { text-decoration: none; color: #2c3e50; font-size: 0.9rem; font-weight: 600; }
-    .lookup-box { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 14px rgba(0,0,0,0.06); margin-bottom: 16px; }
-    .lookup-box label { font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 6px; }
-    .lookup-box input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.95em; box-sizing: border-box; }
-    .lookup-box button { margin-top: 10px; width: 100%; padding: 12px; background: #111827; color: #fff; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; }
-    .lookup-box button:hover { background: #1f2937; }
-    .order-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 4px 14px rgba(0,0,0,0.06); margin-bottom: 12px; border-left: 4px solid #4caf50; }
+    :root {
+      --brand: #2c3e50;
+      --accent: #4caf50;
+      --accent-dark: #45a049;
+      --accent-light: #e8f5e9;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --bg: #f5f6fa;
+      --radius: 12px;
+      --shadow: 0 6px 20px rgba(0,0,0,0.08);
+    }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      margin: 0;
+      padding: 15px;
+      color: #333;
+      line-height: 1.5;
+    }
+
+    .orders-container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .orders-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 0;
+      border-bottom: 2px solid var(--brand);
+      margin-bottom: 16px;
+    }
+    .orders-header h2 {
+      margin: 0;
+      font-size: 1.3rem;
+      color: var(--brand);
+      font-weight: 700;
+    }
+    .back-link {
+      text-decoration: none;
+      color: var(--brand);
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .back-link:hover { opacity: 0.8; }
+
+    .lookup-box {
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+    .lookup-box label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: block;
+      margin-bottom: 6px;
+      color: var(--brand);
+    }
+    .lookup-box input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95em;
+      box-sizing: border-box;
+    }
+    .lookup-box input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(76,175,80,0.15);
+    }
+    .lookup-box button {
+      margin-top: 10px;
+      width: 100%;
+      padding: 12px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .lookup-box button:hover { background: var(--accent-dark); }
+    .lookup-box button:active { transform: scale(0.98); }
+
+    .order-card {
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      margin-bottom: 12px;
+      border-left: 4px solid var(--accent);
+    }
     .order-card.pending { border-left-color: #f59e0b; }
     .order-card.preparing { border-left-color: #f59e0b; }
     .order-card.served { border-left-color: #10b981; }
     .order-card.cancelled { border-left-color: #9ca3af; opacity: 0.7; }
-    .order-card-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
-    .order-id { font-size: 0.8rem; color: #6b7280; }
-    .order-date { font-size: 0.8rem; color: #6b7280; }
-    .order-table { font-weight: 600; font-size: 1rem; color: #2c3e50; }
-    .status-pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+
+    .order-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .order-id { font-size: 0.8rem; color: var(--muted); }
+    .order-date { font-size: 0.8rem; color: var(--muted); }
+    .order-table { font-weight: 700; font-size: 1rem; color: var(--brand); }
+
+    .status-pill {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
     .status-pill.pending { background: #fef3c7; color: #92400e; }
     .status-pill.preparing { background: #fff7ed; color: #7c2d12; }
     .status-pill.served { background: #ecfdf5; color: #064e3b; }
     .status-pill.cancelled { background: #f3f4f6; color: #374151; }
+
     .order-items { list-style: none; padding: 0; margin: 8px 0; }
     .order-items li { padding: 4px 0; border-bottom: 1px solid #f3f4f6; font-size: 0.9rem; }
-    .order-total { font-weight: 700; color: #4caf50; font-size: 1.05rem; margin-top: 8px; }
-    .empty-state { text-align: center; padding: 40px 20px; color: #6b7280; }
+    .order-total { font-weight: 700; color: var(--accent); font-size: 1.05rem; margin-top: 8px; }
+
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
     .empty-state h3 { margin: 0 0 8px; color: #374151; }
-    .loading { text-align: center; padding: 30px; color: #6b7280; }
-    .member-banner { background: #e8f5e9; border: 1px solid #4caf50; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.9rem; color: #2e7d32; }
-    @media(max-width: 480px) { .orders-container { padding: 10px; } }
+    .loading { text-align: center; padding: 30px; color: var(--muted); }
+
+    .member-banner {
+      background: var(--accent-light);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      font-size: 0.9rem;
+      color: #2e7d32;
+    }
+
+    @media(max-width: 480px) {
+      body { padding: 10px; }
+    }
   </style>
 </head>
 <body>
@@ -94,10 +209,8 @@
   const resultEl = document.getElementById("ordersResult");
   const lookupBtn = document.getElementById("lookupBtn");
   const phoneInput = document.getElementById("phoneLookup");
-  const lookupBox = document.getElementById("lookupBox");
   const memberBanner = document.getElementById("memberBanner");
 
-  // Auto-fill from localStorage if member is signed in
   const savedUser = localStorage.getItem("currentUser");
   if (savedUser) {
     try {
@@ -108,13 +221,11 @@
           memberBanner.textContent = `Signed in as ${user.displayName} — showing your orders.`;
           memberBanner.style.display = "block";
         }
-        // Auto-load
         setTimeout(() => loadOrders(user.phoneNumber), 300);
       }
     } catch {}
   }
 
-  // Also check URL param for phone
   const urlParams = new URLSearchParams(window.location.search);
   const phoneFromUrl = urlParams.get("phone");
   if (phoneFromUrl) {
@@ -137,14 +248,12 @@
     resultEl.innerHTML = '<div class="loading">Loading your orders...</div>';
 
     try {
-      // Query orders by memberPhone or phone field
       let snapshot = await db.collection("orders")
         .where("memberPhone", "==", phone)
         .orderBy("timestamp", "desc")
         .limit(50)
         .get();
 
-      // Also try the "phone" field in case memberPhone is null
       if (snapshot.empty) {
         snapshot = await db.collection("orders")
           .where("phone", "==", phone)
@@ -190,7 +299,7 @@
           </div>
           <ul class="order-items">${itemsHtml}</ul>
           <div class="order-total">Total: ${formatRp(total)}</div>
-          <div style="margin-top:6px; font-size:0.8rem; color:#6b7280;">
+          <div style="margin-top:6px; font-size:0.8rem; color:var(--muted);">
             Payment: ${esc(order.paymentMethod || "—")} · ${esc(order.paymentStatus || "—")}
           </div>
         `;
