@@ -622,7 +622,7 @@ async function renderProducts(selectedCategory = "") {
   // Sort categories with preferred order
   const preferredOrder = [
     'Special Today','Snacks','Western','Ricebowl','Nasi','Nasi Goreng',
-    'Mie','Matcha','Coffee','Non coffee','Tea & Juices'
+    'Mie','Matcha','Coffee','Non Coffee','Tea & Juices','Mocktail','Smoothies'
   ];
   const norm = s => s.toLowerCase();
   const sortedCats = Object.keys(categoryMap).sort((a, b) => {

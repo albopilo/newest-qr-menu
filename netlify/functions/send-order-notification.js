@@ -1,12 +1,13 @@
-const admin = require("firebase-admin");
+const { initializeApp, cert, getApps } = require("firebase-admin/app");
+const { getFirestore } = require("firebase-admin/firestore");
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(
-      JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-    )
-  });
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+
+if (getApps().length === 0) {
+  initializeApp({ credential: cert(serviceAccount) });
 }
+
+const db = getFirestore();
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,8 +20,36 @@ exports.handler = async (event) => {
     return { statusCode: 200, headers: corsHeaders, body: "" };
   }
 
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ success: false, error: "Method not allowed" }) };
+  }
+
   try {
     const body = JSON.parse(event.body || "{}");
+    const { orderId, idToken } = body;
+
+    // Require either admin auth or a valid orderId that exists in the database
+    const admin = require("firebase-admin");
+
+    let isAuthorized = false;
+
+    if (idToken) {
+      try {
+        const decoded = await admin.auth().verifyIdToken(idToken);
+        const adminSnap = await db.collection("admins").doc(decoded.uid).get();
+        isAuthorized = adminSnap.exists;
+      } catch {}
+    }
+
+    if (!isAuthorized) {
+      if (!orderId) {
+        return { statusCode: 401, headers: corsHeaders, body: JSON.stringify({ success: false, error: "Authentication or valid orderId required" }) };
+      }
+      const orderSnap = await db.collection("orders").doc(orderId).get();
+      if (!orderSnap.exists) {
+        return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, error: "Order not found" }) };
+      }
+    }
 
     const snapshot = await admin.firestore()
       .collection("staffDevices")

@@ -23,8 +23,24 @@ exports.handler = async (event) => {
     return { statusCode: 200, headers: corsHeaders, body: "" };
   }
 
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ success: false, error: "Method not allowed" }) };
+  }
+
   try {
     const body = JSON.parse(event.body || "{}");
+    const { orderId } = body;
+
+    // Verify the order actually exists before sending push notifications
+    // This prevents anyone from triggering push notifications without placing a real order
+    if (!orderId) {
+      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: "Missing orderId" }) };
+    }
+
+    const orderSnap = await db.collection("orders").doc(orderId).get();
+    if (!orderSnap.exists) {
+      return { statusCode: 404, headers: corsHeaders, body: JSON.stringify({ success: false, error: "Order not found" }) };
+    }
 
     const snapshot = await db.collection("fcmTokens").get();
 

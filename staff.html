@@ -75,6 +75,22 @@
 </head>
 
 <body class="staff">
+
+  <!-- Staff PIN gate -->
+  <div id="staffLoginOverlay" style="position:fixed;inset:0;background:#1a1a2e;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
+    <div style="background:#fff;border-radius:16px;padding:32px 28px;max-width:340px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">
+      <div style="font-size:2.5rem;margin-bottom:8px;">🔐</div>
+      <h2 style="margin:0 0 8px;font-size:1.25rem;color:#111827;">Staff Access</h2>
+      <p style="color:#6b7280;margin:0 0 20px;font-size:0.9rem;">Enter your 6-digit access PIN</p>
+      <form id="staffLoginForm" style="display:flex;flex-direction:column;gap:12px;">
+        <input id="staffPin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="• • • • • •" required style="padding:14px 16px;border:2px solid #e5e7eb;border-radius:10px;font-size:1.5rem;letter-spacing:0.5em;text-align:center;background:#f9fafb;color:#111827;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e5e7eb'" />
+        <button type="submit" style="padding:12px 16px;background:#3b82f6;color:#fff;border:none;border-radius:10px;font-size:1rem;font-weight:600;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">Enter</button>
+      </form>
+      <p id="staffLoginError" style="color:#ef4444;margin-top:12px;font-size:0.85rem;display:none;">Incorrect PIN. Try again.</p>
+    </div>
+  </div>
+
+  <div id="staffMainContent" style="display:none;">
   <h1>📋 13e Staff Dashboard</h1>
 
   <div id="orderControls">
@@ -97,6 +113,7 @@
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
 <script>
    window.IS_ANDROID_WEBVIEW =
      /wv|android/i.test(navigator.userAgent) &&
@@ -413,5 +430,37 @@ if (!window.IS_ANDROID_WEBVIEW) {
     console.log('🚫 OneSignal disabled inside Android WebView');
   }
 </script>
+
+  <!-- Staff PIN gate logic -->
+  <script>
+  (function() {
+    const STAFF_PIN = "123456";
+    const overlay = document.getElementById("staffLoginOverlay");
+    const mainContent = document.getElementById("staffMainContent");
+    const loginForm = document.getElementById("staffLoginForm");
+    const errorEl = document.getElementById("staffLoginError");
+    const pinInput = document.getElementById("staffPin");
+
+    if (sessionStorage.getItem("staffPinOk") === "1") {
+      overlay.style.display = "none";
+      mainContent.style.display = "block";
+    }
+
+    loginForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const entered = pinInput.value.trim();
+      if (entered === STAFF_PIN) {
+        sessionStorage.setItem("staffPinOk", "1");
+        overlay.style.display = "none";
+        mainContent.style.display = "block";
+      } else {
+        errorEl.style.display = "block";
+        pinInput.value = "";
+        pinInput.focus();
+      }
+    });
+  })();
+  </script>
+  </div>
 </body>
 </html>
