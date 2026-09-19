@@ -248,16 +248,16 @@
     resultEl.innerHTML = '<div class="loading">Loading your orders...</div>';
 
     try {
+      // Query without orderBy to avoid requiring composite indexes.
+      // Sort client-side instead. Try memberPhone first, then phone field.
       let snapshot = await db.collection("orders")
         .where("memberPhone", "==", phone)
-        .orderBy("timestamp", "desc")
         .limit(50)
         .get();
 
       if (snapshot.empty) {
         snapshot = await db.collection("orders")
           .where("phone", "==", phone)
-          .orderBy("timestamp", "desc")
           .limit(50)
           .get();
       }
@@ -272,6 +272,13 @@
         const d = doc.data();
         d._id = doc.id;
         orders.push(d);
+      });
+
+      // Sort client-side by timestamp descending
+      orders.sort(function (a, b) {
+        var ta = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.timestamp ? new Date(a.timestamp).getTime() : 0);
+        var tb = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (b.timestamp ? new Date(b.timestamp).getTime() : 0);
+        return tb - ta;
       });
 
       resultEl.innerHTML = "";
