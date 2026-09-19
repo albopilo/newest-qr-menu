@@ -271,10 +271,26 @@ async function updateStatus(id, status) {
   const db = getDb();
   if (!db) return;
 
-  await db.collection('orders').doc(id).update({
-    kitchenStatus: status,
-    status: status
-  });
+  try {
+    const user = firebase.auth().currentUser;
+    if (!user) { alert('Please log in as admin.'); return; }
+    const idToken = await user.getIdToken();
+
+    const response = await fetch('/.netlify/functions/update-order-status', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + idToken
+      },
+      body: JSON.stringify({ orderId: id, targetKitchenStatus: status })
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || 'Failed to update status');
+  } catch (err) {
+    console.error('Status update error:', err);
+    alert('Failed to update order status: ' + (err.message || ''));
+    return;
+  }
 
   loadedOrders.get(id)?.remove();
   loadedOrders.delete(id);

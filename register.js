@@ -36,10 +36,16 @@ function normalizePhone(input) {
     .replace(/^0+/, "0");
 }
 
+function safeRedirect(target) {
+  const decoded = decodeURIComponent(target || "/");
+  if (decoded.startsWith("/") && !decoded.startsWith("//")) return decoded;
+  return "/";
+}
+
 cancelBtn.addEventListener("click", () => {
   // go back to previous page or index
   const returnTo = new URLSearchParams(window.location.search).get("return") || "/";
-  window.location.href = decodeURIComponent(returnTo);
+  window.location.href = safeRedirect(returnTo);
 });
 
 form.addEventListener("submit", async (e) => {
@@ -65,61 +71,28 @@ form.addEventListener("submit", async (e) => {
   const phone = normalizePhone(phoneRaw);
 
   try {
-    // check phone
-    const phoneSnap = await db.collection("members").where("phone", "==", phone).limit(1).get();
-    if (!phoneSnap.empty) {
-      showError("This phone number is already registered. Please sign in instead.");
+    // Register via serverless function (server validates and sets tier/price fields)
+    const response = await fetch("/.netlify/functions/register-member", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, phone, birthdate })
+    });
+    const result = await response.json();
+
+    if (!result.success) {
+      showError(result.error || "Failed to register. Please try again.");
       return;
     }
-    // check email
-    const emailSnap = await db.collection("members").where("email", "==", email).limit(1).get();
-    if (!emailSnap.empty) {
-      showError("This email address is already registered. Please sign in instead.");
-      return;
-    }
-
-    // create member doc with a timestamp-like id (matching Exhibit A style)
-    const newId = String(Date.now());
-    const memberDoc = {
-      birthdate: birthdate,            // e.g. "2000-11-28"
-      email: email,
-      id: newId,
-      ktp: null,
-      lastRoomUpgrade: null,
-      monthlySinceUpgrade: 0,
-      name: name,
-      nameLower: name.toLowerCase(),
-      phone: phone,
-      redeemablePoints: 0,
-      roomUpgradeHistory: [],
-      spendingSinceUpgrade: 0,
-      tier: "Classic",                 // per your request
-      upgradeDate: null,
-      welcomed: true,
-      yearlySinceUpgrade: 0,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      discountRate: 0.10,
-      taxRate: 0.10
-    };
-
-    await db.collection("members").doc(newId).set(memberDoc);
 
     // Auto sign-in: store currentUser in localStorage and redirect back
-    const currentUser = {
-      phoneNumber: phone,
-      memberId: newId,
-      tier: memberDoc.tier,
-      discountRate: memberDoc.discountRate,
-      taxRate: memberDoc.taxRate,
-      displayName: memberDoc.name
-    };
+    const currentUser = result.member;
     localStorage.setItem("currentUser", JSON.stringify(currentUser));
     localStorage.setItem("sessionStart", Date.now().toString());
 
     alert("Registration successful! You are now signed in.");
 
     const returnTo = new URLSearchParams(window.location.search).get("return") || "/";
-    window.location.href = decodeURIComponent(returnTo);
+    window.location.href = safeRedirect(returnTo);
 
   } catch (err) {
     console.error("Registration error:", err);

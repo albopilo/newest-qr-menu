@@ -413,25 +413,37 @@ console.info("Order hydrated from:", hydratedFrom);
         const { finalTotal, grandTotal } = renderSummary();
         confirmBtn.disabled = true;
 
-       // ✅ Use Jakarta timezone date for correct staff-page filtering
-      const jakartaDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
-      
+        // ✅ Create order via server (prices validated server-side)
+        const orderResponse = await fetch("/.netlify/functions/create-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: items.map(i => ({ id: i.id, name: i.name, qty: i.qty, variant: i.variant, category: i.category })),
+            table,
+            guestName,
+            memberId: memberId || null,
+            memberPhone: phone,
+            paymentMethod: "qris"
+          })
+        });
+        const orderResult = await orderResponse.json();
+        if (!orderResult.success) throw new Error(orderResult.error || "Failed to create order");
 
-        // ✅ Trigger push notification (include orderId + url pointing to staff)
+        // ✅ Trigger push notification
         fetch("/.netlify/functions/newOrderPush", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: "🆕 New QRIS Order",
             message: `Table ${table} placed a new QRIS order.`,
-            orderId: docRef.id,
-            url: `https://13e-menu.netlify.app/staff.html?orderId=${docRef.id}`
+            orderId: orderResult.orderId,
+            url: `https://13e-menu.netlify.app/staff.html?orderId=${orderResult.orderId}`
           })
         }).catch(e => console.warn("Push send failed:", e));
 
-        qrisOrderCreated = docRef;
+        qrisOrderCreated = { id: orderResult.orderId };
         confirmBtn.style.display = "none";
-        location.href = `qris.html?orderId=${docRef.id}`;
+        location.href = `qris.html?orderId=${orderResult.orderId}`;
       } catch (err) {
         console.error(err);
         confirmBtn.disabled = false;
@@ -530,27 +542,22 @@ confirmBtn.addEventListener("click", async () => {
       timeZone: "Asia/Jakarta"
     });
 
-    // ✅ CREATE ORDER FIRST
-    const docRef = await db.collection("orders").add({
-      subtotal,
-      discount,
-      tax,
-      deliveryFee,
-      total: finalTotal,
-      grandTotal,
-      table,
-      guestName,
-      items: JSON.parse(JSON.stringify(items)),
-      schemaVersion: SCHEMA_VERSION,
-      date: jakartaDate,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-      status: "pending",
-      phone,
-      isMember,
-      memberId: memberId || null,
-      paymentMethod: isMilleTable(table) ? "qris" : paymentMethod,
-      paymentStatus: "pending"
+    // ✅ CREATE ORDER VIA SERVER (prices validated server-side)
+    const orderResponse = await fetch("/.netlify/functions/create-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: items.map(i => ({ id: i.id, name: i.name, qty: i.qty, variant: i.variant, category: i.category })),
+        table,
+        guestName,
+        memberId: memberId || null,
+        memberPhone: phone,
+        paymentMethod
+      })
     });
+    const orderResult = await orderResponse.json();
+    if (!orderResult.success) throw new Error(orderResult.error || "Failed to create order");
+    const docRef = { id: orderResult.orderId };
 
     // 🔔 Notify staff
     fetch("/.netlify/functions/newOrderPush", {

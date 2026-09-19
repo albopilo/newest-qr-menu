@@ -30,9 +30,24 @@ document.addEventListener("DOMContentLoaded", () => {
   const msg = document.getElementById("msg");
 
   btn.addEventListener("click", async () => {
-    if (!firebase.auth().currentUser) {
+    const user = firebase.auth().currentUser;
+    if (!user) {
       msg.style.color = "red";
       msg.textContent = "⚠️ Please login as admin first.";
+      return;
+    }
+
+    // Verify admin status via admins collection
+    try {
+      const adminSnap = await db.collection("admins").doc(user.uid).get();
+      if (!adminSnap.exists) {
+        msg.style.color = "red";
+        msg.textContent = "❌ Access denied. Not an admin account.";
+        return;
+      }
+    } catch (e) {
+      msg.style.color = "red";
+      msg.textContent = "❌ Failed to verify admin status.";
       return;
     }
 
@@ -48,21 +63,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      const snap = await db.collection("vouchers").where("code", "==", code).limit(1).get();
-      if (!snap.empty) {
+      const idToken = await user.getIdToken();
+      const response = await fetch("/.netlify/functions/create-voucher", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + idToken
+        },
+        body: JSON.stringify({ code, type, value, limitPerDay: limit })
+      });
+      const result = await response.json();
+
+      if (!result.success) {
         msg.style.color = "red";
-        msg.textContent = "❌ Voucher code already exists.";
+        msg.textContent = "❌ " + (result.error || "Failed to create voucher.");
         return;
       }
-
-      await db.collection("vouchers").add({
-        code,
-        type,
-        value,
-        used: "unlimited",
-        limitPerDay: limit,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
 
       msg.style.color = "green";
       msg.textContent = `✅ Voucher ${code} created successfully!`;

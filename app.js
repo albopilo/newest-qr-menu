@@ -421,7 +421,8 @@ document.getElementById("staffOpenOrder").addEventListener("click", () => {
     });
   }
   const text = document.getElementById("staffChimeText");
-  text.innerHTML = `🚨 New order <strong>${data.table || "?"}</strong> • Rp ${((data.grandTotal||data.total)||0).toLocaleString("id-ID")}`;
+  const safeTable = String(data.table || "?").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))
+  text.innerHTML = `🚨 New order <strong>${safeTable}</strong> • Rp ${((data.grandTotal||data.total)||0).toLocaleString("id-ID")}`;
   modal.style.display = "flex";
 }
 

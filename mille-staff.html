@@ -226,13 +226,14 @@ if (isMilleTable) {
   waBtn.target = "_blank";
   waBtn.textContent = "💬 Contact Cafe";
 
+  const itemsStr = (data.items || []).map(i => escapeHtml(`${i.qty}x ${i.name || "Unnamed"}`)).join(", ");
   div.innerHTML = `
-    <p><strong>Table:</strong> ${data.table || "?"}</p>
-    <p><strong>Items:</strong> ${(data.items || []).map(i => `${i.qty}× ${i.name}`).join(", ")}</p>
+    <p><strong>Table:</strong> ${escapeHtml(data.table || "?")}</p>
+    <p><strong>Items:</strong> ${itemsStr}</p>
     <p><strong>Grand Total:</strong> Rp ${total.toLocaleString("id-ID")}</p>
-    <p><strong>Payment:</strong> ${data.paymentMethod || "Unspecified"} (${paymentStatus})</p>
-    <p><strong>Time:</strong> ${time} | <strong>Date:</strong> ${date}</p>
-    <p class="status">Mille Status: ${milleStatus.replace("_"," ")}<br/>Kitchen Status: ${kitchenStatus || "—"}</p>
+    <p><strong>Payment:</strong> ${escapeHtml(data.paymentMethod || "Unspecified")} (${escapeHtml(paymentStatus)})</p>
+    <p><strong>Time:</strong> ${escapeHtml(time)} | <strong>Date:</strong> ${escapeHtml(date)}</p>
+    <p class="status">Mille Status: ${escapeHtml(milleStatus.replace("_"," "))}<br/>Kitchen Status: ${escapeHtml(kitchenStatus || "—")}</p>
   `;
   div.appendChild(paidBtn);
   div.appendChild(receiveBtn);
@@ -258,13 +259,37 @@ if (isMilleTable) {
 }
 
 async function markPaid(id) {
-  await db.collection("orders").doc(id).update({ milleStatus: "paid", paymentStatus: "success" });
+  try {
+    const user = firebase.auth().currentUser;
+    if (!user) { alert("Please log in as admin."); return; }
+    const idToken = await user.getIdToken();
+    const response = await fetch("/.netlify/functions/update-order-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + idToken },
+      body: JSON.stringify({ orderId: id, targetKitchenStatus: "served" })
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || "Failed");
+    await db.collection("orders").doc(id).update({ milleStatus: "paid", paymentStatus: "success" });
+  } catch (err) { alert("Failed: " + err.message); return; }
   if (ringingIntervals[id]) { clearInterval(ringingIntervals[id]); delete ringingIntervals[id]; }
   alert("✅ Order marked as Paid");
 }
 
 async function markReceived(id) {
-  await db.collection("orders").doc(id).update({ milleStatus: "received" });
+  try {
+    const user = firebase.auth().currentUser;
+    if (!user) { alert("Please log in as admin."); return; }
+    const idToken = await user.getIdToken();
+    const response = await fetch("/.netlify/functions/update-order-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + idToken },
+      body: JSON.stringify({ orderId: id, targetKitchenStatus: "served" })
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || "Failed");
+    await db.collection("orders").doc(id).update({ milleStatus: "received" });
+  } catch (err) { alert("Failed: " + err.message); return; }
   alert("📥 Order marked as Received");
 }
 

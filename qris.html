@@ -159,8 +159,6 @@
 
     if (orderId) displayAmount();
 
-    // API Key ImgBB
-    const imgbbApiKey = "8cb647e6ce3e2dd18d960f95cf9a4c4d"; 
 
     document.getElementById("submitPayment").onclick = async () => {
       const file = document.getElementById("paymentProof").files[0];
@@ -191,28 +189,18 @@
 
         const base64Image = await toBase64(file);
 
-        // Upload ke ImgBB
-        const formData = new FormData();
-        formData.append("image", base64Image);
-        formData.append("name", `order-${orderId}`);
-
-        const uploadResponse = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbApiKey}`, {
+        // Upload via serverless function (keeps ImgBB key server-side)
+        const uploadResponse = await fetch("/.netlify/functions/upload-payment-proof", {
           method: "POST",
-          body: formData
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: orderId,
+            imageBase64: base64Image
+          })
         });
 
         const data = await uploadResponse.json();
-        if (!data.success) throw new Error("Upload ke ImgBB gagal");
-
-        const fileUrl = data.data.url;
-
-        // Update Firestore
-        await db.collection("orders").doc(orderId).update({
-          paymentMethod: "qris",
-          paymentStatus: "success",
-          proofUrl: fileUrl,
-          proofUploadedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        if (!data.success) throw new Error("Upload gagal: " + (data.error || "Unknown error"));
 
         progressBar.style.width = "100%";
         progressBar.textContent = "100%";
