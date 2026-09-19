@@ -611,18 +611,22 @@ if (!grouped[nameKey]) {
 async function renderProducts(selectedCategory = "") {
   const grouped = await fetchGroupedProducts();
 
-  // Map categories
+  // Map categories (normalize so "Non coffee" / "Non-coffee" / "non coffee" merge into one)
+  const normCat = s => s.toLowerCase().replace(/[-\s]+/g, ' ').trim();
   const categoryMap = {};
+  const catDisplay = {};
   Object.values(grouped).forEach(prod => {
-    const cat = prod.category || "Uncategorized";
-    if (!categoryMap[cat]) categoryMap[cat] = [];
-    categoryMap[cat].push(prod);
+    const rawCat = prod.category || "Uncategorized";
+    const key = normCat(rawCat);
+    if (!catDisplay[key]) catDisplay[key] = rawCat;
+    if (!categoryMap[key]) categoryMap[key] = [];
+    categoryMap[key].push(prod);
   });
 
   // Sort categories with preferred order
   const preferredOrder = [
     'Special Today','Snacks','Western','Ricebowl','Nasi','Nasi Goreng',
-    'Mie','Matcha','Coffee','Non Coffee','Tea & Juices','Mocktail','Smoothies'
+    'Mie','Matcha','Coffee','Non coffee','Tea & Juices'
   ];
   const norm = s => s.toLowerCase();
   const sortedCats = Object.keys(categoryMap).sort((a, b) => {
@@ -637,7 +641,7 @@ async function renderProducts(selectedCategory = "") {
     tabs.innerHTML = "";
     sortedCats.forEach(cat => {
       const btn = document.createElement("button");
-      btn.textContent = cat;
+      btn.textContent = catDisplay[cat] || cat;
       if (norm(cat) === norm(selectedCategory)) btn.classList.add("active");
       btn.addEventListener("click", () => {
         renderProducts(cat);
@@ -651,8 +655,9 @@ async function renderProducts(selectedCategory = "") {
   const list = document.getElementById("productList");
   if (list) {
     list.innerHTML = "";
+    const headingText = catDisplay[selectedCategory] || selectedCategory;
     const heading = document.createElement("h4");
-    heading.textContent = selectedCategory || "Select a Category";
+    heading.textContent = headingText || "Select a Category";
     list.appendChild(heading);
 
     if (!selectedCategory || !categoryMap[selectedCategory]) return;

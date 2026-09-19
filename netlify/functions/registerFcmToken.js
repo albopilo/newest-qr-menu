@@ -20,33 +20,20 @@ exports.handler = async (event) => {
     return { statusCode: 200, headers: corsHeaders, body: "" };
   }
 
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ success: false, error: "Method not allowed" }) };
-  }
-
   try {
     const body = JSON.parse(event.body || "{}");
 
-    if (!body.token || typeof body.token !== "string" || body.token.length < 20) {
+    if (!body.token) {
       return {
         statusCode: 400,
         headers: corsHeaders,
-        body: JSON.stringify({ success: false, error: "Missing or invalid token" }),
-      };
-    }
-
-    // Basic format validation - FCM tokens are alphanumeric with colons/dashes
-    if (!/^[a-zA-Z0-9:_-]+$/.test(body.token)) {
-      return {
-        statusCode: 400,
-        headers: corsHeaders,
-        body: JSON.stringify({ success: false, error: "Invalid token format" }),
+        body: JSON.stringify({ success: false, error: "Missing token" }),
       };
     }
 
     await db.collection("fcmTokens").doc(body.token).set({
       token: body.token,
-      platform: body.platform || "android",
+      platform: "android",
       updatedAt: FieldValue.serverTimestamp(),
     });
 

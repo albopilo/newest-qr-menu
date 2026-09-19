@@ -687,6 +687,20 @@ function collectPhotosInto(payload) {
     return;
   }
 
+  // Fetch existing products to match by name + variant_names (so we update instead of duplicating)
+  const existingSnap = await db.collection("products").get();
+  const matchKey = (name, variant) => {
+    const n = (name || "").trim().toLowerCase();
+    const v = (variant || "").trim().toLowerCase();
+    return `${n}::${v}`;
+  };
+  const existingMap = {};
+  existingSnap.forEach(doc => {
+    const p = doc.data();
+    const key = matchKey(p.name, p.variant_names || p.variant || "");
+    if (!existingMap[key]) existingMap[key] = doc.id;
+  });
+
   let batch = db.batch();
   let ops = 0;
   let created = 0;
@@ -702,21 +716,28 @@ function collectPhotosInto(payload) {
 
       // Validate: require name and positive price for new creation
       if (!payload.name || payload.pos_sell_price <= 0) {
-        // allow update if id present (user wants partial update)
         if (!id) {
           console.warn("Skipping invalid row:", row);
           continue;
         }
       }
 
-      if (id) {
-        const ref = db.collection("products").doc(id);
+      // Determine target doc: explicit id > name+variant match > new doc
+      let docId = id;
+      if (!docId) {
+        const key = matchKey(payload.name, payload.variant_names);
+        if (existingMap[key]) docId = existingMap[key];
+      }
+
+      if (docId) {
+        const ref = db.collection("products").doc(docId);
         batch.set(ref, payload, { merge: true });
         updated++;
       } else {
         const ref = db.collection("products").doc();
-        batch.set(ref, { ...payload, id: ref.id }); // ⬅️ new ID injected into payload
+        batch.set(ref, { ...payload, id: ref.id });
         created++;
+        existingMap[matchKey(payload.name, payload.variant_names)] = ref.id;
       }
       ops++;
 

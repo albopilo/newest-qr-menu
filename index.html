@@ -7,122 +7,158 @@
   <link rel="stylesheet" href="style.css" />
 
   <style>
-    :root { --muted: #78706A; --brand: #6F4E37; }
-    body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; color: #2A2622; }
-
-    #closedMessage { display:none; min-height:100vh; align-items:center; justify-content:center; text-align:center; padding:2rem; background: linear-gradient(135deg, #4A3328, #6F4E37); }
+    /* Minimal fallback styles so the closed message looks okay even without style.css */
+    :root { --muted: #666; --brand: #111; }
+    body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; color: var(--brand); }
+    header { display:flex; justify-content:space-between; align-items:center; padding:1rem; border-bottom:1px solid #eee; }
+    #closedMessage { display:none; min-height:100vh; align-items:center; justify-content:center; text-align:center; padding:2rem; }
     #closedMessage.visible { display:flex; }
-    #closedMessage h1 { font-size:1.75rem; margin:0 0 .5rem; color:#fff; }
-    #closedMessage p { margin:0; color:rgba(255,255,255,0.7); font-size:1.05rem; }
+    #closedMessage h1 { font-size:1.75rem; margin:0 0 .5rem; }
+    #closedMessage p { margin:0; color:var(--muted); font-size:1.05rem; }
     #app { display:block; }
     .hidden { display:none !important; }
+    /* small responsive helper so the UI won't break on narrow screens */
+    @media (max-width:480px){
+      header h2 { font-size:1.1rem; }
+      #closedMessage h1 { font-size:1.25rem; }
+    }
 
     .notice-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.55);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 9999;
-      backdrop-filter: blur(4px);
-    }
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
 
-    .notice-popup {
-      background: #fff;
-      max-width: 420px; width: 90%;
-      padding: 28px 32px;
-      border-radius: 16px;
-      position: relative;
-      box-shadow: 0 20px 48px rgba(0,0,0,0.25);
-      text-align: center;
-    }
+.notice-popup {
+  background: #ffffff;
+  max-width: 420px;
+  width: 90%;
+  padding: 1.5rem 1.75rem;
+  border-radius: 12px;
+  position: relative;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.2);
+  text-align: center;
+}
 
-    .notice-popup h3 {
-      margin-top: 0; margin-bottom: 12px;
-      font-size: 1.15rem; color: #1A1715;
-    }
+.notice-popup h3 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
 
-    .notice-popup p {
-      margin: 0.5rem 0; line-height: 1.6;
-      color: #56504B; font-size: 0.92rem;
-    }
+.notice-popup p {
+  margin: 0.5rem 0;
+  line-height: 1.5;
+}
 
-    .notice-hours {
-      margin-top: 0.75rem;
-      padding: 10px 16px;
-      background: #F5F3F0;
-      border-radius: 8px;
-    }
+.notice-hours {
+  margin-top: 0.75rem;
+}
 
-    .notice-closed {
-      color: #C4423A; font-weight: 600;
-    }
+.notice-closed {
+  color: #c0392b;
+  font-weight: 600;
+}
 
-    .notice-footer {
-      margin-top: 1rem; font-size: 0.9rem;
-    }
+.notice-footer {
+  margin-top: 1rem;
+  font-size: 0.95rem;
+}
 
-    .notice-close {
-      position: absolute; top: 12px; right: 14px;
-      border: none; background: transparent;
-      font-size: 1.25rem; cursor: pointer; color: #A8A098;
-      transition: color 0.2s;
-    }
+.notice-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: none;
+  background: transparent;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: #555;
+}
 
-    .notice-close:hover { color: #1A1715; }
+.notice-close:hover {
+  color: #000;
+}
+
   </style>
   <meta property="og:image" content="https://bolt.new/static/og_default.png">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:image" content="https://bolt.new/static/og_default.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://bolt.new/static/og_default.png">
 </head>
 <body>
 
   <div id="noticeOverlay" class="notice-overlay">
-    <div class="notice-popup">
-      <button class="notice-close" aria-label="Close notice">&times;</button>
-      <h3>Informasi Jam Operasional</h3>
-      <p>Kami dengan senang hati melayani Anda pada jam operasional berikut:</p>
-      <p class="notice-hours"><strong>Minggu &ndash; Jumat</strong><br>08.30 &ndash; 19.30</p>
-      <p class="notice-hours"><strong>Sabtu</strong><br>08.30 &ndash; 21.30</p>
-      <p class="notice-closed"><strong>Senin</strong><br>Tutup</p>
-      <p class="notice-footer">
-        VIP Room dan Meeting Room tersedia untuk reservasi.<br>
-        Hubungi WhatsApp kami:<br>
-        <strong>0821 8888 4663</strong>
-      </p>
-    </div>
-  </div>
+  <div class="notice-popup">
+    <button class="notice-close" aria-label="Close notice">✕</button>
 
-  <!-- Closed message -->
+    <h3>📢 Informasi Jam Operasional</h3>
+
+    <p>
+      Kami dengan senang hati melayani Anda pada jam operasional berikut:
+    </p>
+
+    <p class="notice-hours">
+      <strong>Minggu – Jumat</strong><br>
+      08.30 – 19.30
+    </p>
+
+    <p class="notice-hours">
+      <strong>Sabtu</strong><br>
+      08.30 – 21.30
+    </p>
+
+    <p class="notice-closed">
+      <strong>Senin</strong><br>
+      Tutup
+    </p>
+
+    <p class="notice-footer">
+      VIP Room dan Meeting Room tersedia untuk reservasi.<br>
+      Hubungi WhatsApp kami:<br>
+      <strong>0821 8888 4663</strong>
+    </p>
+  </div>
+</div>
+
+  <!-- Closed message (hidden by default) -->
   <div id="closedMessage" role="status" aria-live="polite">
     <div>
-      <h1>We're Closed on Mondays</h1>
-      <p>Please come back another day</p>
+      <h1>We’re Closed on Mondays</h1>
+      <p>Please come back another day 🙏</p>
     </div>
   </div>
 
-  <!-- App container -->
+  <!-- App container (kept intact so scripts can safely query DOM elements) -->
   <div id="app">
     <!-- Auth Modal -->
-    <div id="authModal" class="hidden" aria-hidden="true">
-      <div class="modal-content">
-        <h3>Member Access</h3>
-        <p>Please sign in to continue</p>
-        <div class="auth-actions">
-          <button id="authSignIn">Sign In</button>
-          <button id="authSignUp" class="secondary">Sign Up</button>
-        </div>
-        <button id="closeAuth" class="minimal">Cancel</button>
-      </div>
+<div id="authModal" class="hidden" aria-hidden="true">
+  <div class="modal-content">
+    <h3>Member Access</h3>
+    <p>Please sign in to continue</p>
+
+    <div class="auth-actions">
+      <button id="authSignIn">Sign In</button>
+      <button id="authSignUp" class="secondary">Sign Up</button>
     </div>
+
+    <button id="closeAuth" class="minimal">Cancel</button>
+  </div>
+</div>
 
     <!-- Header -->
     <header>
-      <h2>13e Caf&eacute;</h2>
+      <h2>13e Café</h2>
       <button id="signInBtn" aria-label="Member Login">Member Sign In</button>
     </header>
 
     <!-- Category Tabs -->
     <div id="categoryTabsContainer">
-      <div id="categoryTabs"></div>
+      <div id="categoryTabs">
+        <!-- Category buttons will be dynamically rendered -->
+      </div>
     </div>
 
     <!-- Product List -->
@@ -133,7 +169,7 @@
     <!-- Variant Modal -->
     <div id="variantModal" class="hidden" aria-hidden="true">
       <div class="modal-content">
-        <h3 id="variantTitle">Select a Variant</h3>
+        <h3>Select a Variant</h3>
         <div id="variantOptions"></div>
         <button id="cancelVariant">Cancel</button>
       </div>
@@ -144,57 +180,79 @@
       <div id="cart-header">Your Cart</div>
       <div id="cart-body">
         <ul class="cart-list"></ul>
-        <div id="cart-summary">
-          <p><strong>Total:</strong> <span id="cart-total">Rp 0</span></p>
-          <p><strong>Open Hours:</strong><br>
-             Sunday to Friday: 08:30 &ndash; 19:30<br>
-             Saturday: 08:30 &ndash; 21:30</p>
-          <button id="checkoutBtn">Checkout</button>
-        </div>
+<div id="cart-summary">
+  <p><strong>Total:</strong> <span id="cart-total">Rp 0</span></p>
+  <p><strong>Open Hours:</strong><br>
+     Sunday to Friday : 08:30 – 19:30<br>
+     Saturday : 08:30 – 21:30</p>
+  <button id="checkoutBtn">Checkout</button>
+</div>
+
       </div>
+
     </div>
 
-    <!-- Banner -->
+
+    <!-- Banner for notifications -->
     <div id="banner" class="banner hidden" role="status" aria-live="polite"></div>
 
-    <!-- Footer -->
-    <footer style="padding:20px 16px; text-align:center; font-size:0.82rem; color:#A8A098; border-top:1px solid #E8E4DE; margin-top:20px;">
-      <p>&copy; 2025 13e Caf&eacute;. All rights reserved.</p>
-      <p><a href="/privacy.html" style="color:#78706A;">Privacy Policy</a> | <a href="/terms.html" style="color:#78706A;">Terms</a></p>
+    <!-- Optional Categories -->
+    <section id="categories">
+      <!-- Category buttons get injected here if category filtering is implemented -->
+    </section>
+
+    <!-- Optional Footer -->
+    <footer style="padding:1em; text-align:center; font-size:0.85em; color:#777;">
+      <p>© 2025 13e Café. All rights reserved.</p>
+      <p><a href="/privacy.html">Privacy Policy</a> | <a href="/terms.html">Terms</a></p>
     </footer>
-  </div>
+  </div> <!-- /#app -->
 
   <!-- Firebase Core -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <!-- Firebase services you use -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
 
-  <!-- Monday-closure logic -->
-  <script>
+  <!-- Monday-closure logic: toggles UI, does NOT overwrite body -->
+  <script>  
+
     (function () {
-      const overlay = document.getElementById("noticeOverlay");
-      const closeBtn = document.querySelector(".notice-close");
-      if (closeBtn && overlay) {
-        closeBtn.addEventListener("click", () => { overlay.style.display = "none"; });
-      }
-    })();
+    const overlay = document.getElementById("noticeOverlay");
+    const closeBtn = document.querySelector(".notice-close");
+
+    if (closeBtn && overlay) {
+      closeBtn.addEventListener("click", () => {
+        overlay.style.display = "none";
+      });
+    }
+  })();
 
     (function() {
+      // Determine local day of week: 0 = Sun, 1 = Mon, ...
       const today = new Date();
       const day = today.getDay();
+
+      // Expose a global flag so app.js can read it if needed
       window.IS_CLOSED_ON_MONDAY = (day === 1);
+
+      // Show closed message and hide the app container (do not replace body)
       const closedEl = document.getElementById('closedMessage');
       const appEl = document.getElementById('app');
+
       if (window.IS_CLOSED_ON_MONDAY) {
         if (closedEl) closedEl.classList.add('visible');
         if (appEl) appEl.classList.add('hidden');
       } else {
+        // Ensure closed message is hidden and app visible on other days
         if (closedEl) closedEl.classList.remove('visible');
         if (appEl) appEl.classList.remove('hidden');
       }
     })();
   </script>
 
+  <!-- Your app script should be loaded after the DOM markup above.
+       Use 'defer' if you prefer placing it in head, but here it is included at the end. -->
   <script src="app.js"></script>
 </body>
 </html>
