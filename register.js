@@ -36,14 +36,19 @@ function normalizePhone(input) {
     .replace(/^0+/, "0");
 }
 
-function safeRedirect(target) {
-  const decoded = decodeURIComponent(target || "/");
-  if (decoded.startsWith("/") && !decoded.startsWith("//")) return decoded;
-  return "/";
+// Safe redirect helper: only allow relative same-origin URLs
+function safeRedirect(returnTo) {
+  const defaultUrl = "/";
+  if (!returnTo) return defaultUrl;
+  const decoded = decodeURIComponent(returnTo);
+  if (/^https?:\/\//i.test(decoded) || /^\/\//.test(decoded) || /^[a-z][a-z0-9+.-]*:/i.test(decoded)) {
+    return defaultUrl;
+  }
+  if (!decoded.startsWith("/")) return defaultUrl;
+  return decoded;
 }
 
 cancelBtn.addEventListener("click", () => {
-  // go back to previous page or index
   const returnTo = new URLSearchParams(window.location.search).get("return") || "/";
   window.location.href = safeRedirect(returnTo);
 });
@@ -55,14 +60,13 @@ form.addEventListener("submit", async (e) => {
   const name = (nameInput.value || "").trim();
   const email = (emailInput.value || "").trim().toLowerCase();
   const phoneRaw = (phoneInput.value || "").trim();
-  const birthdate = (birthInput.value || "").trim(); // yyyy-mm-dd
+  const birthdate = (birthInput.value || "").trim();
 
   if (!name || !email || !phoneRaw || !birthdate) {
     showError("All fields are required.");
     return;
   }
 
-  // basic email check
   if (!/^\S+@\S+\.\S+$/.test(email)) {
     showError("Please enter a valid email address.");
     return;
@@ -71,21 +75,31 @@ form.addEventListener("submit", async (e) => {
   const phone = normalizePhone(phoneRaw);
 
   try {
-    // Register via serverless function (server validates and sets tier/price fields)
-    const response = await fetch("/.netlify/functions/register-member", {
+    // Call server-side registration function (server sets discountRate, taxRate, tier, and ID)
+    const response = await fetch("/.netlify/functions/registerMember", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, phone, birthdate })
+      body: JSON.stringify({ name, email, phone, birthdate }),
     });
+
     const result = await response.json();
 
-    if (!result.success) {
-      showError(result.error || "Failed to register. Please try again.");
+    if (!response.ok || !result.success) {
+      const msg = result.error || "Failed to register. Please try again.";
+      showError(msg);
       return;
     }
 
-    // Auto sign-in: store currentUser in localStorage and redirect back
-    const currentUser = result.member;
+    // Auto sign-in: store currentUser in localStorage
+    const member = result.member;
+    const currentUser = {
+      phoneNumber: member.phoneNumber,
+      memberId: member.memberId,
+      tier: member.tier,
+      discountRate: member.discountRate,
+      taxRate: member.taxRate,
+      displayName: member.displayName
+    };
     localStorage.setItem("currentUser", JSON.stringify(currentUser));
     localStorage.setItem("sessionStart", Date.now().toString());
 

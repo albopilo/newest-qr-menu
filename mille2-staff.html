@@ -126,8 +126,11 @@ const modalText = document.getElementById("modalText");
 orderDate.valueAsDate = new Date();
 
 let currentFilter = "all";
-let ringingIntervals = {}; 
+let ringingIntervals = {};
 let shownModals = new Set();
+
+// XSS escape helper
+const esc = s => String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
 // ✅ Global listener to close modal
 document.getElementById("closeModal").addEventListener("click", () => {
@@ -218,20 +221,21 @@ function renderOrder(id, data) {
   waBtn.className = "btn";
   waBtn.style.background = "#25D366";
   waBtn.style.color = "#fff";
-  waBtn.href = `https://wa.me/6282166664663?text=Hello%20Cafe,%20please%20check%20order%20${id}%20(${data.table || "Mille 2"})`;
+  waBtn.href = `https://wa.me/6282166664663?text=Hello%20Cafe,%20please%20check%20order%20${id}%20(${esc(data.table || "Mille 2")})`;
   waBtn.target = "_blank";
   waBtn.textContent = "💬 Contact Cafe";
 
-  const itemsStr = (data.items || []).map(i => escapeHtml(`${i.qty}x ${i.name || "Unnamed"}`)).join(", ");
+  // XSS-safe: escape all user-controlled values before inserting into innerHTML
+  const itemsHtml = (data.items || []).map(i => `${i.qty}× ${esc(i.name)}`).join(", ");
   div.innerHTML = `
-    <p><strong>Table:</strong> ${escapeHtml(data.table || "?")}</p>
-    <p><strong>Items:</strong> ${itemsStr}</p>
+    <p><strong>Table:</strong> ${esc(data.table || "?")}</p>
+    <p><strong>Items:</strong> ${itemsHtml}</p>
     <p><strong>Grand Total:</strong> Rp ${total.toLocaleString("id-ID")}</p>
-    <p><strong>Payment:</strong> ${escapeHtml(data.paymentMethod || "Unspecified")} (${escapeHtml(paymentStatus)})</p>
-    <p><strong>Time:</strong> ${escapeHtml(time)} | <strong>Date:</strong> ${escapeHtml(date)}</p>
+    <p><strong>Payment:</strong> ${esc(data.paymentMethod || "Unspecified")} (${esc(paymentStatus)})</p>
+    <p><strong>Time:</strong> ${esc(time)} | <strong>Date:</strong> ${esc(date)}</p>
     <p class="status">
-      Mille Status: ${escapeHtml(milleStatus.replace("_", " "))} <br/>
-      Kitchen Status: ${escapeHtml(kitchenStatus || "—")}
+      Mille Status: ${esc(milleStatus.replace("_", " "))} <br/>
+      Kitchen Status: ${esc(kitchenStatus || "—")}
     </p>
   `;
   div.appendChild(paidBtn);
@@ -256,41 +260,59 @@ function renderOrder(id, data) {
 }
 
 async function markPaid(id) {
+  let idToken = null;
   try {
-    const user = firebase.auth().currentUser;
-    if (!user) { alert("Please log in as admin."); return; }
-    const idToken = await user.getIdToken();
-    const response = await fetch("/.netlify/functions/update-order-status", {
+    const user = firebase.auth()?.currentUser;
+    if (user) idToken = await user.getIdToken();
+  } catch {}
+
+  try {
+    const response = await fetch("/.netlify/functions/updateOrderStatus", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + idToken },
-      body: JSON.stringify({ orderId: id, targetKitchenStatus: "served" })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: id, targetStatus: "paid", idToken }),
     });
     const result = await response.json();
-    if (!result.success) throw new Error(result.error || "Failed");
-    await db.collection("orders").doc(id).update({ milleStatus: "paid", paymentStatus: "success" });
-  } catch (err) { alert("Failed: " + err.message); return; }
+    if (!response.ok || !result.success) {
+      alert(result.error || "Failed to mark as paid.");
+      return;
+    }
+  } catch (err) {
+    console.error("markPaid error:", err);
+    alert("Failed to mark as paid.");
+    return;
+  }
   if (ringingIntervals[id]) {
     clearInterval(ringingIntervals[id]);
     delete ringingIntervals[id];
   }
-  alert("\u2705 Order marked as Paid");
+  alert("✅ Order marked as Paid");
 }
 
 async function markReceived(id) {
+  let idToken = null;
   try {
-    const user = firebase.auth().currentUser;
-    if (!user) { alert("Please log in as admin."); return; }
-    const idToken = await user.getIdToken();
-    const response = await fetch("/.netlify/functions/update-order-status", {
+    const user = firebase.auth()?.currentUser;
+    if (user) idToken = await user.getIdToken();
+  } catch {}
+
+  try {
+    const response = await fetch("/.netlify/functions/updateOrderStatus", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + idToken },
-      body: JSON.stringify({ orderId: id, targetKitchenStatus: "served" })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: id, targetStatus: "received", idToken }),
     });
     const result = await response.json();
-    if (!result.success) throw new Error(result.error || "Failed");
-    await db.collection("orders").doc(id).update({ milleStatus: "received" });
-  } catch (err) { alert("Failed: " + err.message); return; }
-  alert("\U0001F4E5 Order marked as Received");
+    if (!response.ok || !result.success) {
+      alert(result.error || "Failed to mark as received.");
+      return;
+    }
+  } catch (err) {
+    console.error("markReceived error:", err);
+    alert("Failed to mark as received.");
+    return;
+  }
+  alert("📥 Order marked as Received");
 }
 
 function loadOrders() {

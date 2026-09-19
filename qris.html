@@ -159,11 +159,16 @@
 
     if (orderId) displayAmount();
 
-
     document.getElementById("submitPayment").onclick = async () => {
       const file = document.getElementById("paymentProof").files[0];
       if (!file) {
         alert("⚠️ Silakan upload bukti pembayaran terlebih dahulu.");
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("⚠️ File terlalu besar. Maksimal 5MB.");
         return;
       }
 
@@ -189,29 +194,29 @@
 
         const base64Image = await toBase64(file);
 
-        // Upload via serverless function (keeps ImgBB key server-side)
-        const uploadResponse = await fetch("/.netlify/functions/upload-payment-proof", {
+        // Call server-side function (API key kept on server, never exposed to client)
+        const response = await fetch("/.netlify/functions/uploadPaymentProof", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderId: orderId,
-            imageBase64: base64Image
-          })
+          body: JSON.stringify({ orderId, base64Image }),
         });
 
-        const data = await uploadResponse.json();
-        if (!data.success) throw new Error("Upload gagal: " + (data.error || "Unknown error"));
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || "Upload gagal");
+        }
 
         progressBar.style.width = "100%";
         progressBar.textContent = "100%";
-        statusMsg.textContent = "✅ Bukti pembayaran berhasil diupload!";
+        statusMsg.textContent = "✅ Bukti pembayaran berhasil diupload! Staff akan verifikasi pembayaran Anda.";
         setTimeout(() => {
           window.location.href = `summary.html?orderId=${orderId}&status=success`;
-        }, 1500);
+        }, 2000);
 
       } catch (err) {
         console.error("❌ Upload error:", err);
-        statusMsg.textContent = "❌ Gagal mengupload bukti pembayaran. Silakan coba lagi.";
+        statusMsg.textContent = `❌ ${err.message || "Gagal mengupload bukti pembayaran. Silakan coba lagi."}`;
         submitBtn.disabled = false;
       }
     };

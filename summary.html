@@ -207,7 +207,8 @@ const contactCafeBtn = document.getElementById("contactCafeBtn");
  const memberPhoneFromUrl = urlParams.get("memberPhone") || "";
  const isMember = Boolean(memberId && memberPhoneFromUrl);
 
-
+// XSS escape helper
+const esc = s => String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
 // Vars
 let table = tableFromUrl || "unknown";
@@ -218,7 +219,7 @@ let discount = 0;
 let tax = 0;
 let deliveryFee = 0;
 let paymentMethod = "";
-let qrisOrderCreated = null;
+let currentOrderId = orderId || null;
 
 // helper: get Jakarta date as YYYY-MM-DD (en-CA)
 function jakartaDateString() {
@@ -261,10 +262,11 @@ function isValidItemArray(arr) {
 
 function hardFail(message) {
   alert(message);
+  const safeMsg = esc(message);
   document.body.innerHTML = `
     <div style="padding:24px;text-align:center">
       <h2>⚠️ Order Error</h2>
-      <p>${message}</p>
+      <p>${safeMsg}</p>
       <p>Please contact staff.</p>
     </div>`;
   throw new Error(message);
@@ -273,9 +275,9 @@ function hardFail(message) {
 
 document.addEventListener("DOMContentLoaded", async () => {
 
-  if (isMember) { // Signed-in member → phone already known
+  if (isMember) {
   phoneSection.style.display = "none";
-} else { // Guest → must enter phone
+} else {
   phoneSection.style.display = "block";
 }
 
@@ -302,21 +304,18 @@ if (orderId) {
       existingVoucherId = d.voucherId || null;
       hydratedFrom = "firestore";
     }
-    if (d.paymentStatus === "success") {
+    if (d.paymentStatus === "success" || d.paymentStatus === "awaiting-verification") {
          status = "success";
          }
   }
 }
 
-// Fallback ONLY if Firestore invalid
+// Fallback ONLY if Firestore invalid — load items from URL but NOT prices
 if (!isValidItemArray(items)) {
   try {
     const urlItems = JSON.parse(decodeURIComponent(urlParams.get("items") || "[]"));
     if (isValidItemArray(urlItems)) {
       items = urlItems;
-      subtotal = Number(urlParams.get("subtotal")) || 0;
-      discount = Number(urlParams.get("discount")) || 0;
-      tax = Number(urlParams.get("tax")) || 0;
       hydratedFrom = "url";
     }
   } catch {}
@@ -327,23 +326,50 @@ if (!isValidItemArray(items)) {
   hardFail("Invalid or incomplete order data.");
 }
 
+// If hydrated from URL (new order from cart), fetch server-side price preview
+// so the displayed subtotal/discount/tax/total come from the server, not URL params
+if (hydratedFrom === "url" && !currentOrderId) {
+  try {
+    const previewResponse = await fetch("/.netlify/functions/createOrder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items,
+        table,
+        guestName,
+        memberId: memberId || null,
+        memberPhone: memberPhoneFromUrl || "",
+        paymentMethod: isMilleTable(table) ? "qris" : "",
+        previewOnly: true,
+      }),
+    });
+    const previewResult = await previewResponse.json();
+    if (previewResponse.ok && previewResult.success && previewResult.preview) {
+      subtotal = previewResult.subtotal;
+      discount = previewResult.discount;
+      tax = previewResult.tax;
+      deliveryFee = previewResult.deliveryFee;
+    }
+  } catch (e) {
+    console.warn("Price preview failed, will show 0 until order is confirmed:", e);
+  }
+}
+
 console.info("Order hydrated from:", hydratedFrom);
 
     // ✅ Force Mille tables to QRIS only
     if (/mille/i.test(table)) {
-      // Hide cash option entirely for Mille tables
       const cashRadio = document.getElementById("payCash");
       const cashLabel = document.querySelector("label[for='payCash']");
       if (cashRadio) cashRadio.style.display = "none";
       if (cashLabel) cashLabel.style.display = "none";
       cashInstruction.style.display = "none";
-      // Reset selection so only QRIS remains visible
       payCash.checked = false;
       paymentMethod = "qris";
       payQRIS.checked = true;
     }
 
-    // DOM update
+    // DOM update (XSS-safe: use textContent for user data)
     tableDisplay.textContent = table;
     guestDisplay.textContent = guestName;
     itemsList.innerHTML = "";
@@ -354,9 +380,8 @@ console.info("Order hydrated from:", hydratedFrom);
       itemsList.appendChild(li);
     });
 
-    // Delivery fee (Mille 1 & 3 only)
-    if (/mille\s*1/i.test(table) || /mille\s*3/i.test(table)) {
-      deliveryFee = 10000;
+    // Delivery fee display (Mille 1 & 3 only)
+    if (deliveryFee > 0) {
       deliveryRow.style.display = "block";
       deliveryFeeDisplay.textContent = `Rp${deliveryFee.toLocaleString("id-ID")}`;
     }
@@ -369,7 +394,6 @@ console.info("Order hydrated from:", hydratedFrom);
         voucherNotice.style.display = "block";
       }
     }
-
 
     // Pre-select payment
     if (paymentMethod === "cash") payCash.checked = true;
@@ -399,51 +423,62 @@ console.info("Order hydrated from:", hydratedFrom);
     payQRIS.addEventListener("change", async () => {
       paymentMethod = "qris";
       cashInstruction.style.display = "none";
-      if (qrisOrderCreated || status === "success") return;
+      if (currentOrderId || status === "success") return;
+
+      // For QRIS, create the order via server-side function
       try {
          let phone;
- try {
-   phone = resolvePhoneOrFail();
- } catch {
-   confirmBtn.disabled = false;
-  phoneInput?.focus();
-   return;
- }
+         try {
+           phone = resolvePhoneOrFail();
+         } catch {
+           confirmBtn.disabled = false;
+           phoneInput?.focus();
+           return;
+         }
 
-        const { finalTotal, grandTotal } = renderSummary();
         confirmBtn.disabled = true;
 
-        // ✅ Create order via server (prices validated server-side)
-        const orderResponse = await fetch("/.netlify/functions/create-order", {
+        // Call server-side order creation (prices validated on server)
+        const response = await fetch("/.netlify/functions/createOrder", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            items: items.map(i => ({ id: i.id, name: i.name, qty: i.qty, variant: i.variant, category: i.category })),
+            items,
             table,
             guestName,
             memberId: memberId || null,
-            memberPhone: phone,
-            paymentMethod: "qris"
-          })
+            memberPhone: memberPhoneFromUrl || phone,
+            paymentMethod: "qris",
+          }),
         });
-        const orderResult = await orderResponse.json();
-        if (!orderResult.success) throw new Error(orderResult.error || "Failed to create order");
 
-        // ✅ Trigger push notification
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || "Failed to create order");
+        }
+
+        // Update local vars from server-calculated values
+        subtotal = result.subtotal;
+        discount = result.discount;
+        tax = result.tax;
+        deliveryFee = result.deliveryFee;
+        currentOrderId = result.orderId;
+        renderSummary();
+
+        // Notify staff
         fetch("/.netlify/functions/newOrderPush", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: "🆕 New QRIS Order",
             message: `Table ${table} placed a new QRIS order.`,
-            orderId: orderResult.orderId,
-            url: `https://13e-menu.netlify.app/staff.html?orderId=${orderResult.orderId}`
+            orderId: result.orderId,
+            url: `https://13e-menu.netlify.app/staff.html?orderId=${result.orderId}`
           })
         }).catch(e => console.warn("Push send failed:", e));
 
-        qrisOrderCreated = { id: orderResult.orderId };
         confirmBtn.style.display = "none";
-        location.href = `qris.html?orderId=${orderResult.orderId}`;
+        location.href = `qris.html?orderId=${result.orderId}`;
       } catch (err) {
         console.error(err);
         confirmBtn.disabled = false;
@@ -451,59 +486,42 @@ console.info("Order hydrated from:", hydratedFrom);
       }
     });
 
-    // Voucher (unchanged)
+    // Voucher — now calls server-side function
     applyVoucherBtn.addEventListener("click", async () => {
       if (status === "success") return;
       const code = voucherInput.value.trim().toUpperCase();
       voucherMsg.style.color = "#d33";
       if (!code) { voucherMsg.textContent = "⚠️ Please enter a voucher code."; return; }
 
+      if (!currentOrderId) {
+        voucherMsg.textContent = "⚠️ Please confirm the order first before applying a voucher.";
+        return;
+      }
+
       try {
-        const snap = await db.collection("vouchers").where("code", "==", code).limit(1).get();
-        if (snap.empty) { voucherMsg.textContent = "❌ Invalid voucher code."; return; }
-        const voucherDoc = snap.docs[0];
-        const voucherRef = db.collection("vouchers").doc(voucherDoc.id);
-
-        await db.runTransaction(async (tx) => {
-          const today = new Date(); today.setHours(0,0,0,0);
-          const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-          const redemptionSnap = await tx.get(
-            voucherRef.collection("redemptions").where("timestamp", ">=", today).where("timestamp", "<", tomorrow)
-          );
-          if (voucherDoc.data().limitPerDay && redemptionSnap.size >= voucherDoc.data().limitPerDay)
-            throw new Error("DAILY_LIMIT_REACHED");
-
-          // Calculate discount
-          let orderDiscount = 0;
-          if (voucherDoc.data().type === "percent") orderDiscount = Math.floor(subtotal * (voucherDoc.data().value / 100));
-          else if (voucherDoc.data().type === "fixed") orderDiscount = voucherDoc.data().value;
-
-          // Save redemption + update order
-          let redemptionDocRef;
-          if (orderId) {
-            redemptionDocRef = voucherRef.collection("redemptions").doc(orderId);
-            tx.set(redemptionDocRef, {
-              timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-              table, guestName, orderId
-            });
-            tx.update(db.collection("orders").doc(orderId), {
-              voucherId: voucherDoc.id,
-              discount: orderDiscount
-            });
-          } else if (qrisOrderCreated) {
-            const qrisOrderId = qrisOrderCreated.id;
-            redemptionDocRef = voucherRef.collection("redemptions").doc(qrisOrderId);
-            tx.set(redemptionDocRef, {
-              timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-              table, guestName, orderId: qrisOrderId
-            });
-            tx.update(qrisOrderCreated, {
-              voucherId: voucherDoc.id,
-              discount: orderDiscount
-            });
-          }
-          discount = orderDiscount;
+        // Call server-side voucher redemption (validates server-side)
+        const response = await fetch("/.netlify/functions/redeemVoucher", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            voucherCode: code,
+            orderId: currentOrderId,
+          }),
         });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          voucherMsg.textContent = `❌ ${result.error || "Failed to apply voucher."}`;
+          return;
+        }
+
+        // Re-fetch order to get updated values
+        const orderSnap = await db.collection("orders").doc(currentOrderId).get();
+        if (orderSnap.exists) {
+          const d = orderSnap.data();
+          discount = Number(d.discount) || 0;
+        }
 
         voucherMsg.style.color = "green";
         voucherMsg.textContent = `✅ Voucher applied: ${code}`;
@@ -511,12 +529,12 @@ console.info("Order hydrated from:", hydratedFrom);
         voucherNotice.style.display = "block";
         renderSummary();
       } catch (err) {
-        if (err.message === "DAILY_LIMIT_REACHED") voucherMsg.textContent = "❌ Voucher daily limit reached.";
-        else { console.error(err); voucherMsg.textContent = "⚠️ Failed to apply voucher."; }
+        console.error(err);
+        voucherMsg.textContent = "⚠️ Failed to apply voucher.";
       }
     });
 
-    // Confirm (Cash)
+    // Confirm (Cash) — now calls server-side function
 confirmBtn.addEventListener("click", async () => {
   if (status === "success") return;
 
@@ -536,44 +554,48 @@ confirmBtn.addEventListener("click", async () => {
       return;
     }
 
-    const { finalTotal, grandTotal } = renderSummary();
-
-    const jakartaDate = new Date().toLocaleDateString("en-CA", {
-      timeZone: "Asia/Jakarta"
-    });
-
-    // ✅ CREATE ORDER VIA SERVER (prices validated server-side)
-    const orderResponse = await fetch("/.netlify/functions/create-order", {
+    // Call server-side order creation (prices validated on server)
+    const response = await fetch("/.netlify/functions/createOrder", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        items: items.map(i => ({ id: i.id, name: i.name, qty: i.qty, variant: i.variant, category: i.category })),
+        items,
         table,
         guestName,
         memberId: memberId || null,
-        memberPhone: phone,
-        paymentMethod
-      })
+        memberPhone: memberPhoneFromUrl || phone,
+        paymentMethod: isMilleTable(table) ? "qris" : paymentMethod,
+      }),
     });
-    const orderResult = await orderResponse.json();
-    if (!orderResult.success) throw new Error(orderResult.error || "Failed to create order");
-    const docRef = { id: orderResult.orderId };
 
-    // 🔔 Notify staff
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || "Failed to create order");
+    }
+
+    // Update local vars from server-calculated values
+    subtotal = result.subtotal;
+    discount = result.discount;
+    tax = result.tax;
+    deliveryFee = result.deliveryFee;
+    currentOrderId = result.orderId;
+    renderSummary();
+
+    // Notify staff
     fetch("/.netlify/functions/newOrderPush", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: "🆕 New Order",
         message: `Table ${table} placed a new order.`,
-        orderId: docRef.id,
-        url: `https://13e-menu.netlify.app/staff.html?orderId=${docRef.id}`
+        orderId: result.orderId,
+        url: `https://13e-menu.netlify.app/staff.html?orderId=${result.orderId}`
       })
     }).catch(() => {});
 
-    // ✅ REDIRECT LOGIC (AFTER ORDER EXISTS)
+    // Redirect logic
     if (isMilleTable(table) || paymentMethod === "qris") {
-      location.href = `qris.html?orderId=${docRef.id}`;
+      location.href = `qris.html?orderId=${result.orderId}`;
       return;
     }
 
@@ -595,9 +617,9 @@ confirmBtn.addEventListener("click", async () => {
 
 if (contactCafeBtn) {
   contactCafeBtn.addEventListener("click", () => {
-    const cafeWaNumber = "6282188884663"; // no +, WhatsApp format
+    const cafeWaNumber = "6282188884663";
     const tableName = table || tableFromUrl || "Unknown Table";
-    const id = orderId || "N/A";
+    const id = currentOrderId || "N/A";
 
     const message = encodeURIComponent(
       `Hello Cafe, please check order ${id} (${tableName})`

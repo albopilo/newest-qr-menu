@@ -420,9 +420,9 @@ document.getElementById("staffOpenOrder").addEventListener("click", () => {
       modal.remove();
     });
   }
+  const esc = s => String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const text = document.getElementById("staffChimeText");
-  const safeTable = String(data.table || "?").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))
-  text.innerHTML = `🚨 New order <strong>${safeTable}</strong> • Rp ${((data.grandTotal||data.total)||0).toLocaleString("id-ID")}`;
+  text.innerHTML = `🚨 New order <strong>${esc(data.table || "?")}</strong> • Rp ${((data.grandTotal||data.total)||0).toLocaleString("id-ID")}`;
   modal.style.display = "flex";
 }
 
@@ -1378,52 +1378,21 @@ if (checkoutBtn) {
     if (currentUser?.phoneNumber && !currentUser?.tier) {
       await fetchMemberTier(currentUser.phoneNumber);
     }
-    // Calculate subtotal normally
-    const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-    // Delivery fee (example: apply if table = "Delivery")
-const deliveryFee = (tableNumber.toLowerCase() === "delivery") ? 10000 : 0;
 
-
-// Discount only applies to items NOT in "Special Today"
-// Compute discountRate robustly: prefer numeric currentUser.discountRate if present,
-// otherwise derive from the stored tier using the canonical helper.
-const discountRate = getEffectiveDiscountRate(currentUser);
-
-
-const discount = cart.reduce((sum, i) => {
-  const isSpecial = (i.category || "") === "Special Today";
-  if (currentUser.tier === "classic" || isSpecial) return sum;
-  return sum + (Number(i.price || 0) * Number(i.qty || 0) * discountRate);
-}, 0);
-
-
-    // Tax (still applied to all items including Special Today)
-    const taxRate = typeof currentUser?.taxRate === "number" ? currentUser.taxRate : 0.10;
-    const tax = (subtotal - discount) * taxRate;
-
-    
-// Total rounded to nearest 100, including delivery fee
-const total = Math.round((subtotal - discount + tax + deliveryFee) / 100) * 100;
-
+    // Only send cart items and member info — prices are calculated server-side
     const items = cart.map(i => ({
       name: i.name + (i.variant ? ` (${i.variant})` : ""),
       qty: i.qty
     }));
 
-const query = new URLSearchParams({
-  subtotal: String(subtotal),
-  discount: String(discount),
-  tax: String(tax),
-  deliveryFee: String(deliveryFee),   // ✅ add this
-  total: String(total),
-  table: tableNumber,
-  guestName: currentUser?.displayName || "Guest",
-  memberPhone: currentUser?.phoneNumber || "",
-  memberId: currentUser?.memberId || "",
-  tier: currentUser?.tier || "Guest",
-  items: JSON.stringify(items)
-}).toString();
-
+    const query = new URLSearchParams({
+      table: tableNumber,
+      guestName: currentUser?.displayName || "Guest",
+      memberPhone: currentUser?.phoneNumber || "",
+      memberId: currentUser?.memberId || "",
+      tier: currentUser?.tier || "Guest",
+      items: JSON.stringify(items)
+    }).toString();
 
     window.location.href = `summary.html?${query}`;
   });

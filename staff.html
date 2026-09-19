@@ -271,24 +271,29 @@ async function updateStatus(id, status) {
   const db = getDb();
   if (!db) return;
 
+  // Call server-side function with admin verification
+  // Staff must be logged in with Firebase Auth to get an ID token
+  let idToken = null;
   try {
-    const user = firebase.auth().currentUser;
-    if (!user) { alert('Please log in as admin.'); return; }
-    const idToken = await user.getIdToken();
+    const user = firebase.auth()?.currentUser;
+    if (user) idToken = await user.getIdToken();
+  } catch {}
 
-    const response = await fetch('/.netlify/functions/update-order-status', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + idToken
-      },
-      body: JSON.stringify({ orderId: id, targetKitchenStatus: status })
+  try {
+    const response = await fetch("/.netlify/functions/updateOrderStatus", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: id, targetStatus: status, idToken }),
     });
+
     const result = await response.json();
-    if (!result.success) throw new Error(result.error || 'Failed to update status');
+    if (!response.ok || !result.success) {
+      alert(result.error || "Failed to update order status.");
+      return;
+    }
   } catch (err) {
-    console.error('Status update error:', err);
-    alert('Failed to update order status: ' + (err.message || ''));
+    console.error("Status update error:", err);
+    alert("Failed to update order status.");
     return;
   }
 
