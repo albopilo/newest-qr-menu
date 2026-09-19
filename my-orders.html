@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Orders — 13e Café</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f6fa; margin: 0; padding: 0; color: #333; }
+    .orders-container { max-width: 600px; margin: 0 auto; padding: 16px; }
+    .orders-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 2px solid #2c3e50; margin-bottom: 16px; }
+    .orders-header h2 { margin: 0; font-size: 1.3rem; color: #2c3e50; }
+    .back-link { text-decoration: none; color: #2c3e50; font-size: 0.9rem; font-weight: 600; }
+    .lookup-box { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 14px rgba(0,0,0,0.06); margin-bottom: 16px; }
+    .lookup-box label { font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 6px; }
+    .lookup-box input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.95em; box-sizing: border-box; }
+    .lookup-box button { margin-top: 10px; width: 100%; padding: 12px; background: #111827; color: #fff; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; }
+    .lookup-box button:hover { background: #1f2937; }
+    .order-card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 4px 14px rgba(0,0,0,0.06); margin-bottom: 12px; border-left: 4px solid #4caf50; }
+    .order-card.pending { border-left-color: #f59e0b; }
+    .order-card.preparing { border-left-color: #f59e0b; }
+    .order-card.served { border-left-color: #10b981; }
+    .order-card.cancelled { border-left-color: #9ca3af; opacity: 0.7; }
+    .order-card-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .order-id { font-size: 0.8rem; color: #6b7280; }
+    .order-date { font-size: 0.8rem; color: #6b7280; }
+    .order-table { font-weight: 600; font-size: 1rem; color: #2c3e50; }
+    .status-pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .status-pill.pending { background: #fef3c7; color: #92400e; }
+    .status-pill.preparing { background: #fff7ed; color: #7c2d12; }
+    .status-pill.served { background: #ecfdf5; color: #064e3b; }
+    .status-pill.cancelled { background: #f3f4f6; color: #374151; }
+    .order-items { list-style: none; padding: 0; margin: 8px 0; }
+    .order-items li { padding: 4px 0; border-bottom: 1px solid #f3f4f6; font-size: 0.9rem; }
+    .order-total { font-weight: 700; color: #4caf50; font-size: 1.05rem; margin-top: 8px; }
+    .empty-state { text-align: center; padding: 40px 20px; color: #6b7280; }
+    .empty-state h3 { margin: 0 0 8px; color: #374151; }
+    .loading { text-align: center; padding: 30px; color: #6b7280; }
+    .member-banner { background: #e8f5e9; border: 1px solid #4caf50; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.9rem; color: #2e7d32; }
+    @media(max-width: 480px) { .orders-container { padding: 10px; } }
+  </style>
+</head>
+<body>
+  <div class="orders-container">
+    <div class="orders-header">
+      <h2>My Orders</h2>
+      <a href="index.html" class="back-link">&larr; Back to Menu</a>
+    </div>
+
+    <div id="memberBanner" class="member-banner" style="display:none;"></div>
+
+    <div class="lookup-box" id="lookupBox">
+      <label for="phoneLookup">Enter your phone number to view your orders</label>
+      <input type="tel" id="phoneLookup" placeholder="08xxxxxxxxxx" />
+      <button id="lookupBtn">View My Orders</button>
+    </div>
+
+    <div id="ordersResult"></div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDNvgS_PqEHU3llqHt0XHN30jJgiQWLkdc",
+    authDomain: "e-loyalty-12563.firebaseapp.com",
+    projectId: "e-loyalty-12563",
+  };
+  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  const normalizePhone = (input) =>
+    input.replace(/[^\d+]/g, "").replace(/^\+?62/, "0").replace(/^0+/, "0");
+
+  const esc = s => String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+  function formatRp(n) {
+    return "Rp" + (Number(n||0)).toLocaleString("id-ID");
+  }
+
+  function formatDate(ts) {
+    if (!ts) return "—";
+    try {
+      const d = ts.toDate ? ts.toDate() : new Date(ts);
+      return d.toLocaleString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    } catch { return String(ts); }
+  }
+
+  function statusLabel(s) {
+    const map = { pending: "Pending", preparing: "Preparing", served: "Served", cancelled: "Cancelled" };
+    return map[(s||"").toLowerCase()] || s || "Pending";
+  }
+
+  const resultEl = document.getElementById("ordersResult");
+  const lookupBtn = document.getElementById("lookupBtn");
+  const phoneInput = document.getElementById("phoneLookup");
+  const lookupBox = document.getElementById("lookupBox");
+  const memberBanner = document.getElementById("memberBanner");
+
+  // Auto-fill from localStorage if member is signed in
+  const savedUser = localStorage.getItem("currentUser");
+  if (savedUser) {
+    try {
+      const user = JSON.parse(savedUser);
+      if (user.phoneNumber) {
+        phoneInput.value = user.phoneNumber;
+        if (user.displayName) {
+          memberBanner.textContent = `Signed in as ${user.displayName} — showing your orders.`;
+          memberBanner.style.display = "block";
+        }
+        // Auto-load
+        setTimeout(() => loadOrders(user.phoneNumber), 300);
+      }
+    } catch {}
+  }
+
+  // Also check URL param for phone
+  const urlParams = new URLSearchParams(window.location.search);
+  const phoneFromUrl = urlParams.get("phone");
+  if (phoneFromUrl) {
+    phoneInput.value = phoneFromUrl;
+    setTimeout(() => loadOrders(phoneFromUrl), 300);
+  }
+
+  lookupBtn.addEventListener("click", () => {
+    const raw = phoneInput.value.trim();
+    if (!raw) { alert("Please enter your phone number."); return; }
+    loadOrders(raw);
+  });
+
+  phoneInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") lookupBtn.click();
+  });
+
+  async function loadOrders(rawPhone) {
+    const phone = normalizePhone(rawPhone);
+    resultEl.innerHTML = '<div class="loading">Loading your orders...</div>';
+
+    try {
+      // Query orders by memberPhone or phone field
+      let snapshot = await db.collection("orders")
+        .where("memberPhone", "==", phone)
+        .orderBy("timestamp", "desc")
+        .limit(50)
+        .get();
+
+      // Also try the "phone" field in case memberPhone is null
+      if (snapshot.empty) {
+        snapshot = await db.collection("orders")
+          .where("phone", "==", phone)
+          .orderBy("timestamp", "desc")
+          .limit(50)
+          .get();
+      }
+
+      if (snapshot.empty) {
+        resultEl.innerHTML = '<div class="empty-state"><h3>No orders found</h3><p>No orders were found for this phone number.</p></div>';
+        return;
+      }
+
+      const orders = [];
+      snapshot.forEach(doc => {
+        const d = doc.data();
+        d._id = doc.id;
+        orders.push(d);
+      });
+
+      resultEl.innerHTML = "";
+      orders.forEach(order => {
+        const card = document.createElement("div");
+        const kitchenStatus = (order.kitchenStatus || order.status || "pending").toLowerCase();
+        card.className = `order-card ${kitchenStatus}`;
+
+        const itemsHtml = (order.items || []).map(i =>
+          `<li>${esc(i.qty)} × ${esc(i.name)}</li>`
+        ).join("");
+
+        const total = order.grandTotal || order.total || 0;
+
+        card.innerHTML = `
+          <div class="order-card-head">
+            <div>
+              <div class="order-table">${esc(order.table || "—")}</div>
+              <div class="order-id">Order #${esc(order._id.substring(0, 8))}</div>
+            </div>
+            <div style="text-align:right;">
+              <span class="status-pill ${kitchenStatus}">${statusLabel(kitchenStatus)}</span>
+              <div class="order-date">${formatDate(order.timestamp)}</div>
+            </div>
+          </div>
+          <ul class="order-items">${itemsHtml}</ul>
+          <div class="order-total">Total: ${formatRp(total)}</div>
+          <div style="margin-top:6px; font-size:0.8rem; color:#6b7280;">
+            Payment: ${esc(order.paymentMethod || "—")} · ${esc(order.paymentStatus || "—")}
+          </div>
+        `;
+        resultEl.appendChild(card);
+      });
+    } catch (err) {
+      console.error("Load orders error:", err);
+      resultEl.innerHTML = '<div class="empty-state"><h3>Failed to load</h3><p>Could not load orders. Please try again.</p></div>';
+    }
+  }
+  </script>
+</body>
+</html>

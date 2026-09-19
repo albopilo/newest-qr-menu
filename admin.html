@@ -4,280 +4,84 @@
   <meta charset="utf-8">
   <title>13e Café — Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <style>
-    :root {
-      --brand: #1a1a2e;
-      --brand-light: #2d2d4a;
-      --accent: #c8a96a;
-      --accent-dark: #b08f4f;
-      --accent-light: #e8d9b8;
-      --bg: #f8f7f4;
-      --surface: #ffffff;
-      --muted: #6b7280;
-      --text: #1f2937;
-      --border: #e8e6e1;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --error: #ef4444;
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-      --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
-      --shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
-      --radius: 14px;
-      --radius-sm: 8px;
-      --radius-xs: 6px;
-      --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      --font: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    }
-    body.admin {
-      font-family: var(--font);
-      background: var(--bg);
-      color: var(--text);
-      margin: 0;
-      min-height: 100vh;
-    }
+
+    body.admin { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: #f9fafb; color: #111827; margin: 0; }
     .container { max-width: 1100px; margin: 0 auto; padding: 16px; }
     .hidden { display: none !important; }
-
-    /* Banner */
-    .banner {
-      position: fixed; left: 50%; transform: translateX(-50%);
-      bottom: 20px;
-      background: var(--brand); color: #fff;
-      padding: 12px 20px; border-radius: var(--radius-sm);
-      box-shadow: var(--shadow-md); z-index: 9999;
-      font-size: 0.9rem; font-weight: 500;
-      animation: slideUp 0.3s ease;
-    }
-    @keyframes slideUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
-
-    /* Header */
-    .admin-header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      box-shadow: var(--shadow-sm);
-      padding: 0;
-    }
-    .admin-header-inner {
-      max-width: 1100px; margin: 0 auto;
-      padding: 1rem 16px;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .admin-header h2 {
-      margin: 0; font-size: 1.25rem; font-weight: 700;
-      color: var(--brand); letter-spacing: -0.02em;
-    }
-    .admin-header .badge {
-      font-size: 0.75rem; font-weight: 500;
-      color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;
-    }
-
-    /* Toolbar */
-    .toolbar {
-      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-      margin: 16px 0;
-    }
+    .banner { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; background: #111827; color: #fff; padding: 10px 14px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.15); z-index: 9999; }
+    .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0 16px; }
     .toolbar .spacer { flex: 1; }
-    .toolbar input[type="text"] {
-      max-width: 260px; width: 100%;
-      padding: 8px 12px; border: 1px solid var(--border);
-      border-radius: var(--radius-sm); background: var(--surface);
-      font-family: var(--font); font-size: 0.88rem;
-      transition: border-color var(--transition), box-shadow var(--transition);
+    .btn { padding: 8px 12px; border: 1px solid #e5e7eb; background: #fff; border-radius: 6px; cursor: pointer; }
+    .btn.primary { background: #111827; color: #fff; border-color: #111827; }
+    .btn.danger { background: #dc2626; color: #fff; border-color: #dc2626; }
+    .btn.minimal { background: #fff; color: #111827; border: 1px solid #e5e7eb; }
+    input[type="text"], input[type="email"], input[type="password"], input[type="number"], select, textarea {
+      width: 100%; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff;
     }
-    .toolbar input[type="text"]:focus {
-      outline: none; border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(200,169,106,0.15);
-    }
-
-    /* Buttons */
-    .btn {
-      padding: 8px 14px; border: 1px solid var(--border);
-      background: var(--surface); border-radius: var(--radius-sm);
-      cursor: pointer; font-family: var(--font);
-      font-size: 0.85rem; font-weight: 500; color: var(--text);
-      transition: all var(--transition);
-    }
-    .btn:hover { background: var(--bg); border-color: var(--accent); }
-    .btn.primary {
-      background: var(--brand); color: #fff; border-color: var(--brand);
-    }
-    .btn.primary:hover { background: var(--brand-light); border-color: var(--brand-light); }
-    .btn.danger {
-      background: var(--error); color: #fff; border-color: var(--error);
-    }
-    .btn.danger:hover { background: #dc2626; }
-    .btn.minimal {
-      background: var(--surface); color: var(--text); border: 1px solid var(--border);
-    }
-    .btn.minimal:hover { background: var(--bg); border-color: var(--accent); }
-
-    /* Inputs */
-    input[type="text"], input[type="email"], input[type="password"],
-    input[type="number"], select, textarea {
-      width: 100%; padding: 10px 12px;
-      border: 1px solid var(--border); border-radius: var(--radius-sm);
-      background: var(--surface); font-family: var(--font);
-      font-size: 0.9rem; color: var(--text);
-      transition: border-color var(--transition), box-shadow var(--transition);
-    }
-    input:focus, select:focus, textarea:focus {
-      outline: none; border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(200,169,106,0.15);
-    }
-    textarea { resize: vertical; }
-
-    /* Grid table */
-    .grid {
-      display: grid;
-      grid-template-columns: 2.2fr 1.6fr 1fr 1.2fr 0.8fr 1.4fr;
-      gap: 8px; align-items: center;
-    }
-    .grid.header {
-      font-weight: 600; font-size: 0.78rem; color: var(--muted);
-      text-transform: uppercase; letter-spacing: 0.04em;
-      padding: 8px 12px;
-    }
-    .row {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius-sm); padding: 10px 12px;
-      margin-bottom: 6px;
-      transition: box-shadow var(--transition), border-color var(--transition);
-    }
-    .row:hover {
-      box-shadow: var(--shadow-sm);
-      border-color: var(--accent-light);
-    }
-    .muted { color: var(--muted); font-size: 0.78rem; }
-    .pill {
-      display: inline-block; padding: 2px 10px; border-radius: 999px;
-      background: var(--bg); font-size: 0.75rem; font-weight: 500; color: var(--text);
-    }
-    .pill.active { background: #fef3c7; color: #92400e; }
-
-    /* Modals */
-    .modal {
-      position: fixed; inset: 0;
-      background: rgba(26, 26, 46, 0.5);
-      backdrop-filter: blur(4px);
-      display: flex; align-items: center; justify-content: center;
-      padding: 20px; z-index: 10000;
-      animation: fadeIn 0.2s ease;
-    }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    .modal-card {
-      background: var(--surface); border-radius: var(--radius);
-      width: min(680px, 100%); padding: 24px;
-      box-shadow: var(--shadow-lg);
-      max-height: 90vh; overflow-y: auto;
-      animation: slideUpModal 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    @keyframes slideUpModal { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-    .modal-card h3 {
-      margin: 0 0 16px; font-size: 1.15rem; font-weight: 600; color: var(--brand);
-    }
-    .modal-actions {
-      display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px;
-    }
-
+    .grid { display: grid; grid-template-columns: 2.2fr 1.6fr 1fr 1.2fr 0.8fr 1.4fr; gap: 8px; align-items: center; }
+    .grid.header { font-weight: 600; color: #374151; }
+    .row { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; }
+    .muted { color: #6b7280; font-size: 12px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #f3f4f6; font-size: 12px; color: #374151; }
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 10000; }
+    .modal-card { background: #fff; border-radius: 12px; width: min(680px, 100%); padding: 16px; border: 1px solid #e5e7eb; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
     .section { margin: 12px 0; }
-    .small { font-size: 0.78rem; color: var(--muted); font-weight: 500; }
-    .thumb {
-      width: 40px; height: 40px; border-radius: var(--radius-xs);
-      object-fit: cover; border: 1px solid var(--border);
-    }
-    .nameCell { display: flex; align-items: center; gap: 10px; }
-
-    /* Section headings */
-    .section-heading {
-      font-size: 1.1rem; font-weight: 600; color: var(--brand);
-      margin-top: 32px; padding-bottom: 8px;
-      border-bottom: 2px solid var(--accent);
-    }
-
-    /* Login card */
-    .login-card {
-      max-width: 400px; margin: 3rem auto;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 2rem;
-      box-shadow: var(--shadow-md);
-    }
-    .login-card h2 {
-      font-size: 1.3rem; font-weight: 700; color: var(--brand);
-      margin: 0 0 1.5rem;
-    }
-
-    /* Responsive */
-    @media (max-width: 700px) {
-      .grid, .grid.header {
-        grid-template-columns: 1fr;
-        gap: 4px;
-      }
-      .grid.header > div { display: none; }
-      .row { padding: 12px; }
-      .grid.row > div::before {
-        content: attr(data-label);
-        font-size: 0.7rem; font-weight: 600; color: var(--muted);
-        text-transform: uppercase; display: block; margin-bottom: 2px;
-      }
-      .toolbar input[type="text"] { max-width: 100%; }
-      .toolbar .spacer { display: none; }
-    }
+    .small { font-size: 12px; color: #6b7280; }
+    .thumb { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; border: 1px solid #e5e7eb; margin-right: 8px; }
+    .nameCell { display: flex; align-items: center; gap: 8px; }
   </style>
 </head>
 <body class="admin">
   <div id="banner" class="banner hidden"></div>
 
-  <div class="admin-header">
-    <div class="admin-header-inner">
-      <h2>Admin — Product Management</h2>
-      <span class="badge">13e Café</span>
-    </div>
-  </div>
-
   <div class="container">
-    <!-- Login -->
-    <section id="loginSection">
-      <div class="login-card">
-        <h2>Administrator Login</h2>
-        <form id="loginForm">
-          <div class="section">
-            <label class="small">Administrator email</label>
-            <input type="email" id="adminEmail" placeholder="email@yourdomain.com"
-                   autocomplete="username" required>
-          </div>
-          <div class="section">
-            <label class="small">Password</label>
-            <input type="password" id="adminPass" placeholder="Password"
-                   autocomplete="current-password" required>
-          </div>
-          <div class="toolbar" style="margin-top: 16px;">
-            <button type="submit" id="loginBtn" class="btn primary">Login</button>
-          </div>
-        </form>
-        <p class="muted" style="margin-top: 16px;">
-          Access restricted. Only accounts listed in Firestore collection "admins" can enter.
-        </p>
-      </div>
-    </section>
+    <h2>Admin — Product Management</h2>
 
-    <!-- Admin panel -->
+    <!-- Login -->
+    <!-- Login -->
+<section id="loginSection">
+  <form id="loginForm">
+    <div class="section">
+      <label class="small">Administrator email</label>
+      <input type="email" id="adminEmail" placeholder="email@yourdomain.com"
+             autocomplete="username" required>
+    </div>
+
+    <div class="section">
+      <label class="small">Password</label>
+      <input type="password" id="adminPass" placeholder="Password"
+             autocomplete="current-password" required>
+    </div>
+
+    <div class="toolbar">
+      <button type="submit" id="loginBtn" class="btn primary">Login</button>
+    </div>
+  </form>
+
+  <p class="muted">
+    Access restricted. Only accounts listed in Firestore collection "admins" can enter.
+  </p>
+</section>
+
+    
+      <!-- Admin panel -->
     <section id="adminPanel" class="hidden">
       <div class="toolbar">
-        <button id="addProductBtn" class="btn primary">Add product</button>
-        <button id="bulkAddBtn" class="btn">Bulk add variants</button>
-        <button id="importBtn" class="btn">Import Excel</button>
-        <button id="exportBtn" class="btn">Export Excel</button>
-        <button id="invalidateCacheBtn" class="btn minimal">Invalidate menu cache</button>
-        <span class="spacer"></span>
-        <input type="text" id="searchInput" placeholder="Search name, variant, category">
-        <button id="logoutBtn" class="btn danger">Logout</button>
-      </div>
+  <button id="addProductBtn" class="btn primary">Add product</button>
+  <button id="bulkAddBtn" class="btn">Bulk add variants</button>
+  <button id="importBtn" class="btn">Import Excel</button>
+  <button id="exportBtn" class="btn">Export Excel</button>
+  <button id="invalidateCacheBtn" class="btn">Invalidate menu cache</button>
+  <span class="spacer"></span>
+  <input type="text" id="searchInput" placeholder="Search name, variant, category">
+  <button id="logoutBtn" class="btn danger">Logout</button>
+</div>
 
-      <div class="grid header">
+
+      <div class="grid header" style="margin-bottom: 8px;">
         <div>Name</div>
         <div>Variant</div>
         <div>Price</div>
@@ -288,13 +92,14 @@
       <div id="productList"></div>
       <p id="listStatus" class="muted" style="margin-top: 10px;"></p>
 
-      <h2 class="section-heading">Marketing Programs</h2>
+      <!-- Marketing Programs Section -->
+      <h2 style="margin-top:32px;">Marketing Programs</h2>
       <div class="toolbar">
         <button id="addPromoBtn" class="btn primary">Add Program</button>
         <span class="spacer"></span>
         <p id="promoStatus" class="muted"></p>
       </div>
-      <div class="grid header">
+      <div class="grid header" style="margin-bottom: 8px;">
         <div>Type</div>
         <div>Active</div>
         <div>Buy Product IDs</div>
@@ -303,35 +108,53 @@
         <div>Actions</div>
       </div>
       <div id="promoList"></div>
+
+      <!-- Room QR Section -->
+      <h2 style="margin-top:32px;">Room QR Codes</h2>
+      <div class="toolbar">
+        <button id="addRoomBtn" class="btn primary">Add Room</button>
+        <button id="printAllRoomsBtn" class="btn">Print All</button>
+        <button id="downloadAllRoomsBtn" class="btn">Download All</button>
+        <span class="spacer"></span>
+        <p id="roomStatus" class="muted"></p>
+      </div>
+      <div id="roomQrList" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px; margin-top:12px;"></div>
     </section>
   </div>
 
   <!-- Add/Edit product modal -->
   <div id="adminModal" class="modal hidden" role="dialog" aria-modal="true">
+
     <div class="modal-card">
       <h3 id="modalTitle">New product</h3>
+
       <div class="section">
         <label class="small">Name</label>
         <input type="text" id="fieldName" placeholder="E.g., Iced Latte">
       </div>
+
       <div class="section">
         <label class="small">Category</label>
         <input type="text" id="fieldCategory" placeholder="E.g., Coffee">
       </div>
+
       <div class="section">
         <label class="small">Variant label (optional)</label>
         <input type="text" id="fieldVariantLabel" placeholder="E.g., Size or Sauce">
       </div>
+
       <div class="section">
         <label class="small">Variant name (saved to variant_names)</label>
         <input type="text" id="fieldVariant" placeholder="E.g., Large or Spicy">
         <p class="muted">This editor uses one document per variant. If empty, this product is a single-variant item.</p>
       </div>
+
       <div class="section">
         <label class="small">Price (pos_sell_price)</label>
         <input type="number" id="fieldPrice" min="0" step="100" placeholder="e.g., 25000">
         <p class="muted">We sync price and pos_sell_price for safety; menu uses pos_sell_price first.</p>
       </div>
+
       <div class="section">
         <label class="small">Hidden</label>
         <select id="fieldHidden">
@@ -339,9 +162,10 @@
           <option value="1">Hidden (1)</option>
         </select>
       </div>
+
       <div class="section">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-          <button type="button" id="togglePhotos" class="btn minimal">Edit photos</button>
+          <button type="button" id="togglePhotos" class="btn">Edit photos</button>
           <img id="photoPreview" class="thumb hidden" alt="Preview">
         </div>
         <div id="photoFields" class="hidden">
@@ -367,6 +191,7 @@
           <input type="text" id="photo_10">
         </div>
       </div>
+
       <div class="modal-actions">
         <button id="saveBtn" class="btn primary">Save</button>
         <button id="cancelBtn" class="btn">Cancel</button>
@@ -378,24 +203,29 @@
   <div id="bulkModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
       <h3>Bulk add variants</h3>
+
       <div class="section">
         <label class="small">Name</label>
         <input type="text" id="bulkName" placeholder="E.g., Iced Latte">
       </div>
+
       <div class="section">
         <label class="small">Category</label>
         <input type="text" id="bulkCategory" placeholder="E.g., Coffee">
       </div>
+
       <div class="section">
         <label class="small">Variant label (optional)</label>
         <input type="text" id="bulkVariantLabel" placeholder="E.g., Size">
       </div>
+
       <div class="section">
         <label class="small">Variants — one per line. Format: Variant Name | Price</label>
         <textarea id="bulkVariants" rows="8" placeholder="Small | 18000
 Medium | 22000
 Large | 25000"></textarea>
       </div>
+
       <div class="section">
         <label class="small">Hidden</label>
         <select id="bulkHidden">
@@ -403,6 +233,7 @@ Large | 25000"></textarea>
           <option value="1">Hidden (1)</option>
         </select>
       </div>
+
       <div class="modal-actions">
         <button id="bulkSaveBtn" class="btn primary">Create</button>
         <button id="bulkCancelBtn" class="btn">Cancel</button>
@@ -410,41 +241,90 @@ Large | 25000"></textarea>
     </div>
   </div>
 
-  <!-- Promo modal -->
+    <!-- Promo modal -->
   <div id="promoModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
       <h3 id="promoModalTitle">New Program</h3>
+
       <div class="section">
         <label class="small">Type</label>
         <select id="fieldPromoType">
           <option value="buy_x_get_y">Buy X Get Y</option>
         </select>
       </div>
+
       <div class="section">
         <label class="small">Active</label>
         <input type="checkbox" id="fieldPromoActive">
       </div>
+
       <div class="section">
-        <label class="small">Buy Products</label>
-        <select id="fieldBuyProductIds" multiple size="6"></select>
-      </div>
+  <label class="small">Buy Products</label>
+  <select id="fieldBuyProductIds" multiple size="6"></select>
+</div>
+
       <div class="section">
-        <label class="small">Free Product</label>
-        <select id="fieldFreeProductId"></select>
-      </div>
-      <div class="section">
-        <label class="small">Free Product Variant (optional)</label>
-        <input type="text" id="fieldFreeVariant" placeholder="Exact variant name">
-      </div>
+  <label class="small">Free Product</label>
+  <select id="fieldFreeProductId"></select>
+</div>
+
+<div class="section">
+  <label class="small">Free Product Variant (optional)</label>
+  <input type="text" id="fieldFreeVariant" placeholder="Exact variant name">
+</div>
+
       <div class="section">
         <label class="small">Free Quantity</label>
         <input type="number" id="fieldFreeQty" min="1" step="1" placeholder="e.g., 1">
         <p class="muted">Must be a positive integer. Required.</p>
       </div>
+
       <div class="modal-actions">
         <button id="savePromoBtn" class="btn primary">Save</button>
         <button id="cancelPromoBtn" class="btn">Cancel</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Room form modal -->
+  <div id="roomModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card" style="max-width:420px;">
+      <h3 id="roomModalTitle">Add Room</h3>
+      <div class="section">
+        <label class="small">Room Name (URL identifier)</label>
+        <input type="text" id="roomName" placeholder="Mille 1">
+        <p class="muted">Used in the QR URL. E.g., "Mille 1" generates <code>?table=Mille%201</code></p>
+      </div>
+      <div class="section">
+        <label class="small">Display Name</label>
+        <input type="text" id="roomDisplayName" placeholder="Mille 1">
+      </div>
+      <div class="section">
+        <label class="small">Delivery Fee (Rp)</label>
+        <input type="number" id="roomDeliveryFee" min="0" step="1000" value="0">
+      </div>
+      <div class="section">
+        <label class="small">
+          <input type="checkbox" id="roomQrisOnly"> QRIS Only
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button id="saveRoomBtn" class="btn primary">Save</button>
+        <button id="cancelRoomBtn" class="btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Print layout modal -->
+  <div id="roomPrintModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card" style="max-width:900px; max-height:85vh; overflow-y:auto;">
+      <div class="toolbar">
+        <h3>Print Preview</h3>
+        <span class="spacer"></span>
+        <button id="doPrintBtn" class="btn primary">Print</button>
+        <button id="closePrintBtn" class="btn">Close</button>
+      </div>
+      <div id="roomPrintArea"></div>
     </div>
   </div>
 
@@ -453,9 +333,15 @@ Large | 25000"></textarea>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
   <!-- SheetJS (XLSX) -->
-  <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+<!-- QRCode library -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+<!-- JSZip for download-all -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
   <!-- Admin logic -->
   <script src="admin.js"></script>
+  <!-- Room QR logic -->
+  <script src="room-qr.js"></script>
 </body>
 </html>

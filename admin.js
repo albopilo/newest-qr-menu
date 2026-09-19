@@ -33,10 +33,11 @@
   let filteredText = "";
   let currentPromoId = null;
   let currentPromoData = null;
-  let lastProductSnapshot = null;
-  let lastPromoSnapshot = null;
 
-  // For file input
+  // For injection & file input
+  const EXPORT_BTN_ID = "__exportBtnInjected";
+  const IMPORT_BTN_ID = "__importBtnInjected";
+  const TEMPLATE_BTN_ID = "__templateBtnInjected";
   const FILE_INPUT_ID = "__importFileInput";
   const BATCH_LIMIT = 500;
 
@@ -189,7 +190,7 @@ function normalizeDriveUrlForSave(url) {
       count++;
 
       const photo1 = (p.photo_1 || "").trim();
-      const nameCell = el("div", { class: "nameCell", dataset: { label: "Name" } }, [
+      const nameCell = el("div", { class: "nameCell" }, [
         photo1 ? el("img", { class: "thumb", src: photo1, alt: "" }) : el("span", { class: "thumb hidden" }),
         el("span", {}, [document.createTextNode(p.name || "—")])
       ]);
@@ -199,14 +200,13 @@ function normalizeDriveUrlForSave(url) {
           ? String(p.variant_names)
           : (p.variant || "—");
 
-      const isHidden = Number(p.pos_hidden ?? 0) === 1;
       const row = el("div", { class: "grid row", dataset: { id } }, [
         nameCell,
-        el("div", { dataset: { label: "Variant" } }, [document.createTextNode(variantDisplay)]),
-        el("div", { dataset: { label: "Price" } }, [document.createTextNode(formatRp(p.pos_sell_price ?? p.price ?? p.market_price ?? 0))]),
-        el("div", { dataset: { label: "Category" } }, [document.createTextNode(p.category || "Uncategorized")]),
-        el("div", { dataset: { label: "Hidden" } }, [el("span", { class: isHidden ? "pill active" : "pill" }, [document.createTextNode(String(p.pos_hidden ?? 0))])]),
-        el("div", { dataset: { label: "Actions" } }, [
+        el("div", {}, [document.createTextNode(variantDisplay)]),
+        el("div", {}, [document.createTextNode(formatRp(p.pos_sell_price ?? p.price ?? p.market_price ?? 0))]),
+        el("div", {}, [document.createTextNode(p.category || "Uncategorized")]),
+        el("div", {}, [el("span", { class: "pill" }, [document.createTextNode(String(p.pos_hidden ?? 0))])]),
+        el("div", {}, [
           (() => {
             const editBtn = el("button", { class: "btn minimal" }, [document.createTextNode("Edit")]);
             editBtn.addEventListener("click", () => openEditModal(id, p));
@@ -242,12 +242,12 @@ function normalizeDriveUrlForSave(url) {
       count++;
 
       const row = el("div", { class: "grid row", dataset: { id } }, [
-        el("div", { dataset: { label: "Type" } }, [document.createTextNode(p.type || "—")]),
-        el("div", { dataset: { label: "Active" } }, [el("span", { class: p.active ? "pill active" : "pill" }, [document.createTextNode(p.active ? "Yes" : "No")])]),
-        el("div", { dataset: { label: "Buy Product IDs" } }, [document.createTextNode((p.buy_product_ids || []).join(", "))]),
-        el("div", { dataset: { label: "Free Product ID" } }, [document.createTextNode(p.free_product_id || "—")]),
-        el("div", { dataset: { label: "Free Qty" } }, [document.createTextNode(p.free_qty || 0)]),
-        el("div", { dataset: { label: "Actions" } }, [
+        el("div", {}, [document.createTextNode(p.type || "—")]),
+        el("div", {}, [document.createTextNode(p.active ? "Yes" : "No")]),
+        el("div", {}, [document.createTextNode((p.buy_product_ids || []).join(", "))]),
+        el("div", {}, [document.createTextNode(p.free_product_id || "—")]),
+        el("div", {}, [document.createTextNode(p.free_qty || 0)]),
+        el("div", {}, [
           (() => {
             const editBtn = el("button", { class: "btn minimal" }, [document.createTextNode("Edit")]);
             editBtn.addEventListener("click", () => openPromoModal(id, p));
@@ -280,7 +280,6 @@ function normalizeDriveUrlForSave(url) {
     const listRef = db.collection("products").orderBy("name");
     unsubscribeProducts = listRef.onSnapshot(
       snap => {
-        lastProductSnapshot = snap;
         renderProducts(snap);
         populateBuyProductSelect(snap);
         populateFreeProductSelect(snap);
@@ -329,7 +328,7 @@ function normalizeDriveUrlForSave(url) {
     }
     const listRef = db.collection("marketing_programs").orderBy("type");
     unsubscribePromos = listRef.onSnapshot(
-      snap => { lastPromoSnapshot = snap; renderPromos(snap); },
+      snap => renderPromos(snap),
       err => {
         console.error("Promos listen error:", err);
         showBanner("Failed to load marketing programs.", 3500);
@@ -460,9 +459,7 @@ function collectPhotosInto(payload) {
       const priceVal = parsePrice(document.getElementById("fieldPrice").value);
       const pos_hidden = Number(document.getElementById("fieldHidden").value || 0);
 
-      if (!name) { showBanner("Product name is required.", 3000); return; }
-      if (priceVal <= 0) { showBanner("Price must be a positive number.", 3000); return; }
-      if (priceVal > 999999999) { showBanner("Price seems too high. Please check.", 3000); return; }
+      if (!name || priceVal <= 0) { showBanner("Name and a positive price are required.", 3200); return; }
 
       const payload = {
         name,
@@ -897,8 +894,9 @@ function collectPhotosInto(payload) {
   }
 
   /***********************
-   * File input helper
+   * UI injection helpers - robust
    ***********************/
+  // Single file input instance reused
   function createOrGetFileInput() {
     let input = document.getElementById(FILE_INPUT_ID);
     if (input) return input;
@@ -910,10 +908,88 @@ function collectPhotosInto(payload) {
     input.addEventListener("change", (e) => {
       const f = e.target.files?.[0];
       if (f) handleFileImport(f);
+      // reset
       input.value = "";
     });
     document.body.appendChild(input);
     return input;
+  }
+
+  function injectExportButton(toolbar) {
+    if (document.getElementById(EXPORT_BTN_ID)) {
+      console.log("ℹ️ Export button already exists, skipping inject");
+      return;
+    }
+
+    const btn = document.createElement("button");
+    btn.id = EXPORT_BTN_ID;
+    btn.textContent = "Export Excel";
+    btn.addEventListener("click", () => {
+      exportProductsAsExcel();
+    });
+
+    toolbar.appendChild(btn);
+
+    console.log("✅ Export button injected into toolbar");
+  }
+
+  function injectImportUIInto(toolbar) {
+    if (document.getElementById(IMPORT_BTN_ID)) return;
+
+    const importBtn = document.createElement("button");
+    importBtn.id = IMPORT_BTN_ID;
+    importBtn.className = "btn";
+    importBtn.textContent = "Import CSV/XLSX";
+
+    const tplBtn = document.createElement("button");
+    tplBtn.id = TEMPLATE_BTN_ID;
+    tplBtn.className = "btn minimal";
+    tplBtn.style.marginLeft = "6px";
+    tplBtn.textContent = "Download Template";
+    tplBtn.addEventListener("click", downloadTemplate);
+
+    const fileInput = createOrGetFileInput();
+    importBtn.addEventListener("click", () => fileInput.click());
+
+    const logoutBtn = document.getElementById("logoutBtn");
+    if (logoutBtn && logoutBtn.parentNode === toolbar) {
+      toolbar.insertBefore(importBtn, logoutBtn);
+      toolbar.insertBefore(tplBtn, logoutBtn);
+    } else {
+      toolbar.appendChild(importBtn);
+      toolbar.appendChild(tplBtn);
+    }
+
+    console.log("✅ Import + Template buttons injected into toolbar");
+  }
+
+  function ensureToolbarInjection() {
+    const toolbarSelector = ".toolbar";
+    const attempted = { done: false };
+
+    function tryInject() {
+      const toolbar = document.querySelector(toolbarSelector);
+      if (toolbar) {
+        console.log("✅ Toolbar found, injecting buttons");
+        injectExportButton(toolbar);
+        injectImportUIInto(toolbar);
+        attempted.done = true;
+        return true;
+      }
+      console.log("⏳ Toolbar not found yet");
+      return false;
+    }
+
+    if (tryInject()) return;
+
+    const mo = new MutationObserver((mutations, obs) => {
+      if (tryInject()) obs.disconnect();
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+
+    setTimeout(() => {
+      if (!attempted.done) tryInject();
+    }, 1000);
   }
 
   /***********************
@@ -936,6 +1012,8 @@ function collectPhotosInto(payload) {
           listenProducts();
           listenPromos();
           showBanner("Welcome back.", 2000);
+          // Try ensure buttons are present after login
+          ensureToolbarInjection();
         } catch (err) {
           console.error("Login failed", err);
           showBanner("Login failed.", 3200);
@@ -970,7 +1048,8 @@ function collectPhotosInto(payload) {
 
     document.getElementById("searchInput")?.addEventListener("input", (e) => {
       filteredText = e.target.value || "";
-      if (lastProductSnapshot) renderProducts(lastProductSnapshot);
+      // Re-render via re-attaching listener (cheap for small sets)
+      listenProducts();
     });
 
     // Modal buttons
@@ -998,11 +1077,10 @@ photo1Input.addEventListener("input", () => {
     // click outside to close modals
     document.getElementById("adminModal")?.addEventListener("click", (e) => { if (e.target.id === "adminModal") closeModal("adminModal"); });
     document.getElementById("bulkModal")?.addEventListener("click", (e) => { if (e.target.id === "bulkModal") closeModal("bulkModal"); });
-    document.getElementById("promoModal")?.addEventListener("click", (e) => { if (e.target.id === "promoModal") closeModal("promoModal"); });
 
-    // ESC to close all modals
+    // ESC to close
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") { closeModal("adminModal"); closeModal("bulkModal"); closeModal("promoModal"); }
+      if (e.key === "Escape") { closeModal("adminModal"); closeModal("bulkModal"); }
     });
 
     // Promo modal hooks
@@ -1020,6 +1098,9 @@ photo1Input.addEventListener("input", () => {
   function init() {
     bindUI();
 
+    // Ensure toolbar injection as early as possible (cover both logged-in and already logged pages)
+    ensureToolbarInjection();
+
     auth.onAuthStateChanged(async (user) => {
       if (!user) {
         toggleSections(false);
@@ -1031,6 +1112,8 @@ photo1Input.addEventListener("input", () => {
       toggleSections(true);
       listenProducts();
       listenPromos();
+      // ensure buttons appear after login
+      ensureToolbarInjection();
     });
   }
 
