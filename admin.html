@@ -62,7 +62,7 @@
   </form>
 
   <p class="muted">
-    Access restricted. Only accounts listed in Firestore collection "admins" can enter.
+    Access restricted. Only accounts listed in Firestore collection “admins” can enter.
   </p>
 </section>
 
@@ -72,8 +72,8 @@
       <div class="toolbar">
   <button id="addProductBtn" class="btn primary">Add product</button>
   <button id="bulkAddBtn" class="btn">Bulk add variants</button>
-  <button id="importBtn" class="btn">Import Excel</button>
-  <button id="exportBtn" class="btn">Export Excel</button>
+  <button id="importBtn" class="btn">Import Excel</button> <!-- 🔹 new -->
+  <button id="exportBtn" class="btn">Export Excel</button> <!-- 🔹 new -->
   <button id="invalidateCacheBtn" class="btn">Invalidate menu cache</button>
   <span class="spacer"></span>
   <input type="text" id="searchInput" placeholder="Search name, variant, category">
@@ -92,7 +92,7 @@
       <div id="productList"></div>
       <p id="listStatus" class="muted" style="margin-top: 10px;"></p>
 
-      <!-- Marketing Programs Section -->
+      <!-- 🔹 Marketing Programs Section -->
       <h2 style="margin-top:32px;">Marketing Programs</h2>
       <div class="toolbar">
         <button id="addPromoBtn" class="btn primary">Add Program</button>
@@ -108,17 +108,6 @@
         <div>Actions</div>
       </div>
       <div id="promoList"></div>
-
-      <!-- Room QR Section -->
-      <h2 style="margin-top:32px;">Room QR Codes</h2>
-      <div class="toolbar">
-        <button id="addRoomBtn" class="btn primary">Add Room</button>
-        <button id="printAllRoomsBtn" class="btn">Print All</button>
-        <button id="downloadAllRoomsBtn" class="btn">Download All</button>
-        <span class="spacer"></span>
-        <p id="roomStatus" class="muted"></p>
-      </div>
-      <div id="roomQrList" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px; margin-top:12px;"></div>
     </section>
   </div>
 
@@ -241,7 +230,7 @@ Large | 25000"></textarea>
     </div>
   </div>
 
-    <!-- Promo modal -->
+    <!-- 🔹 Promo modal -->
   <div id="promoModal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-card">
       <h3 id="promoModalTitle">New Program</h3>
@@ -286,47 +275,6 @@ Large | 25000"></textarea>
     </div>
   </div>
 
-  <!-- Room form modal -->
-  <div id="roomModal" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card" style="max-width:420px;">
-      <h3 id="roomModalTitle">Add Room</h3>
-      <div class="section">
-        <label class="small">Room Name (URL identifier)</label>
-        <input type="text" id="roomName" placeholder="Mille 1">
-        <p class="muted">Used in the QR URL. E.g., "Mille 1" generates <code>?table=Mille%201</code></p>
-      </div>
-      <div class="section">
-        <label class="small">Display Name</label>
-        <input type="text" id="roomDisplayName" placeholder="Mille 1">
-      </div>
-      <div class="section">
-        <label class="small">Delivery Fee (Rp)</label>
-        <input type="number" id="roomDeliveryFee" min="0" step="1000" value="0">
-      </div>
-      <div class="section">
-        <label class="small">
-          <input type="checkbox" id="roomQrisOnly"> QRIS Only
-        </label>
-      </div>
-      <div class="modal-actions">
-        <button id="saveRoomBtn" class="btn primary">Save</button>
-        <button id="cancelRoomBtn" class="btn">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Print layout modal -->
-  <div id="roomPrintModal" class="modal hidden" role="dialog" aria-modal="true">
-    <div class="modal-card" style="max-width:900px; max-height:85vh; overflow-y:auto;">
-      <div class="toolbar">
-        <h3>Print Preview</h3>
-        <span class="spacer"></span>
-        <button id="doPrintBtn" class="btn primary">Print</button>
-        <button id="closePrintBtn" class="btn">Close</button>
-      </div>
-      <div id="roomPrintArea"></div>
-    </div>
-  </div>
 
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -334,14 +282,8 @@ Large | 25000"></textarea>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
   <!-- SheetJS (XLSX) -->
 <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
-<!-- QRCode library -->
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
-<!-- JSZip for download-all -->
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
   <!-- Admin logic -->
   <script src="admin.js"></script>
-  <!-- Room QR logic -->
-  <script src="room-qr.js"></script>
 </body>
 </html>

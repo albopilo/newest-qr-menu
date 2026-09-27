@@ -2010,6 +2010,9 @@ function initStaffUI() {
   AudioChime.primeMutedAutoplay();
   AudioChime.attachGestureUnlock();
 
+  // Skip order list rendering when the page has its own self-contained staff UI
+  if (window._staffSelfManaged) return;
+
   const dateInput = document.getElementById("orderDate");
   if (dateInput) {
     const today = new Date().toISOString().split("T")[0];
