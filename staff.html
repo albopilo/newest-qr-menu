@@ -202,6 +202,33 @@ const badge = s => {
         <p class="status">Status: ${status.toUpperCase()}</p>
       `;
 
+      // Payment proof link (QRIS orders with uploaded proof)
+      const proofUrl = d.proofUrl || d.paymentProofUrl || null;
+      const proofUploaded = ['awaiting-verification','awaiting-proof'].includes(payStatus) && proofUrl;
+      if (proofUploaded) {
+        const proofRow = document.createElement('p');
+        proofRow.style.marginTop = '6px';
+        const proofLink = document.createElement('a');
+        proofLink.href = proofUrl;
+        proofLink.target = '_blank';
+        proofLink.rel = 'noopener noreferrer';
+        proofLink.textContent = '🖼 View payment proof';
+        proofLink.style.fontWeight = '700';
+        proofLink.style.color = '#2563eb';
+        proofRow.innerHTML = '';
+        proofRow.appendChild(document.createTextNode('Proof: '));
+        proofRow.appendChild(proofLink);
+        div.appendChild(proofRow);
+
+        const verifyBtn = document.createElement('button');
+        verifyBtn.className = 'btn minimal';
+        verifyBtn.textContent = '✅ Verify payment';
+        verifyBtn.style.background = '#dcfce7';
+        verifyBtn.style.border = '1px solid #16a34a';
+        verifyBtn.onclick = () => verifyPayment(id);
+        div.appendChild(verifyBtn);
+      }
+
       const ctrl=document.createElement('div');
       ctrl.className='controls-row';
       ['preparing','served','cancelled'].forEach(s=>{
@@ -267,6 +294,19 @@ const lower = (table || '').toLowerCase();
       div.appendChild(ctrl);
       return div;
     }
+
+async function verifyPayment(id) {
+  const db = getDb();
+  if (!db) { alert("Database not ready."); return; }
+  try {
+    await db.collection("orders").doc(id).update({ paymentStatus: "success" });
+    showBanner(`✅ Payment verified for ${id}`);
+    setTimeout(loadOrders, 800);
+  } catch (err) {
+    console.error("Verify payment error:", err);
+    alert("Failed to verify payment.");
+  }
+}
 
 async function updateStatus(id, status) {
   const db = getDb();

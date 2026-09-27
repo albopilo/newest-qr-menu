@@ -195,7 +195,7 @@ function renderOrder(id, data) {
   receiveBtn.textContent = "📥 Receive";
   receiveBtn.onclick = () => markReceived(id);
 
-  if (method.includes("qris") && paymentStatus === "awaiting-proof") {
+  if (method.includes("qris") && ["awaiting-proof","awaiting-verification"].includes(paymentStatus)) {
     paidBtn.disabled = true;
     receiveBtn.disabled = true;
     paidBtn.style.opacity = "0.5";
@@ -238,6 +238,32 @@ function renderOrder(id, data) {
       Kitchen Status: ${esc(kitchenStatus || "—")}
     </p>
   `;
+  // Payment proof link (QRIS orders with uploaded proof)
+  const proofUrl = data.proofUrl || data.paymentProofUrl || null;
+  const proofUploaded = ["awaiting-verification","awaiting-proof"].includes(paymentStatus) && proofUrl;
+  if (proofUploaded) {
+    const proofRow = document.createElement("p");
+    proofRow.style.marginTop = "6px";
+    const proofLink = document.createElement("a");
+    proofLink.href = proofUrl;
+    proofLink.target = "_blank";
+    proofLink.rel = "noopener noreferrer";
+    proofLink.textContent = "🖼 View payment proof";
+    proofLink.style.fontWeight = "700";
+    proofLink.style.color = "#2563eb";
+    proofRow.appendChild(document.createTextNode("Proof: "));
+    proofRow.appendChild(proofLink);
+    div.appendChild(proofRow);
+
+    const verifyBtn = document.createElement("button");
+    verifyBtn.className = "btn";
+    verifyBtn.textContent = "✅ Verify payment";
+    verifyBtn.style.background = "#dcfce7";
+    verifyBtn.style.border = "1px solid #16a34a";
+    verifyBtn.onclick = () => verifyPayment(id);
+    div.appendChild(verifyBtn);
+  }
+
   div.appendChild(paidBtn);
   div.appendChild(receiveBtn);
   div.appendChild(waBtn);
@@ -257,6 +283,16 @@ function renderOrder(id, data) {
   }
 
   return div;
+}
+
+async function verifyPayment(id) {
+  try {
+    await db.collection("orders").doc(id).update({ paymentStatus: "success" });
+    alert("✅ Payment verified");
+  } catch (err) {
+    console.error("verifyPayment error:", err);
+    alert("Failed to verify payment.");
+  }
 }
 
 async function markPaid(id) {
