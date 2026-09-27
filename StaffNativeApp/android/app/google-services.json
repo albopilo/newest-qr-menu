@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "3887061029",
+    "project_id": "e-loyalty-12563",
+    "storage_bucket": "e-loyalty-12563.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:3887061029:android:249ea28d7bd79b7bfb47cc",
+        "android_client_info": {
+          "package_name": "com.staffnativeapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDx8yDItZCBW_7iQXW3H0mTeDYACe3P7k4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

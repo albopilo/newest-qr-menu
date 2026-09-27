@@ -1,0 +1,37 @@
+// Top-level build.gradle
+
+buildscript {
+    ext {
+        buildToolsVersion = "33.0.0"
+        minSdkVersion = 23
+        compileSdkVersion = 34
+        targetSdkVersion = 34
+        ndkVersion = "23.1.7779620"
+        kotlinVersion = "1.9.24"
+    }
+
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath "com.android.tools.build:gradle:8.1.1"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+        classpath "com.facebook.react:react-native-gradle-plugin"
+        classpath "com.google.gms:google-services:4.4.1"
+    }
+}
+
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.9.24' apply false
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply from: file("gradle/toolchain.gradle")

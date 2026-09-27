@@ -1,0 +1,139 @@
+Initialized native services in: C:\Users\ASUS\.gradle\native
+Initialized jansi services in: C:\Users\ASUS\.gradle\native
+Received JVM installation metadata from 'C:\Program Files\Eclipse Adoptium\jdk-17.0.17.10-hotspot': {JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.17.10-hotspot, JAVA_VERSION=17.0.17, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=17.0.17+10, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=17.0.17+10, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+Checking if the launcher JVM can be re-used for build. To be re-used, the launcher JVM needs to match the parameters required for the build process: --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED -Xmx4g -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.2/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Starting process 'Gradle build daemon'. Working directory: C:\Users\ASUS\.gradle\daemon\8.2 Command: C:\Program Files\Eclipse Adoptium\jdk-17.0.17.10-hotspot\bin\java.exe --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED -Xmx4g -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -cp C:\Users\ASUS\.gradle\wrapper\dists\gradle-8.2-all\6mxqtxovn2faat1idb7p6lxsa\gradle-8.2\lib\gradle-launcher-8.2.jar -javaagent:C:\Users\ASUS\.gradle\wrapper\dists\gradle-8.2-all\6mxqtxovn2faat1idb7p6lxsa\gradle-8.2\lib\agents\gradle-instrumentation-agent-8.2.jar org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.2
+Successfully started process 'Gradle build daemon'
+An attempt to start the daemon took 1.973 secs.
+The client will now receive all logging from the daemon (pid: 15380). The daemon log file: C:\Users\ASUS\.gradle\daemon\8.2\daemon-15380.out.log
+Daemon will be stopped at the end of the build 
+Using 8 worker leases.
+Received JVM installation metadata from 'C:\Program Files\Eclipse Adoptium\jdk-17.0.17.10-hotspot': {JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-17.0.17.10-hotspot, JAVA_VERSION=17.0.17, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=17.0.17+10, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=17.0.17+10, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+Watching the file system is configured to be enabled if available
+Now considering [C:\Users\ASUS\Documents\GitHub\newest-qr-menu\StaffNativeApp\android] as hierarchies to watch
+File system watching is active
+Starting Build
+:ReactNative:Automatically adding native module '@react-native-async-storage/async-storage'
+:ReactNative:Automatically adding native module '@react-native-firebase/app'
+:ReactNative:Automatically adding native module '@react-native-firebase/firestore'
+:ReactNative:Automatically adding native module '@react-native-firebase/messaging'
+:ReactNative:Automatically adding native module 'react-native-track-player-next'
+:ReactNative:Automatically adding native module 'react-native-webview'
+Settings evaluated using settings file 'C:\Users\ASUS\Documents\GitHub\newest-qr-menu\StaffNativeApp\android\settings.gradle'.
+Now considering [C:\Users\ASUS\Documents\GitHub\newest-qr-menu\StaffNativeApp\node_modules\@react-native\gradle-plugin, C:\Users\ASUS\Documents\GitHub\newest-qr-menu\StaffNativeApp\android] as hierarchies to watch
+Skipping Kotlin DSL script compilation (Settings/TopLevel/stage1) as it is up-to-date.
+The configuration classpath is both resolvable and consumable. This is considered a legacy configuration and it will eventually only be possible to be one of these.
+The configuration classpath is both consumable and declarable. This combination is incorrect, only one of these flags should be set.
+The configuration classpath is both resolvable and consumable. This is considered a legacy configuration and it will eventually only be possible to be one of these.
+The configuration classpath is both consumable and declarable. This combination is incorrect, only one of these flags should be set.
+Skipping Kotlin DSL script compilation (Settings/TopLevel/stage2) as it is up-to-date.
+Projects loaded. Root project using build file 'C:\Users\ASUS\Documents\GitHub\newest-qr-menu\StaffNativeApp\android\build.gradle'.
+Included projects: [root project 'StaffNativeApp', project ':app', project ':react-native-async-storage_async-storage', project ':react-native-firebase_app', project ':react-native-firebase_firestore', project ':react-native-firebase_messaging', project ':react-native-track-player-next', project ':react-native-webview']
+
+> Configure project :gradle-plugin
+Evaluating project ':gradle-plugin' using build file 'C:\Users\ASUS\Documents\GitHub\newest-qr-menu\StaffNativeApp\node_modules\@react-native\gradle-plugin\build.gradle.kts'.
+Caching disabled for Kotlin DSL plugin specs accessors for classpath 'e366204388b10075f5dbbd876e05e2d7' because:
+  Build cache is disabled
+Skipping Kotlin DSL plugin specs accessors for classpath 'e366204388b10075f5dbbd876e05e2d7' as it is up-to-date.
+Caching disabled for Kotlin DSL script compilation (Project/TopLevel/stage1) because:
+  Build cache is disabled
+Skipping Kotlin DSL script compilation (Project/TopLevel/stage1) as it is up-to-date.
+The configuration detachedConfiguration1 is both resolvable and consumable. This is considered a legacy configuration and it will eventually only be possible to be one of these.
+The configuration detachedConfiguration1 is both consumable and declarable. This combination is incorrect, only one of these flags should be set.
+The configuration detachedConfiguration1 is both resolvable and consumable. This is considered a legacy configuration and it will eventually only be possible to be one of these.
+The configuration detachedConfiguration1 is both consumable and declarable. This combination is incorrect, only one of these flags should be set.
+The configuration :gradle-plugin:classpath is both resolvable and consumable. This is considered a legacy configuration and it will eventually only be possible to be one of these.
+The configuration :gradle-plugin:classpath is both consumable and declarable. This combination is incorrect, only one of these flags should be set.
+The configuration :gradle-plugin:classpath is both resolvable and consumable. This is considered a legacy configuration and it will eventually only be possible to be one of these.
+The configuration :gradle-plugin:classpath is both consumable and declarable. This combination is incorrect, only one of these flags should be set.
+Using Kotlin Gradle Plugin gradle71 variant
+kotlin scripting plugin: created the scripting discovery configuration: kotlinScriptDef
+kotlin scripting plugin: created the scripting discovery configuration: testKotlinScriptDef
+Caching disabled for Kotlin DSL accessors for project ':gradle-plugin' because:
+  Build cache is disabled
+Skipping Kotlin DSL accessors for project ':gradle-plugin' as it is up-to-date.
+Caching disabled for Kotlin DSL script compilation (Project/TopLevel/stage2) because:
+  Build cache is disabled
+Skipping Kotlin DSL script compilation (Project/TopLevel/stage2) as it is up-to-date.
+Registering project ':gradle-plugin' in composite build. Will substitute for module 'com.facebook.react:react-native-gradle-plugin'.
+Resolve mutations for :gradle-plugin:compileKotlin (Thread[Execution worker,5,main]) started.
+
+> Task :gradle-plugin:compileKotlin UP-TO-DATE
+Watching 1 directory hierarchies to track changes
+Caching disabled for task ':gradle-plugin:compileKotlin' because:
+  Build cache is disabled
+Skipping task ':gradle-plugin:compileKotlin' as it is up-to-date.
+
+> Task :gradle-plugin:compileJava NO-SOURCE
+Skipping task ':gradle-plugin:compileJava' as it has no source files and no previous output files.
+Resolve mutations for :gradle-plugin:pluginDescriptors (Thread[Execution worker Thread 4,5,main]) started.
+:gradle-plugin:pluginDescriptors (Thread[Execution worker Thread 4,5,main]) started.
+
+> Task :gradle-plugin:pluginDescriptors UP-TO-DATE
+Caching disabled for task ':gradle-plugin:pluginDescriptors' because:
+  Build cache is disabled
+Skipping task ':gradle-plugin:pluginDescriptors' as it is up-to-date.
+Resolve mutations for :gradle-plugin:processResources (Thread[Execution worker Thread 4,5,main]) started.
+:gradle-plugin:processResources (Thread[Execution worker Thread 4,5,main]) started.
+
+> Task :gradle-plugin:processResources UP-TO-DATE
+Caching disabled for task ':gradle-plugin:processResources' because:
+  Build cache is disabled
+Skipping task ':gradle-plugin:processResources' as it is up-to-date.
+Resolve mutations for :gradle-plugin:classes (Thread[Execution worker Thread 4,5,main]) started.
+:gradle-plugin:classes (Thread[Execution worker Thread 4,5,main]) started.
+
+> Task :gradle-plugin:classes UP-TO-DATE
+Skipping task ':gradle-plugin:classes' as it has no actions.
+
+> Task :gradle-plugin:jar UP-TO-DATE
+Caching disabled for task ':gradle-plugin:jar' because:
+  Build cache is disabled
+Skipping task ':gradle-plugin:jar' as it is up-to-date.
+
+> Task :gradle-plugin:inspectClassesForKotlinIC UP-TO-DATE
+Caching disabled for task ':gradle-plugin:inspectClassesForKotlinIC' because:
+  Build cache is disabled
+Skipping task ':gradle-plugin:inspectClassesForKotlinIC' as it is up-to-date.
+
+> Configure project :
+Evaluating root project 'StaffNativeApp' using build file 'C:\Users\ASUS\Documents\GitHub\newest-qr-menu\StaffNativeApp\android\build.gradle'.
+The configuration detachedConfiguration1 is both resolvable and consumable. This is considered a legacy configuration and it will eventually only be possible to be one of these.
+The configuration detachedConfiguration1 is both consumable and declarable. This combination is incorrect, only one of these flags should be set.
+The configuration detachedConfiguration1 is both resolvable and consumable. This is considered a legacy configuration and it will eventually only be possible to be one of these.
+The configuration detachedConfiguration1 is both consumable and declarable. This combination is incorrect, only one of these flags should be set.
+The configuration :classpath is both resolvable and consumable. This is considered a legacy configuration and it will eventually only be possible to be one of these.
+The configuration :classpath is both consumable and declarable. This combination is incorrect, only one of these flags should be set.
+The configuration :classpath is both resolvable and consumable. This is considered a legacy configuration and it will eventually only be possible to be one of these.
+The configuration :classpath is both consumable and declarable. This combination is incorrect, only one of these flags should be set.
+Found project 'project :gradle-plugin' as substitute for module 'com.facebook.react:react-native-gradle-plugin'.
+The configuration :gradle-plugin:mainSourceElements is both consumable and declarable. This combination is incorrect, only one of these flags should be set.
+:gradle-plugin:compileKotlin (Thread[included builds,5,main]) started.
+Resolve mutations for :gradle-plugin:compileJava (Thread[included builds,5,main]) started.
+:gradle-plugin:compileJava (Thread[included builds,5,main]) started.
+Resolve mutations for :gradle-plugin:jar (Thread[included builds,5,main]) started.
+:gradle-plugin:jar (Thread[included builds,5,main]) started.
+Resolve mutations for :gradle-plugin:inspectClassesForKotlinIC (Thread[included builds,5,main]) started.
+:gradle-plugin:inspectClassesForKotlinIC (Thread[included builds,5,main]) started.
+The configuration :classpath is both resolvable and consumable. This is considered a legacy configuration and it will eventually only be possible to be one of these.
+The configuration :classpath is both consumable and declarable. This combination is incorrect, only one of these flags should be set.
+
+FAILURE: Build failed with an exception.
+
+* Where:
+Script 'C:\Users\ASUS\Documents\GitHub\newest-qr-menu\StaffNativeApp\android\gradle\toolchain.gradle' line: 71
+
+* What went wrong:
+A problem occurred evaluating script.
+> Could not get unknown property 'org' for project ':app' of type org.gradle.api.Project.
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 15s
+5 actionable tasks: 5 up-to-date
+Watched directory hierarchies: [C:\Users\ASUS\Documents\GitHub\newest-qr-menu\StaffNativeApp\node_modules\@react-native\gradle-plugin]
